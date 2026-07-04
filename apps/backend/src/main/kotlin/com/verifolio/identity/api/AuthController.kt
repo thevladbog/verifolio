@@ -55,10 +55,12 @@ class AuthController(
 
     @DeleteMapping("/sessions/current")
     fun logout(
-        @CookieValue(SessionCookie.NAME) rawToken: String,
+        @CookieValue(SessionCookie.NAME, required = false) rawToken: String?,
         request: HttpServletRequest,
     ): ResponseEntity<Void> {
-        sessionService.revoke(rawToken, ipHash(request), userAgentHash(request))
+        if (rawToken != null) {
+            sessionService.revoke(rawToken, ipHash(request), userAgentHash(request))
+        }
         return ResponseEntity.noContent()
             .header(HttpHeaders.SET_COOKIE, SessionCookie.expire().toString())
             .build()

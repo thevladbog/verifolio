@@ -20,7 +20,7 @@ class SessionAuthFilter(private val sessionService: SessionService) : OncePerReq
         val rawToken = request.cookies?.firstOrNull { it.name == SessionCookie.NAME }?.value
         if (rawToken != null && SecurityContextHolder.getContext().authentication == null) {
             sessionService.resolve(rawToken)?.let { user ->
-                val auth = UsernamePasswordAuthenticationToken(user, rawToken, emptyList())
+                val auth = UsernamePasswordAuthenticationToken(user, null, emptyList())
                 SecurityContextHolder.getContext().authentication = auth
             }
         }

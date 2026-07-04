@@ -84,4 +84,29 @@ class LogoutAndExpiryIntegrationTest : IntegrationTest() {
             HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }), Map::class.java)
         assertThat(logout.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
     }
+
+    @Test
+    fun `logout without a session cookie is idempotent`() {
+        // Establish CSRF infrastructure by logging in, then obtain an XSRF token via GET.
+        // We use the logged-in GET to fetch the XSRF token, then omit the session cookie on DELETE.
+        val cookie = login("grace@example.com")
+        val csrf = rest.exchange(
+            "/api/v1/auth/sessions/current", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }), Map::class.java,
+        ).headers[HttpHeaders.SET_COOKIE]?.firstOrNull { it.startsWith("XSRF-TOKEN=") }
+        val xsrf = csrf?.substringAfter("XSRF-TOKEN=")?.substringBefore(";")
+
+        // Send DELETE with only XSRF cookie + header — no session cookie.
+        val headers = HttpHeaders().apply {
+            if (xsrf != null) {
+                add(HttpHeaders.COOKIE, "XSRF-TOKEN=$xsrf")
+                add("X-XSRF-TOKEN", xsrf)
+            }
+        }
+        val logout = rest.exchange(
+            "/api/v1/auth/sessions/current", HttpMethod.DELETE,
+            HttpEntity<Void>(headers), Void::class.java,
+        )
+        assertThat(logout.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+    }
 }

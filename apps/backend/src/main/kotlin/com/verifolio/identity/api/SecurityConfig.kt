@@ -1,7 +1,10 @@
 package com.verifolio.identity.api
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.verifolio.platform.web.ApiError
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
@@ -10,7 +13,10 @@ import org.springframework.security.web.csrf.CsrfFilter
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
 
 @Configuration
-class SecurityConfig(private val sessionAuthFilter: SessionAuthFilter) {
+class SecurityConfig(
+    private val sessionAuthFilter: SessionAuthFilter,
+    private val objectMapper: ObjectMapper,
+) {
 
     @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
@@ -32,6 +38,9 @@ class SecurityConfig(private val sessionAuthFilter: SessionAuthFilter) {
             .authorizeHttpRequests {
                 it.requestMatchers("/api/v1/auth/magic-links", "/api/v1/auth/sessions").permitAll()
                 it.requestMatchers("/v3/api-docs/**", "/docs").permitAll()
+                // Logout is idempotent: even an unauthenticated DELETE returns 204 with an
+                // expiring cookie. CSRF protection still applies (not in ignoringRequestMatchers).
+                it.requestMatchers(HttpMethod.DELETE, "/api/v1/auth/sessions/current").permitAll()
                 it.anyRequest().authenticated()
             }
             .httpBasic { it.disable() }
@@ -45,7 +54,7 @@ class SecurityConfig(private val sessionAuthFilter: SessionAuthFilter) {
                 it.authenticationEntryPoint { _, response, _ ->
                     response.status = 401
                     response.contentType = "application/json"
-                    response.writer.write("""{"code":"UNAUTHORIZED","message":"Authentication required","details":{}}""")
+                    response.writer.write(objectMapper.writeValueAsString(ApiError("UNAUTHORIZED", "Authentication required")))
                 }
                 // Write 403 directly (no sendError) so Tomcat does not dispatch to /error.
                 // AccessDeniedHandlerImpl uses sendError(403) which triggers an internal error
@@ -57,7 +66,7 @@ class SecurityConfig(private val sessionAuthFilter: SessionAuthFilter) {
                 it.accessDeniedHandler { _, response, _ ->
                     response.status = 403
                     response.contentType = "application/json"
-                    response.writer.write("""{"code":"FORBIDDEN","message":"Access denied","details":{}}""")
+                    response.writer.write(objectMapper.writeValueAsString(ApiError("FORBIDDEN", "Access denied")))
                 }
             }
         return http.build()

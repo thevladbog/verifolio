@@ -7,6 +7,10 @@ spring:
     url: jdbc:postgresql://localhost:5432/verifolio
     username: verifolio
     password: verifolio
+    hikari:
+      # REQUIRES_NEW audit writes borrow a second connection while the caller holds one;
+      # safe concurrent logins ≈ pool/2. Event-driven audit (AFTER_COMMIT) is the long-term fix.
+      maximum-pool-size: 20
   flyway:
     enabled: true
   mail:
