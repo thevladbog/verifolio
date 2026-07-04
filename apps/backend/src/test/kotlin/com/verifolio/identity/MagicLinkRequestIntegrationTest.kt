@@ -6,6 +6,8 @@ import com.verifolio.testsupport.RecordingMailConfig
 import com.verifolio.testsupport.RecordingMailPort
 import org.assertj.core.api.Assertions.assertThat
 import org.jooq.DSLContext
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.web.client.TestRestTemplate
@@ -18,6 +20,17 @@ class MagicLinkRequestIntegrationTest : IntegrationTest() {
     @Autowired lateinit var rest: TestRestTemplate
     @Autowired lateinit var mail: RecordingMailPort
     @Autowired lateinit var dsl: DSLContext
+
+    @BeforeEach
+    fun resetMail() {
+        mail.sent.clear()
+        mail.failFor = null
+    }
+
+    @AfterEach
+    fun clearFailFor() {
+        mail.failFor = null
+    }
 
     @Test
     fun `requesting a magic link stores only a hash and mails the raw token`() {
@@ -77,5 +90,30 @@ class MagicLinkRequestIntegrationTest : IntegrationTest() {
             .and(MAGIC_LINK_TOKEN.INVALIDATED_AT.isNull)
             .fetch()
         assertThat(active).hasSize(1)
+    }
+
+    @Test
+    fun `mail failure does not break anti-enumeration — 202 returned and token stored`() {
+        val brokenEmail = "broken@example.com"
+        mail.failFor = brokenEmail
+
+        val broken = rest.postForEntity(
+            "/api/v1/auth/magic-links",
+            mapOf("email" to brokenEmail),
+            Map::class.java,
+        )
+        val normal = rest.postForEntity(
+            "/api/v1/auth/magic-links",
+            mapOf("email" to "normal@example.com"),
+            Map::class.java,
+        )
+
+        assertThat(broken.statusCode).isEqualTo(HttpStatus.ACCEPTED)
+        assertThat(broken.body).isEqualTo(normal.body)
+
+        val stored = dsl.selectFrom(MAGIC_LINK_TOKEN)
+            .where(MAGIC_LINK_TOKEN.EMAIL.eq(brokenEmail))
+            .fetch()
+        assertThat(stored).isNotEmpty()
     }
 }

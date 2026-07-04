@@ -214,9 +214,10 @@ MagicLinkToken
 - id
 - email
 - token_hash
-- purpose
+- purpose          (deferred post-MVP — not persisted in v1)
 - expires_at
 - consumed_at
+- invalidated_at   (nullable; set when a newer link is issued for the same email)
 - created_at
 
 InvitationToken

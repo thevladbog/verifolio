@@ -7,6 +7,7 @@ import com.verifolio.jooq.tables.references.MAGIC_LINK_TOKEN
 import com.verifolio.notifications.MailPort
 import com.verifolio.platform.VerifolioProperties
 import org.jooq.DSLContext
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
@@ -21,6 +22,8 @@ class MagicLinkService(
     private val audit: AuditService,
     private val props: VerifolioProperties,
 ) {
+
+    private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
     fun requestMagicLink(rawEmail: String, ipHash: String?, userAgentHash: String?) {
@@ -53,15 +56,20 @@ class MagicLinkService(
             .set(MAGIC_LINK_TOKEN.EXPIRES_AT, now.plus(props.auth.magicLinkTtl))
             .execute()
 
-        mail.send(
-            to = email,
-            subject = "Your Verifolio sign-in link",
-            textBody = "Sign in to Verifolio: ${props.auth.frontendBaseUrl}/auth/callback?token=$rawToken\n" +
-                "The link is valid for ${props.auth.magicLinkTtl.toMinutes()} minutes and can be used once.",
-        )
+        try {
+            mail.send(
+                to = email,
+                subject = "Your Verifolio sign-in link",
+                textBody = "Sign in to Verifolio: ${props.auth.frontendBaseUrl}/auth/callback?token=$rawToken\n" +
+                    "The link is valid for ${props.auth.magicLinkTtl.toMinutes()} minutes and can be used once.",
+            )
+        } catch (ex: Exception) {
+            // 202 must be returned regardless (anti-enumeration); the stored token stays claimable via re-request.
+            log.error("Failed to send magic-link email (address withheld from logs)", ex)
+        }
         audit.record(
             actorType = "USER", actorId = null, action = "MAGIC_LINK_REQUESTED",
-            entityType = "MAGIC_LINK_TOKEN", metadata = mapOf("region" to props.region),
+            entityType = "MAGIC_LINK_TOKEN", metadata = mapOf("region" to props.region, "outcome" to "sent"),
             ipHash = ipHash, userAgentHash = userAgentHash,
         )
     }

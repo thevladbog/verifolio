@@ -29,6 +29,8 @@ class AuthController(
             .body(MessageResponse("If the address is valid, a sign-in link has been sent."))
     }
 
+    // ip/user-agent hashes reuse the token pepper for now; a dedicated PII pepper with
+    // independent rotation is tracked as a follow-up before production (docs/SECURITY.md).
     internal fun ipHash(request: HttpServletRequest): String? =
         request.remoteAddr?.let { hasher.hash(it) }
 
