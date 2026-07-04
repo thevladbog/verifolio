@@ -3,11 +3,15 @@ package com.verifolio.identity.application
 import com.verifolio.audit.AuditService
 import com.verifolio.identity.domain.TokenGenerator
 import com.verifolio.identity.domain.TokenHasher
+import com.verifolio.identity.infrastructure.SlidingWindowRateLimiter
 import com.verifolio.jooq.tables.references.MAGIC_LINK_TOKEN
 import com.verifolio.notifications.MailPort
+import com.verifolio.platform.ApiException
 import com.verifolio.platform.VerifolioProperties
 import org.jooq.DSLContext
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
@@ -21,6 +25,8 @@ class MagicLinkService(
     private val mail: MailPort,
     private val audit: AuditService,
     private val props: VerifolioProperties,
+    @Qualifier("magicLinkEmailLimiter") private val emailLimiter: SlidingWindowRateLimiter,
+    @Qualifier("magicLinkIpLimiter") private val ipLimiter: SlidingWindowRateLimiter,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -28,6 +34,12 @@ class MagicLinkService(
     @Transactional
     fun requestMagicLink(rawEmail: String, ipHash: String?, userAgentHash: String?) {
         val email = rawEmail.trim().lowercase()
+
+        val emailAllowed = emailLimiter.tryAcquire(email)
+        val ipAllowed = ipHash == null || ipLimiter.tryAcquire(ipHash)
+        if (!emailAllowed || !ipAllowed) {
+            throw ApiException(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED", "Too many requests, try again later")
+        }
 
         if (!EMAIL_REGEX.matches(email)) {
             audit.record(
