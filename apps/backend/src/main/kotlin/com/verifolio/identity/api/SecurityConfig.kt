@@ -37,7 +37,7 @@ class SecurityConfig(
             }
             .authorizeHttpRequests {
                 it.requestMatchers("/api/v1/auth/magic-links", "/api/v1/auth/sessions").permitAll()
-                it.requestMatchers("/v3/api-docs/**", "/docs").permitAll()
+                it.requestMatchers("/v3/api-docs/**", "/v3/api-docs.yaml", "/docs").permitAll()
                 // Logout is idempotent: even an unauthenticated DELETE returns 204 with an
                 // expiring cookie. CSRF protection still applies (not in ignoringRequestMatchers).
                 it.requestMatchers(HttpMethod.DELETE, "/api/v1/auth/sessions/current").permitAll()
