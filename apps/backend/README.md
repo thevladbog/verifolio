@@ -56,9 +56,9 @@ command above.
 ## Module Layout
 
 The application is split into 16 Spring Modulith packages under
-`com.verifolio.backend`:
+`com.verifolio`:
 
-```
+```text
 identity, profiles, organizations, contacts, requests, templates, documents,
 files, verification, signatures, workflows, notifications, audit, admin,
 privacy, platform
@@ -72,7 +72,7 @@ The `platform.web` subpackage is exposed as a named interface
 (`@NamedInterface("web")`) so other modules can depend on `ApiError`,
 `GlobalExceptionHandler`, `OpenApiConfig`, and `ApiDocsUiController`.
 
-The generated jOOQ package (`com.verifolio.backend.generated`) is excluded from the
+The generated jOOQ package (`com.verifolio.jooq`) is excluded from the
 Modulith module model.
 
 ## Auth Flow

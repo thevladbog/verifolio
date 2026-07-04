@@ -68,6 +68,7 @@ class MagicLinkService(
             .set(MAGIC_LINK_TOKEN.EXPIRES_AT, now.plus(props.auth.magicLinkTtl))
             .execute()
 
+        var mailSent = true
         try {
             mail.send(
                 to = email,
@@ -78,10 +79,12 @@ class MagicLinkService(
         } catch (ex: Exception) {
             // 202 must be returned regardless (anti-enumeration); the stored token stays claimable via re-request.
             log.error("Failed to send magic-link email (address withheld from logs)", ex)
+            mailSent = false
         }
         audit.record(
             actorType = "USER", actorId = null, action = "MAGIC_LINK_REQUESTED",
-            entityType = "MAGIC_LINK_TOKEN", metadata = mapOf("region" to props.region, "outcome" to "sent"),
+            entityType = "MAGIC_LINK_TOKEN",
+            metadata = mapOf("region" to props.region, "outcome" to if (mailSent) "sent" else "send_failed"),
             ipHash = ipHash, userAgentHash = userAgentHash,
         )
     }

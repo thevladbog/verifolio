@@ -1,10 +1,11 @@
+# local-dev defaults; override via .env
 services:
   postgres:
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: verifolio
       POSTGRES_USER: verifolio
-      POSTGRES_PASSWORD: verifolio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-verifolio}
     ports: ["5432:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
 
@@ -13,7 +14,7 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: verifolio
-      MINIO_ROOT_PASSWORD: verifolio-local
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-verifolio-local}
     ports: ["9000:9000", "9001:9001"]
     volumes: [miniodata:/data]
 
@@ -28,7 +29,7 @@ services:
       DB: postgres12
       DB_PORT: "5432"
       POSTGRES_USER: verifolio
-      POSTGRES_PWD: verifolio
+      POSTGRES_PWD: ${POSTGRES_PASSWORD:-verifolio}
       POSTGRES_SEEDS: postgres
     ports: ["7233:7233"]
 

@@ -4,6 +4,7 @@ import com.verifolio.identity.application.AuthenticatedUser
 import com.verifolio.identity.application.SessionService
 import com.verifolio.identity.domain.TokenHasher
 import com.verifolio.identity.application.MagicLinkService
+import com.verifolio.platform.VerifolioProperties
 import com.verifolio.platform.web.ApiError
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
@@ -29,6 +30,7 @@ class AuthController(
     private val magicLinkService: MagicLinkService,
     private val sessionService: SessionService,
     private val hasher: TokenHasher,
+    private val props: VerifolioProperties,
 ) {
 
     @ApiResponses(
@@ -57,7 +59,7 @@ class AuthController(
         request: HttpServletRequest,
     ): ResponseEntity<CurrentUserResponse> {
         val created = sessionService.consumeMagicLink(body.token, ipHash(request), userAgentHash(request))
-        val cookie = SessionCookie.create(created.rawToken, created.ttlSeconds)
+        val cookie = SessionCookie.create(created.rawToken, created.ttlSeconds, props.auth.cookieSecure)
         return ResponseEntity.ok()
             .header(HttpHeaders.SET_COOKIE, cookie.toString())
             .body(CurrentUserResponse(created.user.userId.toString(), created.user.email, created.user.region))
@@ -84,7 +86,7 @@ class AuthController(
             sessionService.revoke(rawToken, ipHash(request), userAgentHash(request))
         }
         return ResponseEntity.noContent()
-            .header(HttpHeaders.SET_COOKIE, SessionCookie.expire().toString())
+            .header(HttpHeaders.SET_COOKIE, SessionCookie.expire(props.auth.cookieSecure).toString())
             .build()
     }
 

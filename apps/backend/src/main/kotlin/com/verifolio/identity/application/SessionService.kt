@@ -60,7 +60,11 @@ class SessionService(
             ?: dsl.insertInto(USER_ACCOUNT)
                 .set(USER_ACCOUNT.EMAIL, tokenRow.email)
                 .set(USER_ACCOUNT.REGION, props.region)
+                .onConflict(USER_ACCOUNT.EMAIL).doNothing()
                 .returning()
+                .fetchOne()
+            ?: dsl.selectFrom(USER_ACCOUNT)
+                .where(USER_ACCOUNT.EMAIL.eq(tokenRow.email))
                 .fetchOne()!!
 
         val sessionToken = TokenGenerator.generate()
@@ -123,10 +127,11 @@ class SessionService(
             .set(USER_SESSION.REVOKED_AT, OffsetDateTime.now())
             .where(USER_SESSION.TOKEN_HASH.eq(hasher.hash(rawToken)))
             .and(USER_SESSION.REVOKED_AT.isNull)
-            .returning(USER_SESSION.USER_ACCOUNT_ID)
+            .returning(USER_SESSION.ID, USER_SESSION.USER_ACCOUNT_ID)
             .fetchOne()
         if (revokedRow != null) {
             val actorId = revokedRow.userAccountId.toString()
+            val sessionId = revokedRow.id.toString()
             // SESSION_REVOKED and LOGOUT are distinct events per docs/AUDIT_EVENTS.md:
             // SESSION_REVOKED tracks the session lifecycle; LOGOUT tracks the user action.
             audit.record(
@@ -134,6 +139,7 @@ class SessionService(
                 actorId = actorId,
                 action = "SESSION_REVOKED",
                 entityType = "SESSION",
+                entityId = sessionId,
                 ipHash = ipHash,
                 userAgentHash = userAgentHash,
             )
@@ -142,6 +148,7 @@ class SessionService(
                 actorId = actorId,
                 action = "LOGOUT",
                 entityType = "SESSION",
+                entityId = sessionId,
                 ipHash = ipHash,
                 userAgentHash = userAgentHash,
             )

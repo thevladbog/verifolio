@@ -4,9 +4,9 @@ spring:
   jooq:
     sql-dialect: postgres
   datasource:
-    url: jdbc:postgresql://localhost:5432/verifolio
-    username: verifolio
-    password: verifolio
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/verifolio}
+    username: ${DB_USERNAME:verifolio}
+    password: ${DB_PASSWORD:verifolio}
     hikari:
       # REQUIRES_NEW audit writes borrow a second connection while the caller holds one;
       # safe concurrent logins ≈ pool/2. Event-driven audit (AFTER_COMMIT) is the long-term fix.
@@ -16,6 +16,10 @@ spring:
   mail:
     host: localhost
     port: 1025
+    properties:
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
 
 springdoc:
   api-docs:
@@ -23,10 +27,12 @@ springdoc:
 
 verifolio:
   region: local # development-only value, see docs/REGION_POLICIES.md
+  docs-ui-enabled: true # serves Scalar from a public CDN — keep disabled in production until self-hosted
   auth:
-    token-pepper: local-dev-pepper-change-me
+    token-pepper: local-dev-pepper-change-me # DEV ONLY — must be overridden outside the local region
     magic-link-ttl: 15m
     session-ttl: 30d
     frontend-base-url: http://localhost:3000
+    cookie-secure: false # local dev over plain http; MUST be true in any deployed environment
   mail:
     from: no-reply@verifolio.local

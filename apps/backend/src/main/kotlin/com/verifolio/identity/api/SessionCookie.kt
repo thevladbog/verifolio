@@ -6,15 +6,15 @@ import java.time.Duration
 object SessionCookie {
     const val NAME = "verifolio_session"
 
-    fun create(rawToken: String, ttlSeconds: Long): ResponseCookie =
+    fun create(rawToken: String, ttlSeconds: Long, secure: Boolean): ResponseCookie =
         ResponseCookie.from(NAME, rawToken)
-            .httpOnly(true).secure(true).sameSite("Strict").path("/")
+            .httpOnly(true).secure(secure).sameSite("Strict").path("/")
             .maxAge(Duration.ofSeconds(ttlSeconds))
             .build()
 
-    fun expire(): ResponseCookie =
+    fun expire(secure: Boolean): ResponseCookie =
         ResponseCookie.from(NAME, "")
-            .httpOnly(true).secure(true).sameSite("Strict").path("/")
+            .httpOnly(true).secure(secure).sameSite("Strict").path("/")
             .maxAge(Duration.ZERO)
             .build()
 }

@@ -132,6 +132,8 @@ components:
           type: object
           additionalProperties:
             type: string
+        requestId:
+          type: string
       required:
       - code
       - details

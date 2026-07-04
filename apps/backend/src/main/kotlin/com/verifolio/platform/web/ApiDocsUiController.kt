@@ -1,11 +1,13 @@
 package com.verifolio.platform.web
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.ResponseBody
 
 @Controller
+@ConditionalOnProperty(name = ["verifolio.docs-ui-enabled"], havingValue = "true")
 class ApiDocsUiController {
 
     @GetMapping("/docs", produces = [MediaType.TEXT_HTML_VALUE])
