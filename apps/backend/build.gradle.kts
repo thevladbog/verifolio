@@ -10,7 +10,7 @@ import org.testcontainers.containers.PostgreSQLContainer
 buildscript {
     repositories { mavenCentral() }
     dependencies {
-        classpath("org.testcontainers:postgresql:1.21.3")
+        classpath("org.testcontainers:postgresql:1.21.4")
         classpath("org.flywaydb:flyway-database-postgresql:11.10.0")
         classpath("org.postgresql:postgresql:42.7.7")
         classpath("org.jooq:jooq-codegen:3.20.5")
@@ -56,7 +56,7 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.modulith:spring-modulith-bom:1.4.1")
-        mavenBom("org.testcontainers:testcontainers-bom:1.21.3")
+        mavenBom("org.testcontainers:testcontainers-bom:1.21.4")
     }
 }
 
