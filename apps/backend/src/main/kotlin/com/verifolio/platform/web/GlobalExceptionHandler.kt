@@ -1,5 +1,6 @@
 package com.verifolio.platform.web
 
+import com.verifolio.platform.ApiException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity

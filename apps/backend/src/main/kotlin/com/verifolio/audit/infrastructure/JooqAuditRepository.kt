@@ -6,6 +6,8 @@ import com.verifolio.jooq.tables.references.AUDIT_EVENT
 import org.jooq.DSLContext
 import org.jooq.JSONB
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 internal class JooqAuditRepository(
@@ -13,6 +15,9 @@ internal class JooqAuditRepository(
     private val objectMapper: ObjectMapper,
 ) : AuditService {
 
+    // REQUIRES_NEW ensures audit events are committed independently of the caller's transaction,
+    // so they survive rollbacks (e.g. LOGIN_FAILED when consumeMagicLink rolls back on exception).
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     override fun record(
         actorType: String, actorId: String?, action: String,
         entityType: String?, entityId: String?,

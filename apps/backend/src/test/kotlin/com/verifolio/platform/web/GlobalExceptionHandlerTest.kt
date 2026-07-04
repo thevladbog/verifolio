@@ -1,5 +1,6 @@
 package com.verifolio.platform.web
 
+import com.verifolio.platform.ApiException
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
