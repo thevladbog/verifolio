@@ -245,6 +245,93 @@ class ReferenceRequestIntegrationTest : IntegrationTest() {
         assertThat(otherItems).isEmpty()
     }
 
+    // ---- send ----
+
+    private fun send(cookie: String, xsrfToken: String?, requestId: String) = rest.exchange(
+        "/api/v1/reference-requests/$requestId/send", HttpMethod.POST,
+        HttpEntity<Void>(authHeaders(cookie, xsrfToken)),
+        Map::class.java,
+    )
+
+    @Test
+    fun `send mails a tokenized invitation and moves the request to SENT`() {
+        val cookie = login("sender_happy@example.com")
+        val xsrfToken = xsrf(cookie)
+        val contactId = createContact(cookie, xsrfToken, email = "happy_rec@corp.example.com")
+        val templateId = anyTemplateId(cookie)
+        val requestId = createRequest(cookie, xsrfToken, contactId, templateId).body!!["id"] as String
+
+        val response = send(cookie, xsrfToken, requestId)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body!!["status"]).isEqualTo("SENT")
+
+        val invitation = mail.sent.last { it.to == "happy_rec@corp.example.com" }
+        assertThat(invitation.textBody).contains("/invitations/")
+        val rawToken = Regex("/invitations/([A-Za-z0-9_-]+)")
+            .find(invitation.textBody)!!.groupValues[1]
+
+        val it = INVITATION_TOKEN
+        val tokenRow = dsl.selectFrom(it)
+            .where(it.REQUEST_ID.eq(UUID.fromString(requestId)))
+            .fetchOne()!!
+        // Raw token never stored — only the HMAC hash.
+        assertThat(tokenRow.tokenHash).isNotEqualTo(rawToken)
+        assertThat(tokenRow.recommenderEmail).isEqualTo("happy_rec@corp.example.com")
+        assertThat(tokenRow.consumedAt).isNull()
+        assertThat(tokenRow.revokedAt).isNull()
+
+        assertThat(auditActions()).contains("REFERENCE_REQUEST_SENT")
+    }
+
+    @Test
+    fun `send twice returns 409`() {
+        val cookie = login("sender_twice@example.com")
+        val xsrfToken = xsrf(cookie)
+        val contactId = createContact(cookie, xsrfToken, email = "twice_rec@corp.example.com")
+        val templateId = anyTemplateId(cookie)
+        val requestId = createRequest(cookie, xsrfToken, contactId, templateId).body!!["id"] as String
+
+        assertThat(send(cookie, xsrfToken, requestId).statusCode).isEqualTo(HttpStatus.OK)
+
+        val second = send(cookie, xsrfToken, requestId)
+        assertThat(second.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(second.body!!["code"]).isEqualTo("INVALID_REQUEST_STATE")
+    }
+
+    @Test
+    fun `send is rate limited per recommender email`() {
+        val cookie = login("sender_limited@example.com")
+        val xsrfToken = xsrf(cookie)
+        val contactId = createContact(cookie, xsrfToken, email = "limited_rec@corp.example.com")
+        val templateId = anyTemplateId(cookie)
+
+        repeat(5) {
+            val requestId = createRequest(cookie, xsrfToken, contactId, templateId).body!!["id"] as String
+            assertThat(send(cookie, xsrfToken, requestId).statusCode).isEqualTo(HttpStatus.OK)
+        }
+
+        val requestId = createRequest(cookie, xsrfToken, contactId, templateId).body!!["id"] as String
+        val response = send(cookie, xsrfToken, requestId)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.TOO_MANY_REQUESTS)
+        assertThat(response.body!!["code"]).isEqualTo("RATE_LIMITED")
+    }
+
+    @Test
+    fun `send of another users request returns 404`() {
+        val cookieA = login("send_owner_a@example.com")
+        val xsrfA = xsrf(cookieA)
+        val contactId = createContact(cookieA, xsrfA, email = "send404_rec@corp.example.com")
+        val templateId = anyTemplateId(cookieA)
+        val requestId = createRequest(cookieA, xsrfA, contactId, templateId).body!!["id"] as String
+
+        val cookieB = login("send_other_b@example.com")
+        val xsrfB = xsrf(cookieB)
+
+        assertThat(send(cookieB, xsrfB, requestId).statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+    }
+
     @Test
     fun `list with garbage status filter returns 400`() {
         val cookie = login("list_bad_status@example.com")

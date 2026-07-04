@@ -3,9 +3,12 @@ package com.verifolio.requests.application
 import com.verifolio.audit.AuditService
 import com.verifolio.contacts.ContactLookup
 import com.verifolio.identity.AuthenticatedUser
+import com.verifolio.identity.InvitationTokenService
 import com.verifolio.jooq.tables.references.CONSENT_RECORD
 import com.verifolio.jooq.tables.references.REFERENCE_REQUEST
+import com.verifolio.notifications.MailPort
 import com.verifolio.platform.ApiException
+import com.verifolio.platform.SlidingWindowRateLimiter
 import com.verifolio.platform.VerifolioProperties
 import com.verifolio.profiles.ProfileService
 import com.verifolio.requests.api.CreateReferenceRequestRequest
@@ -15,9 +18,11 @@ import com.verifolio.requests.domain.ReferenceRequestStatus
 import com.verifolio.templates.TemplateLookup
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.Base64
 import java.util.UUID
@@ -34,6 +39,9 @@ internal class ReferenceRequestService(
     private val templateLookup: TemplateLookup,
     private val audit: AuditService,
     private val props: VerifolioProperties,
+    private val invitationTokens: InvitationTokenService,
+    private val mail: MailPort,
+    @Qualifier("referenceRequestSendLimiter") private val sendLimiter: SlidingWindowRateLimiter,
 ) {
 
     @Transactional
@@ -103,6 +111,100 @@ internal class ReferenceRequestService(
         )
 
         return record.toResponse()
+    }
+
+    @Transactional
+    fun send(user: AuthenticatedUser, id: UUID): ReferenceRequestResponse {
+        val requesterProfileId = profileService.requireProfileId(user.userId, user.email)
+        val rr = REFERENCE_REQUEST
+        val record = dsl.selectFrom(rr)
+            .where(rr.ID.eq(id).and(rr.REQUESTER_PROFILE_ID.eq(requesterProfileId)))
+            .forUpdate()
+            .fetchOne()
+            ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Reference request not found")
+
+        val status = ReferenceRequestStatus.valueOf(record.status!!)
+        if (status != ReferenceRequestStatus.CREATED) {
+            throw ApiException(
+                HttpStatus.CONFLICT,
+                "INVALID_REQUEST_STATE",
+                "Request can be sent only from the CREATED status",
+            )
+        }
+        val now = OffsetDateTime.now()
+        if (!record.expiresAt!!.isAfter(now)) {
+            throw ApiException(HttpStatus.CONFLICT, "INVALID_REQUEST_STATE", "Request has expired")
+        }
+
+        val cr = CONSENT_RECORD
+        val attestationExists = dsl.fetchExists(
+            dsl.selectFrom(cr).where(
+                cr.REFERENCE_REQUEST_ID.eq(id)
+                    .and(cr.CONSENT_TYPE.eq(REQUESTER_ATTESTATION))
+                    .and(cr.STATUS.eq("GRANTED")),
+            ),
+        )
+        if (!attestationExists) {
+            throw ApiException(
+                HttpStatus.CONFLICT,
+                "CONSENT_REQUIRED",
+                "Verbal-consent attestation record is missing for this request",
+            )
+        }
+
+        val contact = contactLookup.findOwned(record.recommenderContactId!!, requesterProfileId)
+            ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Contact not found")
+
+        if (!sendLimiter.tryAcquire(contact.email.lowercase())) {
+            throw ApiException(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "RATE_LIMITED",
+                "Too many reference requests were sent to this recommender recently",
+            )
+        }
+
+        val rawToken = invitationTokens.mint(
+            requestId = id,
+            recommenderEmail = contact.email,
+            ttl = Duration.between(now, record.expiresAt),
+        )
+
+        val base = props.auth.frontendBaseUrl
+        mail.send(
+            to = contact.email,
+            subject = "Reference request from ${user.email}",
+            textBody = buildString {
+                appendLine("Hello ${contact.name},")
+                appendLine()
+                appendLine("${user.email} asks you for a professional reference via Verifolio.")
+                record.purpose?.let {
+                    appendLine()
+                    appendLine("Context: $it")
+                }
+                appendLine()
+                appendLine("Open the request: $base/invitations/$rawToken")
+                appendLine()
+                appendLine("If you prefer not to respond, decline here: $base/invitations/$rawToken/decline")
+                appendLine("Report abuse: $base/invitations/$rawToken/report-abuse")
+            },
+        )
+
+        val updated = dsl.update(rr)
+            .set(rr.STATUS, ReferenceRequestStatus.SENT.name)
+            .set(rr.UPDATED_AT, now)
+            .where(rr.ID.eq(id))
+            .returning()
+            .fetchOne()!!
+
+        audit.record(
+            actorType = "USER",
+            actorId = user.userId.toString(),
+            action = "REFERENCE_REQUEST_SENT",
+            entityType = "REFERENCE_REQUEST",
+            entityId = id.toString(),
+        )
+
+        return updated.toResponse()
     }
 
     @Transactional(readOnly = true)
