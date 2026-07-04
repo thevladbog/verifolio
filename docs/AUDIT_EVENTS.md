@@ -170,6 +170,18 @@ Public page view rules:
 - full audit events are emitted only for downloads and state changes;
 - `ip_hash`/`user_agent_hash` are keyed HMAC with a per-cell secret pepper (see `SECURITY.md`); keyed hashes remain personal data under GDPR.
 
+### Profiles & Contacts
+
+```text
+PROFILE_CREATED
+PROFILE_UPDATED
+CONTACT_CREATED
+CONTACT_UPDATED
+CONTACT_DELETED
+```
+
+Contact audit metadata contains `relationshipType` only — name and email are never included. Template reads are not audited — templates contain no personal data and reads cross no authorization boundary.
+
 ### Region Policy
 
 ```text
