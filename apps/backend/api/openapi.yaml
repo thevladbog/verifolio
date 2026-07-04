@@ -8,6 +8,42 @@ servers:
 - url: http://localhost:8080
   description: Generated server url
 paths:
+  /api/v1/recommender/response-draft:
+    put:
+      tags:
+      - recommender-flow-controller
+      operationId: saveDraft
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DraftDto"
+        "401":
+          description: No active recommender session
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Not a recommender session or missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Consent not accepted yet
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/profile:
     get:
       tags:
@@ -340,6 +376,198 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/recommender/responses:
+    post:
+      tags:
+      - recommender-flow-controller
+      operationId: submit
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitResponseRequest"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RecommenderStatusResponse"
+        "400":
+          description: Missing confirmations or letter text
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: No active recommender session
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Not a recommender session or missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Wrong status or consent missing
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/recommender/consent:
+    post:
+      tags:
+      - recommender-flow-controller
+      operationId: consent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsentDecisionRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RecommenderStatusResponse"
+        "401":
+          description: No active recommender session
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Not a recommender session or missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Consent gate already passed
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/invitations/{token}/report-abuse:
+    post:
+      tags:
+      - invitation-controller
+      operationId: reportAbuse
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Invitation not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Request already terminal
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/invitations/{token}/email-confirmations:
+    post:
+      tags:
+      - invitation-controller
+      operationId: requestEmailConfirmation
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "202":
+          description: Accepted
+        "404":
+          description: Invitation not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Too many codes requested
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/invitations/{token}/decline:
+    post:
+      tags:
+      - invitation-controller
+      operationId: decline
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Invitation not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Request already terminal
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/invitations/{token}/confirm-email:
+    post:
+      tags:
+      - invitation-controller
+      operationId: confirmEmail
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmEmailRequest"
+        required: true
+      responses:
+        "200":
+          description: Recommender session cookie set
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ConfirmEmailResponse"
+        "400":
+          description: Invalid or expired code
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Invitation not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/contacts:
     get:
       tags:
@@ -576,6 +804,60 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/recommender/request:
+    get:
+      tags:
+      - recommender-flow-controller
+      operationId: requestContext
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RecommenderRequestContext"
+        "401":
+          description: No active recommender session
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Not a recommender session
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Request no longer active
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/invitations/{token}:
+    get:
+      tags:
+      - invitation-controller
+      operationId: openInvitation
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/InvitationPreviewResponse"
+        "404":
+          description: "Invitation unknown, expired, consumed, or request terminal"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/auth/sessions/current:
     get:
       tags:
@@ -615,6 +897,47 @@ paths:
                 $ref: "#/components/schemas/ApiError"
 components:
   schemas:
+    DraftRequest:
+      type: object
+      properties:
+        answersJson:
+          type:
+          - object
+          - "null"
+          additionalProperties: {}
+        approvedLetterText:
+          type:
+          - string
+          - "null"
+      required:
+      - answersJson
+    ApiError:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties:
+            type: string
+        requestId:
+          type:
+          - string
+          - "null"
+    DraftDto:
+      type: object
+      properties:
+        answersJson:
+          type: object
+          additionalProperties: {}
+        approvedLetterText:
+          type:
+          - string
+          - "null"
+        updatedAt:
+          type: string
     ProfileUpdateRequest:
       type: object
       properties:
@@ -634,21 +957,6 @@ components:
       required:
       - displayName
       - preferredLocale
-    ApiError:
-      type: object
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-        details:
-          type: object
-          additionalProperties:
-            type: string
-        requestId:
-          type:
-          - string
-          - "null"
     ProfileResponse:
       type: object
       properties:
@@ -780,6 +1088,66 @@ components:
           type:
           - string
           - "null"
+    SubmitResponseRequest:
+      type: object
+      properties:
+        approvedLetterText:
+          type:
+          - string
+          - "null"
+          minLength: 1
+        confirmationText:
+          type:
+          - string
+          - "null"
+        recipientConfirmed:
+          type:
+          - boolean
+          - "null"
+        relationshipConfirmed:
+          type:
+          - boolean
+          - "null"
+        answersJson:
+          type:
+          - object
+          - "null"
+          additionalProperties: {}
+      required:
+      - approvedLetterText
+      - recipientConfirmed
+      - relationshipConfirmed
+    RecommenderStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+    ConsentDecisionRequest:
+      type: object
+      properties:
+        accepted:
+          type:
+          - boolean
+          - "null"
+        crossBorderAccepted:
+          type:
+          - boolean
+          - "null"
+      required:
+      - accepted
+    ConfirmEmailRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+      required:
+      - code
+    ConfirmEmailResponse:
+      type: object
+      properties:
+        status:
+          type: string
     SessionRequest:
       type: object
       properties:
@@ -858,6 +1226,58 @@ components:
           type:
           - string
           - "null"
+    ConsentTextRef:
+      type: object
+      properties:
+        textId:
+          type: string
+        version:
+          type: integer
+          format: int32
+    ConsentTextsDto:
+      type: object
+      properties:
+        processing:
+          $ref: "#/components/schemas/ConsentTextRef"
+        crossBorderTransfer:
+          $ref: "#/components/schemas/ConsentTextRef"
+    RecommenderRequestContext:
+      type: object
+      properties:
+        status:
+          type: string
+        requesterName:
+          type: string
+        purpose:
+          type:
+          - string
+          - "null"
+        templateName:
+          type: string
+        questionSchema:
+          type: object
+          additionalProperties: {}
+        consents:
+          $ref: "#/components/schemas/ConsentTextsDto"
+        draft:
+          oneOf:
+          - $ref: "#/components/schemas/DraftDto"
+          - type: "null"
+    InvitationPreviewResponse:
+      type: object
+      properties:
+        requesterName:
+          type: string
+        purpose:
+          type:
+          - string
+          - "null"
+        templateName:
+          type: string
+        recommenderEmailMasked:
+          type: string
+        status:
+          type: string
     ContactListResponse:
       type: object
       properties:
