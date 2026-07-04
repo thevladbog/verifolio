@@ -332,6 +332,70 @@ class ReferenceRequestIntegrationTest : IntegrationTest() {
         assertThat(send(cookieB, xsrfB, requestId).statusCode).isEqualTo(HttpStatus.NOT_FOUND)
     }
 
+    // ---- cancel ----
+
+    private fun cancel(cookie: String, xsrfToken: String?, requestId: String) = rest.exchange(
+        "/api/v1/reference-requests/$requestId/cancel", HttpMethod.POST,
+        HttpEntity<Void>(authHeaders(cookie, xsrfToken)),
+        Map::class.java,
+    )
+
+    @Test
+    fun `cancel from CREATED moves the request to CANCELLED and audits`() {
+        val cookie = login("cancel_created@example.com")
+        val xsrfToken = xsrf(cookie)
+        val contactId = createContact(cookie, xsrfToken, email = "cancel_rec@corp.example.com")
+        val templateId = anyTemplateId(cookie)
+        val requestId = createRequest(cookie, xsrfToken, contactId, templateId).body!!["id"] as String
+
+        val response = cancel(cookie, xsrfToken, requestId)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body!!["status"]).isEqualTo("CANCELLED")
+        assertThat(auditActions()).contains("REFERENCE_REQUEST_CANCELLED")
+    }
+
+    @Test
+    fun `cancel after send revokes the invitation token`() {
+        val cookie = login("cancel_sent@example.com")
+        val xsrfToken = xsrf(cookie)
+        val contactId = createContact(cookie, xsrfToken, email = "cancel_sent_rec@corp.example.com")
+        val templateId = anyTemplateId(cookie)
+        val requestId = createRequest(cookie, xsrfToken, contactId, templateId).body!!["id"] as String
+        assertThat(send(cookie, xsrfToken, requestId).statusCode).isEqualTo(HttpStatus.OK)
+
+        val response = cancel(cookie, xsrfToken, requestId)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body!!["status"]).isEqualTo("CANCELLED")
+
+        val it = INVITATION_TOKEN
+        val tokenRow = dsl.selectFrom(it)
+            .where(it.REQUEST_ID.eq(UUID.fromString(requestId)))
+            .fetchOne()!!
+        assertThat(tokenRow.revokedAt).isNotNull()
+        assertThat(auditActions()).contains("INVITATION_TOKEN_REVOKED")
+    }
+
+    @Test
+    fun `cancel twice returns 409 and send after cancel returns 409`() {
+        val cookie = login("cancel_twice@example.com")
+        val xsrfToken = xsrf(cookie)
+        val contactId = createContact(cookie, xsrfToken, email = "cancel_twice_rec@corp.example.com")
+        val templateId = anyTemplateId(cookie)
+        val requestId = createRequest(cookie, xsrfToken, contactId, templateId).body!!["id"] as String
+
+        assertThat(cancel(cookie, xsrfToken, requestId).statusCode).isEqualTo(HttpStatus.OK)
+
+        val secondCancel = cancel(cookie, xsrfToken, requestId)
+        assertThat(secondCancel.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(secondCancel.body!!["code"]).isEqualTo("INVALID_REQUEST_STATE")
+
+        val sendAfterCancel = send(cookie, xsrfToken, requestId)
+        assertThat(sendAfterCancel.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(sendAfterCancel.body!!["code"]).isEqualTo("INVALID_REQUEST_STATE")
+    }
+
     @Test
     fun `list with garbage status filter returns 400`() {
         val cookie = login("list_bad_status@example.com")

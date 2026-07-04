@@ -207,6 +207,46 @@ internal class ReferenceRequestService(
         return updated.toResponse()
     }
 
+    @Transactional
+    fun cancel(user: AuthenticatedUser, id: UUID): ReferenceRequestResponse {
+        val requesterProfileId = profileService.requireProfileId(user.userId, user.email)
+        val rr = REFERENCE_REQUEST
+        val record = dsl.selectFrom(rr)
+            .where(rr.ID.eq(id).and(rr.REQUESTER_PROFILE_ID.eq(requesterProfileId)))
+            .forUpdate()
+            .fetchOne()
+            ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Reference request not found")
+
+        val status = ReferenceRequestStatus.valueOf(record.status!!)
+        if (!status.canTransitionTo(ReferenceRequestStatus.CANCELLED)) {
+            throw ApiException(
+                HttpStatus.CONFLICT,
+                "INVALID_REQUEST_STATE",
+                "Request in a terminal status cannot be cancelled",
+            )
+        }
+
+        val updated = dsl.update(rr)
+            .set(rr.STATUS, ReferenceRequestStatus.CANCELLED.name)
+            .set(rr.UPDATED_AT, OffsetDateTime.now())
+            .where(rr.ID.eq(id))
+            .returning()
+            .fetchOne()!!
+
+        invitationTokens.revokeForRequest(id)
+
+        audit.record(
+            actorType = "USER",
+            actorId = user.userId.toString(),
+            action = "REFERENCE_REQUEST_CANCELLED",
+            entityType = "REFERENCE_REQUEST",
+            entityId = id.toString(),
+            metadata = mapOf("previousStatus" to status.name),
+        )
+
+        return updated.toResponse()
+    }
+
     @Transactional(readOnly = true)
     fun get(user: AuthenticatedUser, id: UUID): ReferenceRequestResponse {
         val requesterProfileId = profileService.requireProfileId(user.userId, user.email)

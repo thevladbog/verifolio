@@ -71,6 +71,19 @@ internal class ReferenceRequestController(
     @ApiResponses(
         ApiResponse(responseCode = "200"),
         ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "403", description = "Missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "404", description = "Reference request not found", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "409", description = "Request is already in a terminal status", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
+    @PostMapping("/{id}/cancel")
+    fun cancelReferenceRequest(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+        @PathVariable id: UUID,
+    ): ReferenceRequestResponse = service.cancel(user, id)
+
+    @ApiResponses(
+        ApiResponse(responseCode = "200"),
+        ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
         ApiResponse(responseCode = "404", description = "Reference request not found", content = [Content(schema = Schema(implementation = ApiError::class))]),
     )
     @GetMapping("/{id}")
