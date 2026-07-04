@@ -1,5 +1,9 @@
 # Agent Roles
 
+## Must Read
+
+Every role reads the role's primary skill pack(s) plus the canonical reading list in `AGENTS.md` § Pre-Coding Reading List. Skill packs own their own "read first" doc lists — this file does not duplicate them.
+
 ## Product Analyst Agent
 
 Responsibilities:
@@ -11,11 +15,7 @@ Responsibilities:
 - copy;
 - edge cases.
 
-Must read:
-
-- `docs/PRODUCT_REQUIREMENTS.md`
-- `docs/USER_FLOWS.md`
-- `docs/REQUEST_TEMPLATES.md`
+Primary skill packs: none (works from `docs/PRODUCT_REQUIREMENTS.md`, `docs/USER_FLOWS.md`, `docs/REQUEST_TEMPLATES.md` as module documentation).
 
 ## Backend Domain Agent
 
@@ -27,11 +27,7 @@ Responsibilities:
 - status transitions;
 - tests.
 
-Must read:
-
-- `docs/MODULES.md`
-- `docs/DATA_MODEL.md`
-- `docs/SECURITY.md`
+Primary skill packs: `skills/kotlin-spring-module/SKILL.md`.
 
 ## Database Agent
 
@@ -43,10 +39,7 @@ Responsibilities:
 - indexes;
 - data integrity.
 
-Must read:
-
-- `docs/DATA_MODEL.md`
-- `skills/postgres-jooq-flyway/SKILL.md`
+Primary skill packs: `skills/postgres-jooq-flyway/SKILL.md`.
 
 ## Security Agent
 
@@ -59,11 +52,7 @@ Responsibilities:
 - threat model;
 - privacy review.
 
-Must read:
-
-- `docs/SECURITY.md`
-- `docs/PRIVACY_AND_DATA_CLASSIFICATION.md`
-- `skills/security-auth/SKILL.md`
+Primary skill packs: `skills/security-auth/SKILL.md`.
 
 ## Workflow Agent
 
@@ -76,10 +65,7 @@ Responsibilities:
 - idempotency;
 - workflow tests.
 
-Must read:
-
-- `docs/WORKFLOWS.md`
-- `skills/temporal-workflow/SKILL.md`
+Primary skill packs: `skills/temporal-workflow/SKILL.md`.
 
 ## Frontend Agent
 
@@ -92,11 +78,7 @@ Responsibilities:
 - verification page;
 - API client integration.
 
-Must read:
-
-- `skills/frontend-nextjs/SKILL.md`
-- `docs/API_GUIDELINES.md`
-- relevant user flow docs.
+Primary skill packs: `skills/frontend-nextjs/SKILL.md`.
 
 ## QA/Test Agent
 
@@ -108,10 +90,7 @@ Responsibilities:
 - E2E tests;
 - regression checks.
 
-Must read:
-
-- `docs/TESTING.md`
-- `skills/testing-testcontainers/SKILL.md`
+Primary skill packs: `skills/testing-testcontainers/SKILL.md`.
 
 ## Documentation Agent
 
@@ -123,7 +102,4 @@ Responsibilities:
 - API docs;
 - skill updates.
 
-Must read:
-
-- `docs/agent/AGENT_TASK_TEMPLATES.md`
-- `skills/adr-writing/SKILL.md`
+Primary skill packs: `skills/adr-writing/SKILL.md`.

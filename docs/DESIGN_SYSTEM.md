@@ -162,16 +162,19 @@ Paper Ivory:     #F7F4EC
 Warm White:      #FBFAF6
 Soft Blue Gray:  #A5B4C4
 Light Blue Gray: #DDE5EC
+Trust Blue:      #2563EB
 Verified Green:  #2EAD72
-Fresh Green:     #22C55E
 Muted Gold:      #C8A24D
-Sand Gold:       #C9A86A
 Slate Text:      #475467
 Muted Text:      #667085
 Border Light:    #E4E7EC
 Danger Red:      #D92D20
 Warning Amber:   #F79009
 ```
+
+Verified Green is the only green in the palette, and Muted Gold is the only gold. Do not introduce additional green or gold values.
+
+Dark mode: out of scope for v1.
 
 ## Color Roles
 
@@ -261,6 +264,21 @@ Signature, seal, authority, value.
 ```
 
 Gold should be subtle, not luxury-heavy.
+
+### Trust Blue
+
+Used for:
+
+* informational states;
+* links;
+* focus rings (alternative to Verified Green);
+* neutral verification metadata.
+
+Meaning:
+
+```text
+Information, clarity, neutral trust.
+```
 
 ## Semantic Colors
 
@@ -366,7 +384,7 @@ Use an 8px spacing grid.
 ### Backgrounds
 
 ```text
-Main app background:       #F7F9FC or #FBFAF6
+Main app background:       #FBFAF6 (Warm White — the single app background token)
 Card background:           #FFFFFF
 Document background:       #F7F4EC
 Dark sidebar:              #0F1B2E
@@ -485,7 +503,7 @@ Should show:
 * PDF status;
 * attached files;
 * share state;
-* verification score.
+* signal badge list (never a numeric verification score).
 
 ### Trust Signal Card
 
@@ -599,10 +617,12 @@ Core components:
 Stepper
 TemplateCard
 QuestionBlock
-CompletenessScore
+CompletenessHint
 EmailPreview
 VerificationOptions
 ```
+
+`CompletenessHint` is a private profile/request-completion hint for the owner only. It must never be presented as a trust indicator and never appears on public pages.
 
 ### Recommender Form
 
@@ -657,12 +677,17 @@ Visual direction:
 Core components:
 
 ```text
-ProfileTrustScore
+SignalBadgeList
+TrustSummary
 VerificationMethodCard
 ProfessionalLinks
 NameConsistencyCheck
 IdentitySignalList
 ```
+
+`TrustSummary` shows counts of confirmed signals grouped by category. It must never render a percentage, progress bar, or single aggregated number. There is no numeric trust score anywhere in the product (see `VERIFICATION_SIGNALS.md`).
+
+Self-declared recommender fields (relationship, title, organization name without a verified record) must always be labeled "stated by recommender".
 
 ## Layout Principles
 

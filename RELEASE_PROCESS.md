@@ -16,7 +16,15 @@ production
 
 Production releases are region-specific.
 
-A release can be deployed to EU without deploying to RU, and vice versa.
+Region cells:
+
+```text
+EU
+RU
+GLOBAL
+```
+
+A release can be deployed to EU without deploying to RU, and vice versa. The GLOBAL cell may launch after EU as part of the staged rollout (see `docs/ROADMAP.md`).
 
 ## Release Checklist
 
@@ -25,7 +33,7 @@ Before release:
 - [ ] CI green
 - [ ] Database migrations reviewed
 - [ ] Backward compatibility checked
-- [ ] Feature flags configured
+- [ ] Feature flags configured (if feature flags are used)
 - [ ] Region-specific config reviewed
 - [ ] External providers configured per region
 - [ ] Security-sensitive changes reviewed
@@ -46,7 +54,9 @@ Avoid destructive migrations in the same release as code changes.
 
 ## Feature Flags
 
-Use feature flags for:
+The feature-flag mechanism is not yet chosen; choosing one requires an ADR.
+
+If feature flags are used, use them for:
 
 - AI/OCR features;
 - external providers;

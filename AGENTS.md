@@ -1,5 +1,9 @@
 # AGENTS.md
 
+Last updated: 2026-07-04
+
+This file is the single canonical rule list for Verifolio. All other documents (README, CLAUDE.md, Cursor rules, skill packs) point here; if any of them conflicts with this file, this file wins.
+
 ## Project
 
 Verifolio is a regional, deployable platform for verified professional references, recommendation letters, signed documents, and professional proof portfolios.
@@ -41,18 +45,32 @@ The product verifies three trust dimensions:
 - Do not implement auth/security/file changes without tests.
 - Do not make recommenders create accounts unless a product requirement explicitly says so.
 - Do not use AI-generated text as a verification source.
+- Never process a recommender's response without an explicit consent record (accept or decline is always recorded).
+- Never block or ignore data subject requests (deletion, export, region migration); they follow the documented erasure/tombstoning model.
 
-## Before Coding
+## Rule Changes
 
-Read:
+Changes to this file require a pull request with human approval per `CODEOWNERS`. Agents must not merge changes to the non-negotiable rules on their own.
 
+## Pre-Coding Reading List
+
+This is the canonical reading list. Other documents must reference this section instead of maintaining their own lists.
+
+Full list:
+
+- `AGENTS.md` (this file)
+- `docs/agent/AGENT_OPERATING_MODEL.md`
 - `docs/ARCHITECTURE.md`
 - `docs/MODULES.md`
 - `docs/DATA_MODEL.md`
 - `docs/SECURITY.md`
-- `docs/agent/AGENT_OPERATING_MODEL.md`
 - relevant `skills/*/SKILL.md`
 - relevant module documentation
+
+Scale reading with risk tier:
+
+- Safe tasks (docs edits, copy, isolated low-risk changes): the relevant skill pack plus the relevant module documentation is enough.
+- High-risk tasks (auth, tokens, files, locked versions, regional data, consent, migrations, API contracts): read the full list.
 
 ## Required For Every Change
 
@@ -67,6 +85,8 @@ Every meaningful code change must include:
 - ADR when architecture or regional policy changes.
 
 ## Pull Request Checklist
+
+Checklist scopes: this checklist is the agent's self-check in the PR body; `docs/agent/AGENT_REVIEW_CHECKLIST.md` is for the human reviewer; `DEFINITION_OF_DONE.md` is the task closure checklist.
 
 - [ ] Module boundaries respected
 - [ ] Domain rules preserved

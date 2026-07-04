@@ -1,0 +1,23 @@
+# CODEOWNERS
+#
+# This file defines the accountable human reviewer for high-risk areas,
+# per docs/agent/AGENT_OPERATING_MODEL.md. Changes to the paths below
+# require approval from the listed owner; AI agents must not merge
+# changes to these files without that approval.
+
+* @thevladbog
+
+# Canonical rules and task closure criteria
+/AGENTS.md @thevladbog
+/DEFINITION_OF_DONE.md @thevladbog
+
+# Agent skill packs
+/skills/ @thevladbog
+
+# Security, privacy, and regional policy
+/docs/SECURITY.md @thevladbog
+/docs/REGION_POLICIES.md @thevladbog
+/docs/PRIVACY_AND_DATA_CLASSIFICATION.md @thevladbog
+
+# CI, PR template, and repository automation
+/.github/ @thevladbog

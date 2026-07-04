@@ -83,6 +83,12 @@ Required areas:
 - token reuse;
 - locked version modification.
 
+### Frontend Tests
+
+- Component tests: Vitest + Testing Library.
+- Playwright E2E tests for the critical user flows (see End-to-End Tests below).
+- Axe-based accessibility checks on the public verification page.
+
 ### End-to-End Tests
 
 Critical flows:
@@ -102,6 +108,8 @@ Use builders/factories for test data.
 Avoid using real personal data in tests.
 
 ## CI Requirements
+
+> Status: application CI is not yet configured; bootstrapping it is a tracked task. Docs CI already exists in `.github/workflows/docs.yml`. The requirements below describe the target application CI.
 
 A pull request must pass:
 

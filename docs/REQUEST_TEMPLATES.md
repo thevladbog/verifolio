@@ -22,6 +22,8 @@ Template
 - verification_recommendations
 ```
 
+Templates may mark individual fields as "not for public display" (for example, company contact information). Such fields are stored and available to the recipient and document workflows but never rendered on public verification pages.
+
 ## Employment Reference
 
 Goal: confirm professional experience and performance.
@@ -36,6 +38,12 @@ Suggested questions:
 - What strengths did they demonstrate?
 - Would you recommend them for similar roles?
 
+Verification recommendations:
+
+- corporate domain confirmed;
+- relationship confirmed;
+- recipient confirmed by recommender.
+
 ## Immigration Reference
 
 Goal: provide factual employment/professional experience confirmation.
@@ -49,8 +57,17 @@ Suggested questions:
 - Technologies/tools used?
 - Reporting line?
 - Projects/products?
-- Company contact information?
+- Company contact information? (not for public display)
 - Can this be printed on letterhead?
+
+Verification recommendations:
+
+- corporate domain confirmed;
+- letterhead scan attached;
+- signature attached and verified;
+- relationship confirmed.
+
+Because immigration references are typically presented to government authorities, this template recommends a minimum signal set: corporate domain confirmed, letterhead scan attached, and signature attached.
 
 ## Visa Support Letter
 
@@ -63,8 +80,16 @@ Suggested questions:
 - Role of applicant?
 - Relationship to inviting/supporting organization?
 - Who covers expenses?
-- Contact person?
+- Contact person? (not for public display)
 - Is company letterhead available?
+
+Verification recommendations:
+
+- corporate domain confirmed;
+- letterhead scan attached;
+- signature attached and verified.
+
+Because visa support letters are typically presented to government authorities, this template recommends a minimum signal set: corporate domain confirmed, letterhead scan attached, and signature attached.
 
 ## Academic Recommendation
 
@@ -78,6 +103,12 @@ Suggested questions:
 - Examples of discipline or independence?
 - Comparison with peers?
 - Suitability for the target program?
+
+Verification recommendations:
+
+- corporate/academic domain confirmed;
+- relationship confirmed;
+- letterhead scan attached (optional).
 
 ## Client Testimonial
 
@@ -93,6 +124,12 @@ Suggested questions:
 - Deadlines?
 - Would you hire/recommend again?
 
+Verification recommendations:
+
+- email confirmed;
+- corporate domain confirmed (when the client is an organization);
+- relationship confirmed.
+
 ## Character Reference
 
 Goal: confirm personal reliability, trust, and reputation.
@@ -104,6 +141,12 @@ Suggested questions:
 - What qualities can you confirm?
 - Examples of responsibility or integrity?
 - Would you recommend them?
+
+Verification recommendations:
+
+- email confirmed;
+- relationship confirmed;
+- recipient confirmed by recommender.
 
 ## AI Assistance
 

@@ -4,24 +4,18 @@ This file adapts the canonical project rules from `AGENTS.md` for Claude Code.
 
 ## Required Reading
 
-Before modifying code, read:
-
-- `AGENTS.md`
-- `docs/agent/AGENT_OPERATING_MODEL.md`
-- the relevant `skills/*/SKILL.md`
-- relevant module documentation
+Before modifying code, follow the canonical reading list in `AGENTS.md` § Pre-Coding Reading List (it also defines how to scale reading with risk tier).
 
 ## Core Rules
+
+The most catastrophic rules, inline:
 
 - Never modify locked document versions.
 - Never expose object storage URLs publicly.
 - Never bypass domain authorization.
-- Never add schema changes without Flyway migrations.
-- Never change API contracts without OpenAPI updates.
-- Never add sensitive actions without audit events.
-- Never send regional data to non-regional providers.
-- Never create new verification signals without documentation.
-- Always add tests for behavior changes.
+- Never move regional data (including consent records) out of its region or send it to non-regional providers.
+
+The full non-negotiable list lives in `AGENTS.md` § Non-Negotiable Rules — read it before any change.
 
 ## Working Style
 

@@ -23,10 +23,11 @@ Use this skill when a task changes architecture, provider choices, security mode
 - No alternatives considered.
 - No consequences documented.
 
-## Required Tests
+## Required Verification
 
-- Documentation review.
-- Link ADR from relevant docs if important.
+- Review the ADR against the format rules above (context, options, decision, consequences, status).
+- Check that the ADR is linked from relevant docs if important.
+- Check that the ADR number does not collide with existing ADRs in `docs/adr/`.
 
 ## Done Checklist
 
