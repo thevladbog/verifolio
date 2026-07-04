@@ -176,3 +176,52 @@ inherit context; append an entry when an iteration ships.
   residual window (commit failure after a successful SMTP send) leaves a dead link
   only. Outbox/AFTER_COMMIT dispatch is the long-term fix, together with the
   event-driven audit dispatch item from iteration 1.
+
+## 2026-07 — Recommender flow (iteration 4)
+
+### What shipped
+
+- **Schema**: Flyway V5 adds `recommender_session` (mirrors `user_session`),
+  `email_confirmation_code` (HMAC-hashed 6-digit codes, TTL 10 min, max 5 attempts,
+  attempt counter persisted via REQUIRES_NEW so it survives the CODE_INVALID rollback),
+  and `reference_response` (`approved_letter_text` spec extension; partial unique index —
+  one `submitted_at IS NULL` draft per request).
+- **Auth model** (per AUTHENTICATION.md): invitation token is a credential only until
+  email confirmation (consumed single-use there); the flow then runs under the
+  `verifolio_recommender_session` cookie (TTL 1h, config
+  `verifolio.auth.recommender-session-ttl`). New identity public API: `InvitationAccess`
+  (peek/identify/issueEmailConfirmation/confirmEmail), `RecommenderSessions`
+  (resolve/revokeForRequest), `RecommenderActor` principal +
+  `RecommenderSessionAuthFilter`. `/api/v1/invitations/**` is public + CSRF-exempt;
+  `/api/v1/recommender/**` authenticated with CSRF.
+- **Endpoints** (requests module): token-scoped `GET /api/v1/invitations/{token}` (open;
+  SENT→OPENED once), `POST .../email-confirmations` (202, rate-limited 3/15min),
+  `POST .../confirm-email` (mints session cookie), one-click `POST .../decline` and
+  `.../report-abuse` (work post-consumption while the request is non-terminal);
+  session-scoped `GET /api/v1/recommender/request`, `POST /consent` (accept →
+  RECOMMENDER_PROCESSING_CONSENT [+ CROSS_BORDER_TRANSFER_CONSENT] + IN_PROGRESS;
+  decline → DECLINED consent record + DECLINED + session revoked),
+  `PUT /response-draft`, `POST /responses` (confirmations required →
+  IN_PROGRESS→SUBMITTED→NEEDS_REVIEW, session revoked).
+- **API_GUIDELINES.md updated**: the former token-scoped consent/response sketch was
+  replaced with the session-scoped shape (AUTHENTICATION.md single-use rule wins).
+- **New error codes**: `CODE_INVALID` (400), `CONFIRMATION_REQUIRED` (400).
+- **Audit**: REFERENCE_REQUEST_OPENED, RECOMMENDER_EMAIL_CONFIRMED,
+  INVITATION_TOKEN_CONSUMED, CONSENT_GRANTED/DECLINED, REQUEST_DECLINED (metadata
+  `reason`: declined | abuse_report | consent_declined), REFERENCE_RESPONSE_STARTED,
+  REFERENCE_RESPONSE_SUBMITTED, RECIPIENT/RELATIONSHIP_CONFIRMED_BY_RECOMMENDER —
+  actor RECOMMENDER, metadata IDs only.
+- **Lookups extended**: `ProfileService.displayName`, `TemplateLookup.snapshot`
+  (name + question schema).
+
+### Deferred items
+
+- **PII erasure on decline** — status + audit recorded now; physical erasure ships with
+  the privacy module.
+- **Cross-border consent necessity is client-decided** — the recommender's jurisdiction
+  is not server-detectable; the backend records explicit grants. `local` cell requires
+  only processing consent.
+- **Recipient review / document generation** — next iteration (Documents): accept /
+  correction-request in NEEDS_REVIEW, PDF, hashing, version lock.
+- **Draft expiry & reminders** — with the Temporal "minimal workflows" item.
+- **AI letter drafting, scan/signature uploads** — need provider/files modules.

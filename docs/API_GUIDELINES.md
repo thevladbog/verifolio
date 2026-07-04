@@ -47,14 +47,23 @@ POST   /api/v1/auth/sessions
 DELETE /api/v1/auth/sessions/current
 ```
 
-Invitations (recommender flow, token-scoped):
+Invitations (recommender flow). The invitation token is a credential only until email
+confirmation, where it is consumed single-use (`AUTHENTICATION.md`). The flow then runs
+under the recommender session cookie — except the email-only one-click
+`decline` / `report-abuse` links, which stay token-scoped and keep working after
+consumption while the request is non-terminal:
 
 ```text
-GET  /api/v1/invitations/{token}
-POST /api/v1/invitations/{token}/confirm-email
-POST /api/v1/invitations/{token}/consent
-POST /api/v1/invitations/{token}/decline
-POST /api/v1/invitations/{token}/responses
+GET  /api/v1/invitations/{token}                      (open; pre-session)
+POST /api/v1/invitations/{token}/email-confirmations  (send one-time code)
+POST /api/v1/invitations/{token}/confirm-email        (consumes token, mints session)
+POST /api/v1/invitations/{token}/decline              (one-click from email; works post-consumption)
+POST /api/v1/invitations/{token}/report-abuse         (one-click from email)
+
+GET  /api/v1/recommender/request                      (session-scoped)
+POST /api/v1/recommender/consent
+PUT  /api/v1/recommender/response-draft
+POST /api/v1/recommender/responses
 ```
 
 File uploads:

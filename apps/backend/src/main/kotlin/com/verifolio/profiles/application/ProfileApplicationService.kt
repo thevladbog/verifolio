@@ -50,6 +50,13 @@ internal class ProfileApplicationService(
             .fetchOne(PERSON_PROFILE.ID)!!
     }
 
+    @Transactional(readOnly = true)
+    override fun displayName(profileId: UUID): String? =
+        dsl.select(PERSON_PROFILE.DISPLAY_NAME)
+            .from(PERSON_PROFILE)
+            .where(PERSON_PROFILE.ID.eq(profileId))
+            .fetchOne(PERSON_PROFILE.DISPLAY_NAME)
+
     /**
      * Inserts a profile row for [userAccountId] if one does not already exist.
      *

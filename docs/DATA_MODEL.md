@@ -2,7 +2,7 @@
 
 ## Implementation Status
 
-The auth-related tables `user_account`, `magic_link_token`, `user_session`, and `audit_event` are implemented in `apps/backend` (Flyway V1 migration). The `person_profile`, `organization` (minimal), `recommender_contact`, and `template` tables are implemented in `apps/backend` (Flyway V2 migration); six English-locale templates are seeded via Flyway V3 data migration. The `reference_request`, `consent_record`, and `invitation_token` tables are implemented in `apps/backend` (Flyway V4 migration) — requester side only; recommender-side flows are not implemented yet. All other entities described in this document are specification-only so far and have no corresponding migrations.
+The auth-related tables `user_account`, `magic_link_token`, `user_session`, and `audit_event` are implemented in `apps/backend` (Flyway V1 migration). The `person_profile`, `organization` (minimal), `recommender_contact`, and `template` tables are implemented in `apps/backend` (Flyway V2 migration); six English-locale templates are seeded via Flyway V3 data migration. The `reference_request`, `consent_record`, and `invitation_token` tables are implemented in `apps/backend` (Flyway V4 migration). The `recommender_session`, `email_confirmation_code`, and `reference_response` tables are implemented in `apps/backend` (Flyway V5 migration) — the recommender flow runs through submission (`NEEDS_REVIEW`); recipient review and document generation are not implemented yet. All other entities described in this document are specification-only so far and have no corresponding migrations.
 
 ## Canonical Enums
 
@@ -240,11 +240,17 @@ ReferenceResponse
 - request_id
 - recommender_email
 - answers_json
+- approved_letter_text
 - submitted_at
 - confirmation_text
 - relationship_confirmed
 - recipient_confirmed
 ```
+
+`approved_letter_text` stores the final letter text the recommender approved before
+submission; both the structured answers and the approved text are stored
+(`RECOMMENDER_EXPERIENCE.md`). A row with `submitted_at IS NULL` is the draft; at most one
+draft exists per request.
 
 `relationship_confirmed` and `recipient_confirmed` are the raw submission record. Verification signals derived from them are authoritative for display.
 

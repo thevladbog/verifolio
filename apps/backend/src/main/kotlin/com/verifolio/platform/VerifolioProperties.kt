@@ -23,6 +23,10 @@ data class VerifolioProperties(
         val sessionTtl: Duration,
         val frontendBaseUrl: String,
         val cookieSecure: Boolean = true,
+        val recommenderSessionTtl: Duration = Duration.ofHours(1),
+        val emailConfirmationTtl: Duration = Duration.ofMinutes(10),
+        val emailConfirmationLimit: Int = 3,
+        val emailConfirmationWindow: Duration = Duration.ofMinutes(15),
     )
 
     data class Mail(
@@ -31,6 +35,8 @@ data class VerifolioProperties(
 
     data class Consents(
         val requesterAttestation: ConsentText = ConsentText(textId = "local-requester-attestation", version = 1),
+        val processing: ConsentText = ConsentText(textId = "local-processing", version = 1),
+        val crossBorderTransfer: ConsentText = ConsentText(textId = "local-cross-border", version = 1),
     )
 
     /** Versioned consent text identifier per region policy (docs/REGION_POLICIES.md). */

@@ -34,11 +34,21 @@ verifolio:
     session-ttl: 30d
     frontend-base-url: http://localhost:3000
     cookie-secure: false # local dev over plain http; MUST be true in any deployed environment
+    recommender-session-ttl: 1h
+    email-confirmation-ttl: 10m
+    email-confirmation-limit: 3 # code issues per invitation per window
+    email-confirmation-window: 15m
   mail:
     from: no-reply@verifolio.local
   consents:
     requester-attestation:
       text-id: local-requester-attestation # region policy consent text id; overridden per cell (docs/REGION_POLICIES.md)
+      version: 1
+    processing:
+      text-id: local-processing # 152-FZ RU / GDPR EU / GLOBAL text per cell (docs/REGION_POLICIES.md)
+      version: 1
+    cross-border-transfer:
+      text-id: local-cross-border
       version: 1
   requests:
     expiry: 21d
