@@ -8,6 +8,65 @@ servers:
 - url: http://localhost:8080
   description: Generated server url
 paths:
+  /api/v1/profile:
+    get:
+      tags:
+      - profile-controller
+      operationId: getProfile
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    put:
+      tags:
+      - profile-controller
+      operationId: updateProfile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+        "400":
+          description: Validation failed
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/auth/sessions:
     post:
       tags:
@@ -113,14 +172,20 @@ paths:
                 $ref: "#/components/schemas/ApiError"
 components:
   schemas:
-    SessionRequest:
+    ProfileUpdateRequest:
       type: object
       properties:
-        token:
+        displayName:
+          type: string
+          minLength: 1
+        legalName:
+          type: string
+        preferredLocale:
           type: string
           minLength: 1
       required:
-      - token
+      - displayName
+      - preferredLocale
     ApiError:
       type: object
       properties:
@@ -138,6 +203,32 @@ components:
       - code
       - details
       - message
+    ProfileResponse:
+      type: object
+      properties:
+        profileId:
+          type: string
+        displayName:
+          type: string
+        legalName:
+          type: string
+        preferredLocale:
+          type: string
+        profileVerificationStatus:
+          type: string
+      required:
+      - displayName
+      - preferredLocale
+      - profileId
+      - profileVerificationStatus
+    SessionRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+      required:
+      - token
     CurrentUserResponse:
       type: object
       properties:

@@ -1,6 +1,8 @@
 package com.verifolio.identity.application
 
 import com.verifolio.audit.AuditService
+import com.verifolio.identity.AuthenticatedUser
+import com.verifolio.identity.UserAccountCreated
 import com.verifolio.identity.domain.TokenGenerator
 import com.verifolio.identity.domain.TokenHasher
 import com.verifolio.jooq.tables.references.MAGIC_LINK_TOKEN
@@ -9,13 +11,13 @@ import com.verifolio.jooq.tables.references.USER_SESSION
 import com.verifolio.platform.VerifolioProperties
 import com.verifolio.platform.ApiException
 import org.jooq.DSLContext
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
 import java.util.UUID
 
-data class AuthenticatedUser(val userId: UUID, val email: String, val region: String)
 data class CreatedSession(val rawToken: String, val user: AuthenticatedUser, val ttlSeconds: Long)
 
 @Service
@@ -24,6 +26,7 @@ class SessionService(
     private val hasher: TokenHasher,
     private val audit: AuditService,
     private val props: VerifolioProperties,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional
@@ -54,18 +57,26 @@ class SessionService(
             .where(MAGIC_LINK_TOKEN.ID.eq(tokenRow.id))
             .execute()
 
+        var newAccount = false
         val account = dsl.selectFrom(USER_ACCOUNT)
             .where(USER_ACCOUNT.EMAIL.eq(tokenRow.email))
             .fetchOne()
-            ?: dsl.insertInto(USER_ACCOUNT)
-                .set(USER_ACCOUNT.EMAIL, tokenRow.email)
-                .set(USER_ACCOUNT.REGION, props.region)
-                .onConflict(USER_ACCOUNT.EMAIL).doNothing()
-                .returning()
-                .fetchOne()
-            ?: dsl.selectFrom(USER_ACCOUNT)
-                .where(USER_ACCOUNT.EMAIL.eq(tokenRow.email))
-                .fetchOne()!!
+            ?: run {
+                val inserted = dsl.insertInto(USER_ACCOUNT)
+                    .set(USER_ACCOUNT.EMAIL, tokenRow.email)
+                    .set(USER_ACCOUNT.REGION, props.region)
+                    .onConflict(USER_ACCOUNT.EMAIL).doNothing()
+                    .returning()
+                    .fetchOne()
+                if (inserted != null) {
+                    newAccount = true
+                    inserted
+                } else {
+                    dsl.selectFrom(USER_ACCOUNT)
+                        .where(USER_ACCOUNT.EMAIL.eq(tokenRow.email))
+                        .fetchOne()!!
+                }
+            }
 
         val sessionToken = TokenGenerator.generate()
         val sessionRow = dsl.insertInto(USER_SESSION)
@@ -105,6 +116,9 @@ class SessionService(
             ipHash = ipHash,
             userAgentHash = userAgentHash,
         )
+        if (newAccount) {
+            eventPublisher.publishEvent(UserAccountCreated(account.id!!, account.email!!, account.region!!))
+        }
         return CreatedSession(sessionToken, user, props.auth.sessionTtl.seconds)
     }
 
