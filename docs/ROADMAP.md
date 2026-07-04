@@ -8,7 +8,7 @@ This document defines the scope cut per release stage. Agents must not build pos
 - Profiles — **delivered (2026-07, apps/backend)**.
 - Contacts — **delivered (2026-07, apps/backend)**.
 - Request templates — **delivered (2026-07, apps/backend)**.
-- Reference requests, including the consent model (per-region consent texts, cross-border transfer consent, requester attestation of verbal consent, recommender accept/decline of the processing policy).
+- Reference requests, including the consent model (per-region consent texts, cross-border transfer consent, requester attestation of verbal consent, recommender accept/decline of the processing policy) — **requester side delivered (2026-07, apps/backend)**; recommender consent gate ships with the recommender flow.
 - Recommender flow.
 - Documents: version locking and recipient review before locking.
 - Files (private object storage through the files module).

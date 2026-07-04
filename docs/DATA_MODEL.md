@@ -2,7 +2,7 @@
 
 ## Implementation Status
 
-The auth-related tables `user_account`, `magic_link_token`, `user_session`, and `audit_event` are implemented in `apps/backend` (Flyway V1 migration). The `person_profile`, `organization` (minimal), `recommender_contact`, and `template` tables are implemented in `apps/backend` (Flyway V2 migration); six English-locale templates are seeded via Flyway V3 data migration. All other entities described in this document are specification-only so far and have no corresponding migrations.
+The auth-related tables `user_account`, `magic_link_token`, `user_session`, and `audit_event` are implemented in `apps/backend` (Flyway V1 migration). The `person_profile`, `organization` (minimal), `recommender_contact`, and `template` tables are implemented in `apps/backend` (Flyway V2 migration); six English-locale templates are seeded via Flyway V3 data migration. The `reference_request`, `consent_record`, and `invitation_token` tables are implemented in `apps/backend` (Flyway V4 migration) — requester side only; recommender-side flows are not implemented yet. All other entities described in this document are specification-only so far and have no corresponding migrations.
 
 ## Canonical Enums
 
@@ -461,6 +461,7 @@ ConsentRecord
 - subject_type
 - user_id (nullable)
 - recommender_contact_id (nullable)
+- reference_request_id (nullable)
 - consent_type
 - policy_text_version
 - region
@@ -469,6 +470,8 @@ ConsentRecord
 - declined_at
 - withdrawn_at
 ```
+
+`reference_request_id` links a consent record to a specific reference request. It is set for request-scoped consents (e.g. the requester's verbal-consent attestation, which gates sending the invitation for exactly that request) and null for consents that are not bound to a single request.
 
 Subject types:
 

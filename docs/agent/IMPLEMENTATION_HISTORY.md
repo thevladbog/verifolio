@@ -123,3 +123,47 @@ inherit context; append an entry when an iteration ships.
 - **Persistent event publication registry** — profile auto-creation relies on the
   synchronous AFTER_COMMIT listener; a persistent outbox/registry is the tracked
   long-term fix.
+
+## 2026-07 — Reference requests, requester side (iteration 3)
+
+### What shipped
+
+- **Schema**: Flyway V4 migration adds `reference_request` (11-status check constraint),
+  `consent_record` (subject-attribution check: exactly one of `user_id` /
+  `recommender_contact_id`, matched to `subject_type`; nullable `reference_request_id`
+  FK links request-scoped consents), and `invitation_token` (unique `token_hash`).
+- **Requests module** (`/api/v1/reference-requests`): create (blocking
+  `verbalConsentAttested` checkbox → `REQUESTER_VERBAL_CONSENT_ATTESTATION` consent
+  record written transactionally; 400 `CONSENT_REQUIRED` otherwise), `POST /{id}/send`
+  (CREATED→SENT; mints invitation token; sends invitation email with tokenized link +
+  decline/report-abuse frontend links; global per-recommender-email sliding-window rate
+  limit → 429), `POST /{id}/cancel` (any non-terminal → CANCELLED; revokes outstanding
+  invitation tokens), owner-scoped get/list (keyset cursor, optional `status` filter).
+  State machine encoded in `requests.domain.ReferenceRequestStatus.canTransitionTo`.
+- **Identity public API**: `InvitationTokenService` (mint returns raw token, stores HMAC
+  hash via `TokenHasher`; `revokeForRequest` audits `INVITATION_TOKEN_REVOKED` per token).
+- **New cross-module read APIs**: `contacts.ContactLookup.findOwned` (ContactSnapshot),
+  `templates.TemplateLookup.exists` — package-root public interfaces.
+- **Platform**: `SlidingWindowRateLimiter` promoted from `identity.infrastructure` to
+  `platform` (shared technical infra); `VerifolioProperties` gains `consents.requesterAttestation`
+  (versioned consent text id, stored as `textId:version` in `policy_text_version`) and
+  `requests.{expiry(21d),sendLimitPerRecommender(5),sendLimitWindow(1d)}`.
+- **Audit**: `REFERENCE_REQUEST_CREATED`, `CONSENT_GRANTED`, `REFERENCE_REQUEST_SENT`,
+  `REFERENCE_REQUEST_CANCELLED`, `INVITATION_TOKEN_REVOKED`. Metadata carries IDs/status/
+  consent metadata only — no names or emails.
+- **Tests**: 68+ tests green; new unit state-machine test + 14 integration tests
+  (consent gating, token hashing, rate limiting, owner isolation, DB constraints).
+- **Docs/spec**: design spec `docs/superpowers/specs/2026-07-04-reference-requests-design.md`;
+  plan `docs/superpowers/plans/2026-07-04-reference-requests.md`; OpenAPI snapshot refreshed.
+
+### Deferred items
+
+- **Recommender flow** — invitation open/confirm-email/consent-gate/decline endpoints
+  (`/api/v1/invitations/{token}/...`), recommender sessions, responses. Decline and
+  report-abuse links in the invitation email point to frontend routes whose backend
+  ships with that iteration.
+- **EXPIRED auto-transition** — `expires_at` stored and enforced on send; the EXPIRED
+  status transition + reminders arrive with the "minimal workflows" (Temporal) item.
+- **Requester attestation consent texts per region** — config carries `local` placeholder
+  text id/version; real per-region texts land with region policy configuration.
+- **Rate limiter remains in-process** — same limitation as auth rate limits.
