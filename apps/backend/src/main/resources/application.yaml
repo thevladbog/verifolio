@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: verifolio-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/verifolio
+    username: verifolio
+    password: verifolio
+  flyway:
+    enabled: true
+  mail:
+    host: localhost
+    port: 1025
+
+springdoc:
+  api-docs:
+    version: openapi_3_1
+
+verifolio:
+  region: local # development-only value, see docs/REGION_POLICIES.md
+  auth:
+    token-pepper: local-dev-pepper-change-me
+    magic-link-ttl: 15m
+    session-ttl: 30d
+    frontend-base-url: http://localhost:3000
