@@ -26,6 +26,8 @@ plugins {
 
 group = "com.verifolio"
 version = "0.1.0-SNAPSHOT"
+// Keep the runtime jOOQ version identical to the codegen version on the buildscript classpath.
+extra["jooq.version"] = "3.20.5"
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
 
@@ -70,9 +72,10 @@ tasks.register("generateJooq") {
     outputs.dir(jooqOutput)
     doLast {
         val migrationDir = layout.projectDirectory.dir("src/main/resources/db/migration").asFile
-        val hasMigrations = migrationDir.listFiles()?.any { it.extension == "sql" } == true
+        val hasMigrations = migrationDir.listFiles()?.any { it.extension == "sql" } ?: false
         if (!hasMigrations) {
-            logger.lifecycle("generateJooq: no SQL migrations found in $migrationDir — skipping code generation")
+            logger.lifecycle("generateJooq: no SQL migrations found — skipping")
+            jooqOutput.get().asFile.mkdirs()
             return@doLast
         }
         PostgreSQLContainer<Nothing>("postgres:17-alpine").use { pg ->

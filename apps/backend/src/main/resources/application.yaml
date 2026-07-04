@@ -1,6 +1,8 @@
 spring:
   application:
     name: verifolio-backend
+  jooq:
+    sql-dialect: postgres
   datasource:
     url: jdbc:postgresql://localhost:5432/verifolio
     username: verifolio
