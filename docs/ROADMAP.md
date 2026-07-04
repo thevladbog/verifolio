@@ -4,7 +4,7 @@ This document defines the scope cut per release stage. Agents must not build pos
 
 ## MVP (EU cell first)
 
-- Identity: email magic-link authentication.
+- Identity: email magic-link authentication — **delivered (2026-07, apps/backend)**.
 - Profiles.
 - Contacts.
 - Request templates.

@@ -1,6 +1,6 @@
 # Local Development
 
-> Status: this document describes the target state. The application code repository has not been bootstrapped yet.
+> Status: backend commands under `apps/backend` are real and functional. Frontend (`apps/web`) commands remain target-state (not yet bootstrapped).
 
 ## Goal
 
@@ -69,14 +69,14 @@ SESSION_COOKIE_SECURE=false
 docker compose up -d
 ```
 
-Backend:
+Backend (runs on port 8080; JDK 21+ required — see `apps/backend/README.md`):
 
 ```bash
 cd apps/backend
 ./gradlew bootRun
 ```
 
-Frontend:
+Frontend (target state — not yet bootstrapped):
 
 ```bash
 cd apps/web
@@ -86,21 +86,29 @@ npm run dev
 
 ## Migrations
 
+Flyway migrations run automatically at startup. To regenerate jOOQ sources after a
+schema change:
+
 ```bash
-./gradlew flywayMigrate
+cd apps/backend
+./gradlew generateJooq
 ```
+
+Generated sources land in `build/generated-jooq` and are never committed.
 
 ## jOOQ Generation
 
 After schema changes:
 
 ```bash
+cd apps/backend
 ./gradlew generateJooq
 ```
 
 ## Tests
 
 ```bash
+cd apps/backend
 ./gradlew test
 ```
 
@@ -119,7 +127,9 @@ No bucket should be public.
 
 ## Mail Testing
 
-Use Mailpit for magic links, invitations, and reminders.
+Use Mailpit for magic links, invitations, and reminders. The Mailpit web UI is
+available at `http://localhost:8025`. The backend sends mail to Mailpit's SMTP
+listener on port 1025.
 
 Do not send local emails through production mail providers.
 
