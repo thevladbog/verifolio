@@ -35,14 +35,14 @@ internal class ProfileController(
         ApiResponse(responseCode = "200"),
         ApiResponse(responseCode = "400", description = "Validation failed", content = [Content(schema = Schema(implementation = ApiError::class))]),
         ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
-        ApiResponse(responseCode = "404", description = "Profile not found", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "403", description = "Missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),
     )
     @PutMapping
     fun updateProfile(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @Valid @RequestBody body: ProfileUpdateRequest,
     ): ResponseEntity<ProfileResponse> {
-        val updated = profileService.update(user.userId, body.displayName, body.legalName, body.preferredLocale)
+        val updated = profileService.update(user.userId, user.email, body.displayName, body.legalName, body.preferredLocale)
         return ResponseEntity.ok(updated.toResponse())
     }
 

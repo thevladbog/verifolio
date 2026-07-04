@@ -1,6 +1,7 @@
 package com.verifolio.templates.api
 
 import com.verifolio.platform.ApiException
+import com.verifolio.platform.SupportedLocales
 import com.verifolio.platform.web.ApiError
 import com.verifolio.templates.application.TemplateQueryService
 import io.swagger.v3.oas.annotations.media.Content
@@ -14,8 +15,6 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
-
-private val ALLOWED_LOCALES = setOf("en", "ru")
 
 @RestController
 @RequestMapping("/api/v1/templates")
@@ -32,8 +31,8 @@ internal class TemplateController(
     fun listTemplates(
         @RequestParam(defaultValue = "en") locale: String,
     ): TemplateListResponse {
-        if (locale !in ALLOWED_LOCALES) {
-            throw ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Unsupported locale '$locale'. Allowed: $ALLOWED_LOCALES")
+        if (locale !in SupportedLocales.ALL) {
+            throw ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Unsupported locale '$locale'. Allowed: ${SupportedLocales.ALL}")
         }
         return templateQueryService.list(locale)
     }

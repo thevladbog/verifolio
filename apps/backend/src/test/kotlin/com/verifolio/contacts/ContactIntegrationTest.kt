@@ -93,6 +93,20 @@ class ContactIntegrationTest : IntegrationTest() {
     }
 
     @Test
+    fun `malformed UUID path variable returns 400 not 500`() {
+        val cookie = login("uuid_validation_user@example.com")
+
+        val response = rest.exchange(
+            "/api/v1/contacts/not-a-uuid", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.body!!["code"]).isEqualTo("VALIDATION_ERROR")
+    }
+
+    @Test
     fun `invalid relationship type is rejected`() {
         val cookie = login("invalid_rel_user@example.com")
         val xsrfToken = xsrf(cookie)
@@ -191,16 +205,9 @@ class ContactIntegrationTest : IntegrationTest() {
         assertThat(putResponse.body!!["code"]).isEqualTo("NOT_FOUND")
 
         // User B's DELETE on User A's contact → 404
-        val deleteHeaders = HttpHeaders().apply {
-            add(HttpHeaders.COOKIE, cookieB)
-            if (xsrfB != null) {
-                add(HttpHeaders.COOKIE, "XSRF-TOKEN=$xsrfB")
-                add("X-XSRF-TOKEN", xsrfB)
-            }
-        }
         val deleteResponse = rest.exchange(
             "/api/v1/contacts/$contactId", HttpMethod.DELETE,
-            HttpEntity<Void>(deleteHeaders),
+            HttpEntity<Void>(authHeaders(cookieB, xsrfB)),
             Map::class.java,
         )
         assertThat(deleteResponse.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
@@ -248,16 +255,9 @@ class ContactIntegrationTest : IntegrationTest() {
         assertThat(updatedAtAfterPut).isNotEqualTo(updatedAtAfterCreate)
 
         // Delete the contact
-        val deleteHeaders = HttpHeaders().apply {
-            add(HttpHeaders.COOKIE, cookie)
-            if (xsrfToken != null) {
-                add(HttpHeaders.COOKIE, "XSRF-TOKEN=$xsrfToken")
-                add("X-XSRF-TOKEN", xsrfToken)
-            }
-        }
         val deleteResponse = rest.exchange(
             "/api/v1/contacts/$contactId", HttpMethod.DELETE,
-            HttpEntity<Void>(deleteHeaders),
+            HttpEntity<Void>(authHeaders(cookie, xsrfToken)),
             Void::class.java,
         )
         assertThat(deleteResponse.statusCode).isEqualTo(HttpStatus.NO_CONTENT)

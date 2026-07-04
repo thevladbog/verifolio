@@ -4,7 +4,6 @@ import com.verifolio.audit.AuditService
 import com.verifolio.contacts.api.ContactListResponse
 import com.verifolio.contacts.api.ContactRequest
 import com.verifolio.contacts.api.ContactResponse
-import com.verifolio.contacts.domain.RelationshipType
 import com.verifolio.identity.AuthenticatedUser
 import com.verifolio.jooq.tables.references.RECOMMENDER_CONTACT
 import com.verifolio.platform.ApiException
@@ -30,7 +29,6 @@ internal class ContactService(
     @Transactional
     fun create(user: AuthenticatedUser, req: ContactRequest): ContactResponse {
         val ownerProfileId = profileService.requireProfileId(user.userId, user.email)
-        val relType = parseRelationshipType(req.relationshipType)
 
         val rc = RECOMMENDER_CONTACT
         val record = dsl.insertInto(rc)
@@ -40,7 +38,7 @@ internal class ContactService(
             .set(rc.COMPANY_NAME, req.companyName)
             .set(rc.COMPANY_DOMAIN, req.companyDomain)
             .set(rc.TITLE, req.title)
-            .set(rc.RELATIONSHIP_TYPE, relType.name)
+            .set(rc.RELATIONSHIP_TYPE, req.relationshipType.name)
             .returning()
             .fetchOne()!!
 
@@ -50,7 +48,7 @@ internal class ContactService(
             action = "CONTACT_CREATED",
             entityType = "RECOMMENDER_CONTACT",
             entityId = record.id.toString(),
-            metadata = mapOf("relationshipType" to relType.name),
+            metadata = mapOf("relationshipType" to req.relationshipType.name),
         )
 
         return record.toResponse()
@@ -70,7 +68,6 @@ internal class ContactService(
     @Transactional
     fun update(user: AuthenticatedUser, id: UUID, req: ContactRequest): ContactResponse {
         val ownerProfileId = profileService.requireProfileId(user.userId, user.email)
-        val relType = parseRelationshipType(req.relationshipType)
 
         val rc = RECOMMENDER_CONTACT
         val updated = dsl.update(rc)
@@ -79,7 +76,7 @@ internal class ContactService(
             .set(rc.COMPANY_NAME, req.companyName)
             .set(rc.COMPANY_DOMAIN, req.companyDomain)
             .set(rc.TITLE, req.title)
-            .set(rc.RELATIONSHIP_TYPE, relType.name)
+            .set(rc.RELATIONSHIP_TYPE, req.relationshipType.name)
             .set(rc.UPDATED_AT, OffsetDateTime.now())
             .where(rc.ID.eq(id).and(rc.OWNER_PROFILE_ID.eq(ownerProfileId)))
             .returning()
@@ -92,7 +89,7 @@ internal class ContactService(
             action = "CONTACT_UPDATED",
             entityType = "RECOMMENDER_CONTACT",
             entityId = id.toString(),
-            metadata = mapOf("relationshipType" to relType.name),
+            metadata = mapOf("relationshipType" to req.relationshipType.name),
         )
 
         return updated.toResponse()
@@ -152,15 +149,6 @@ internal class ContactService(
     }
 
     // ---- helpers ----
-
-    private fun parseRelationshipType(value: String): RelationshipType =
-        runCatching { RelationshipType.valueOf(value) }.getOrElse {
-            throw ApiException(
-                HttpStatus.BAD_REQUEST,
-                "VALIDATION_ERROR",
-                "Invalid relationshipType '$value'. Allowed values: ${RelationshipType.entries.joinToString()}",
-            )
-        }
 
     private fun encodeCursor(createdAt: OffsetDateTime, id: UUID): String {
         val raw = "${createdAt}|${id}"

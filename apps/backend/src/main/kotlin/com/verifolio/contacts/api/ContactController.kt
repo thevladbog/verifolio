@@ -44,6 +44,7 @@ internal class ContactController(
         ApiResponse(responseCode = "201"),
         ApiResponse(responseCode = "400", description = "Validation failed", content = [Content(schema = Schema(implementation = ApiError::class))]),
         ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "403", description = "Missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),
         ApiResponse(responseCode = "404", description = "Profile not found", content = [Content(schema = Schema(implementation = ApiError::class))]),
     )
     @PostMapping
@@ -70,6 +71,7 @@ internal class ContactController(
         ApiResponse(responseCode = "200"),
         ApiResponse(responseCode = "400", description = "Validation failed", content = [Content(schema = Schema(implementation = ApiError::class))]),
         ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "403", description = "Missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),
         ApiResponse(responseCode = "404", description = "Contact not found", content = [Content(schema = Schema(implementation = ApiError::class))]),
     )
     @PutMapping("/{id}")
@@ -82,6 +84,7 @@ internal class ContactController(
     @ApiResponses(
         ApiResponse(responseCode = "204"),
         ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "403", description = "Missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),
         ApiResponse(responseCode = "404", description = "Contact not found", content = [Content(schema = Schema(implementation = ApiError::class))]),
     )
     @DeleteMapping("/{id}")

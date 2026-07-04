@@ -134,6 +134,54 @@ class ProfileIntegrationTest : IntegrationTest() {
         assertThat(badResponse.body!!["code"]).isEqualTo("VALIDATION_ERROR")
     }
 
+    /**
+     * Regression test: PUT /api/v1/profile must self-heal when the person_profile row
+     * is missing (e.g. the AFTER_COMMIT listener failed or the row was deleted) instead
+     * of returning 404.
+     */
+    @Test
+    fun `self-heal - PUT profile succeeds even when profile row is missing`() {
+        val cookie = login("selfheal_put@example.com")
+
+        // Obtain the XSRF token via GET /api/v1/profile
+        val getResp = rest.exchange(
+            "/api/v1/profile", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        assertThat(getResp.statusCode).isEqualTo(HttpStatus.OK)
+        val xsrf = getResp.headers[HttpHeaders.SET_COOKIE]
+            ?.firstOrNull { it.startsWith("XSRF-TOKEN=") }
+            ?.substringAfter("XSRF-TOKEN=")?.substringBefore(";")
+
+        // Simulate the "stuck" state: delete the profile row directly
+        val account = dsl.selectFrom(USER_ACCOUNT)
+            .where(USER_ACCOUNT.EMAIL.eq("selfheal_put@example.com"))
+            .fetchOne()!!
+        dsl.deleteFrom(PERSON_PROFILE)
+            .where(PERSON_PROFILE.USER_ACCOUNT_ID.eq(account.id))
+            .execute()
+
+        // PUT /api/v1/profile must self-heal (recreate the row) and return 200
+        val putHeaders = HttpHeaders().apply {
+            add(HttpHeaders.COOKIE, cookie)
+            set(HttpHeaders.CONTENT_TYPE, "application/json")
+            if (xsrf != null) {
+                add(HttpHeaders.COOKIE, "XSRF-TOKEN=$xsrf")
+                add("X-XSRF-TOKEN", xsrf)
+            }
+        }
+        val putBody = mapOf("displayName" to "Healed Name", "legalName" to null, "preferredLocale" to "ru")
+        val putResp = rest.exchange(
+            "/api/v1/profile", HttpMethod.PUT,
+            HttpEntity(putBody, putHeaders),
+            Map::class.java,
+        )
+        assertThat(putResp.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(putResp.body!!["displayName"]).isEqualTo("Healed Name")
+        assertThat(putResp.body!!["preferredLocale"]).isEqualTo("ru")
+    }
+
     @Test
     fun `unauthenticated profile access is rejected`() {
         val response = rest.getForEntity("/api/v1/profile", Map::class.java)

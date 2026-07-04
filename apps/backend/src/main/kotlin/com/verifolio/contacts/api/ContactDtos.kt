@@ -1,5 +1,8 @@
 package com.verifolio.contacts.api
 
+import com.verifolio.contacts.domain.RelationshipType
+import io.swagger.v3.oas.annotations.media.ArraySchema
+import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 
@@ -9,13 +12,13 @@ data class ContactRequest(
     val companyName: String? = null,
     val companyDomain: String? = null,
     val title: String? = null,
-    @field:NotBlank val relationshipType: String,
+    val relationshipType: RelationshipType,
 )
 
 data class ContactResponse(
     val id: String,
     val name: String,
-    val email: String,
+    @field:Schema(format = "email") val email: String,
     val companyName: String?,
     val companyDomain: String?,
     val title: String?,
@@ -25,6 +28,6 @@ data class ContactResponse(
 )
 
 data class ContactListResponse(
-    val items: List<ContactResponse>,
+    @field:ArraySchema(maxItems = 50) val items: List<ContactResponse>,
     val nextCursor: String?,
 )

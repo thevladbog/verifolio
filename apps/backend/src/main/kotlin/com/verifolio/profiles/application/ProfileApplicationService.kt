@@ -1,12 +1,15 @@
 package com.verifolio.profiles.application
 
 import com.verifolio.audit.AuditService
+import com.verifolio.jooq.tables.records.PersonProfileRecord
 import com.verifolio.jooq.tables.references.PERSON_PROFILE
 import com.verifolio.platform.ApiException
+import com.verifolio.platform.SupportedLocales
 import com.verifolio.profiles.ProfileService
 import org.jooq.DSLContext
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -19,8 +22,6 @@ internal data class ProfileRow(
     val preferredLocale: String,
     val profileVerificationStatus: String,
 )
-
-private val ALLOWED_LOCALES = setOf("en", "ru")
 
 @Service
 internal class ProfileApplicationService(
@@ -49,7 +50,19 @@ internal class ProfileApplicationService(
             .fetchOne(PERSON_PROFILE.ID)!!
     }
 
-    @Transactional
+    /**
+     * Inserts a profile row for [userAccountId] if one does not already exist.
+     *
+     * REQUIRES_NEW: this method must always run in its own transaction so that the
+     * INSERT is committed immediately on return. When called from an AFTER_COMMIT
+     * listener the original transaction's resources are still bound to the thread
+     * but no further commit follows — using the default REQUIRED propagation would
+     * join those dead resources and silently discard the INSERT. REQUIRES_NEW
+     * suspends any outer transaction, opens a fresh one, commits it, then resumes
+     * the outer context. This is safe when called from self-heal paths too (the
+     * ON CONFLICT DO NOTHING guard prevents duplicate rows).
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun createIfAbsent(userAccountId: UUID, email: String) {
         val displayName = email.substringBefore("@")
         val inserted = dsl.insertInto(PERSON_PROFILE)
@@ -80,46 +93,39 @@ internal class ProfileApplicationService(
         val row = dsl.selectFrom(PERSON_PROFILE)
             .where(PERSON_PROFILE.USER_ACCOUNT_ID.eq(userAccountId))
             .fetchOne()
-        if (row != null) {
-            return ProfileRow(
-                profileId = row.id!!,
-                userAccountId = row.userAccountId!!,
-                displayName = row.displayName!!,
-                legalName = row.legalName,
-                preferredLocale = row.preferredLocale!!,
-                profileVerificationStatus = row.profileVerificationStatus!!,
-            )
-        }
+        if (row != null) return row.toProfileRow()
 
         // Self-heal: profile was not created by the AFTER_COMMIT listener
         createIfAbsent(userAccountId, email)
-        val healed = dsl.selectFrom(PERSON_PROFILE)
+        return dsl.selectFrom(PERSON_PROFILE)
             .where(PERSON_PROFILE.USER_ACCOUNT_ID.eq(userAccountId))
             .fetchOne()!!
-        return ProfileRow(
-            profileId = healed.id!!,
-            userAccountId = healed.userAccountId!!,
-            displayName = healed.displayName!!,
-            legalName = healed.legalName,
-            preferredLocale = healed.preferredLocale!!,
-            profileVerificationStatus = healed.profileVerificationStatus!!,
-        )
+            .toProfileRow()
     }
 
+    /**
+     * Updates the profile for the given user account.
+     * Self-heals if the profile row is missing (mirrors GET behaviour) so that an
+     * authenticated user can never receive a 404 on PUT /api/v1/profile.
+     */
     @Transactional
     fun update(
         userAccountId: UUID,
+        email: String,
         displayName: String,
         legalName: String?,
         preferredLocale: String,
     ): ProfileRow {
-        if (preferredLocale !in ALLOWED_LOCALES) {
+        if (preferredLocale !in SupportedLocales.ALL) {
             throw ApiException(
                 HttpStatus.BAD_REQUEST,
                 "VALIDATION_ERROR",
-                "Unsupported locale '$preferredLocale'. Allowed: $ALLOWED_LOCALES",
+                "Unsupported locale '$preferredLocale'. Allowed: ${SupportedLocales.ALL}",
             )
         }
+        // Self-heal: ensure the profile row exists before updating
+        createIfAbsent(userAccountId, email)
+
         val updated = dsl.update(PERSON_PROFILE)
             .set(PERSON_PROFILE.DISPLAY_NAME, displayName)
             .set(PERSON_PROFILE.LEGAL_NAME, legalName)
@@ -128,7 +134,7 @@ internal class ProfileApplicationService(
             .where(PERSON_PROFILE.USER_ACCOUNT_ID.eq(userAccountId))
             .returning()
             .fetchOne()
-            ?: throw ApiException(HttpStatus.NOT_FOUND, "PROFILE_NOT_FOUND", "Profile not found for user")
+            ?: throw ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "PROFILE_ERROR", "Profile missing after self-heal")
 
         audit.record(
             actorType = "USER",
@@ -138,13 +144,17 @@ internal class ProfileApplicationService(
             entityId = updated.id.toString(),
         )
 
-        return ProfileRow(
-            profileId = updated.id!!,
-            userAccountId = updated.userAccountId!!,
-            displayName = updated.displayName!!,
-            legalName = updated.legalName,
-            preferredLocale = updated.preferredLocale!!,
-            profileVerificationStatus = updated.profileVerificationStatus!!,
-        )
+        return updated.toProfileRow()
     }
+
+    // ---- helpers ----
+
+    private fun PersonProfileRecord.toProfileRow() = ProfileRow(
+        profileId = id!!,
+        userAccountId = userAccountId!!,
+        displayName = displayName!!,
+        legalName = legalName,
+        preferredLocale = preferredLocale!!,
+        profileVerificationStatus = profileVerificationStatus!!,
+    )
 }
