@@ -48,6 +48,27 @@ class MagicLinkRequestIntegrationTest : IntegrationTest() {
     }
 
     @Test
+    fun `invalid email returns 202 with same body, sends no mail, stores no token`() {
+        val valid = rest.postForEntity(
+            "/api/v1/auth/magic-links",
+            mapOf("email" to "valid@example.com"),
+            Map::class.java,
+        )
+        val invalid = rest.postForEntity(
+            "/api/v1/auth/magic-links",
+            mapOf("email" to "not-an-email"),
+            Map::class.java,
+        )
+        assertThat(invalid.statusCode).isEqualTo(HttpStatus.ACCEPTED)
+        assertThat(invalid.body).isEqualTo(valid.body)
+        assertThat(mail.sent.none { it.to == "not-an-email" }).isTrue()
+        val stored = dsl.selectFrom(MAGIC_LINK_TOKEN)
+            .where(MAGIC_LINK_TOKEN.EMAIL.eq("not-an-email"))
+            .fetch()
+        assertThat(stored).isEmpty()
+    }
+
+    @Test
     fun `re-requesting invalidates previous tokens`() {
         rest.postForEntity("/api/v1/auth/magic-links", mapOf("email" to "twice@example.com"), Map::class.java)
         rest.postForEntity("/api/v1/auth/magic-links", mapOf("email" to "twice@example.com"), Map::class.java)

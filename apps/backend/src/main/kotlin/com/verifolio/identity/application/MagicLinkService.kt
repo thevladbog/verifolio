@@ -3,13 +3,15 @@ package com.verifolio.identity.application
 import com.verifolio.audit.AuditService
 import com.verifolio.identity.domain.TokenGenerator
 import com.verifolio.identity.domain.TokenHasher
-import com.verifolio.identity.infrastructure.IdentityProperties
 import com.verifolio.jooq.tables.references.MAGIC_LINK_TOKEN
 import com.verifolio.notifications.MailPort
+import com.verifolio.platform.VerifolioProperties
 import org.jooq.DSLContext
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
+
+private val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
 
 @Service
 class MagicLinkService(
@@ -17,12 +19,23 @@ class MagicLinkService(
     private val hasher: TokenHasher,
     private val mail: MailPort,
     private val audit: AuditService,
-    private val props: IdentityProperties,
+    private val props: VerifolioProperties,
 ) {
 
     @Transactional
     fun requestMagicLink(rawEmail: String, ipHash: String?, userAgentHash: String?) {
         val email = rawEmail.trim().lowercase()
+
+        if (!EMAIL_REGEX.matches(email)) {
+            audit.record(
+                actorType = "USER", actorId = null, action = "MAGIC_LINK_REQUESTED",
+                entityType = "MAGIC_LINK_TOKEN",
+                metadata = mapOf("region" to props.region, "outcome" to "invalid_email"),
+                ipHash = ipHash, userAgentHash = userAgentHash,
+            )
+            return
+        }
+
         val now = OffsetDateTime.now()
 
         // Reissue invalidates all previous unconsumed tokens (docs/AUTHENTICATION.md).

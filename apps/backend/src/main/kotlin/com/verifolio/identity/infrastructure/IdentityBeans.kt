@@ -1,13 +1,12 @@
 package com.verifolio.identity.infrastructure
 
 import com.verifolio.identity.domain.TokenHasher
-import org.springframework.boot.context.properties.EnableConfigurationProperties
+import com.verifolio.platform.VerifolioProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-@EnableConfigurationProperties(IdentityProperties::class)
 internal class IdentityBeans {
     @Bean
-    fun tokenHasher(props: IdentityProperties) = TokenHasher(props.auth.tokenPepper)
+    fun tokenHasher(props: VerifolioProperties) = TokenHasher(props.auth.tokenPepper)
 }

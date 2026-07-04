@@ -1,20 +1,17 @@
-package com.verifolio.identity.infrastructure
+package com.verifolio.platform
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import java.time.Duration
 
-/**
- * Identity-scoped view of the verifolio.* config tree.
- * Keeps the identity module free of cross-module dependencies on platform internals.
- */
 @ConfigurationProperties(prefix = "verifolio")
-data class IdentityProperties(
+data class VerifolioProperties(
     val region: String,
     val auth: Auth,
 ) {
     data class Auth(
         val tokenPepper: String,
         val magicLinkTtl: Duration,
+        val sessionTtl: Duration,
         val frontendBaseUrl: String,
     )
 }
