@@ -21,4 +21,8 @@ internal class IdentityBeans {
         limit = 100,
         window = Duration.ofMinutes(15),
     )
+
+    @Bean("emailConfirmationLimiter")
+    fun emailConfirmationLimiter(props: VerifolioProperties) =
+        SlidingWindowRateLimiter(props.auth.emailConfirmationLimit, props.auth.emailConfirmationWindow)
 }

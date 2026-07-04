@@ -14,6 +14,7 @@ import org.springframework.security.web.csrf.CsrfFilter
 @Configuration
 class SecurityConfig(
     private val sessionAuthFilter: SessionAuthFilter,
+    private val recommenderSessionAuthFilter: RecommenderSessionAuthFilter,
     private val objectMapper: ObjectMapper,
 ) {
 
@@ -35,10 +36,17 @@ class SecurityConfig(
                 it.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 it.csrfTokenRequestHandler(csrfHandler)
                 // Unauthenticated entry points; session-protected endpoints keep CSRF.
-                it.ignoringRequestMatchers("/api/v1/auth/magic-links", "/api/v1/auth/sessions")
+                // Invitation endpoints are token-gated public entry points (pre-session);
+                // the session-scoped /api/v1/recommender/** endpoints keep CSRF.
+                it.ignoringRequestMatchers(
+                    "/api/v1/auth/magic-links",
+                    "/api/v1/auth/sessions",
+                    "/api/v1/invitations/**",
+                )
             }
             .authorizeHttpRequests {
                 it.requestMatchers("/api/v1/auth/magic-links", "/api/v1/auth/sessions").permitAll()
+                it.requestMatchers("/api/v1/invitations/**").permitAll()
                 it.requestMatchers("/v3/api-docs/**", "/v3/api-docs.yaml", "/docs").permitAll()
                 // Logout is idempotent: even an unauthenticated DELETE returns 204 with an
                 // expiring cookie. CSRF protection still applies (not in ignoringRequestMatchers).
@@ -52,6 +60,7 @@ class SecurityConfig(
             // authenticated user returns 403 (AccessDenied) rather than 401 (auth entry point),
             // which is the correct and testable behaviour.
             .addFilterBefore(sessionAuthFilter, CsrfFilter::class.java)
+            .addFilterBefore(recommenderSessionAuthFilter, CsrfFilter::class.java)
             .exceptionHandling {
                 it.authenticationEntryPoint { _, response, _ ->
                     response.status = 401
