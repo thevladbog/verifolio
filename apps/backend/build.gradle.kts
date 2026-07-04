@@ -26,8 +26,9 @@ plugins {
 
 group = "com.verifolio"
 version = "0.1.0-SNAPSHOT"
-// jOOQ version is managed by Spring Boot 4 BOM (3.19.35); runtime and codegen are aligned.
-// extra["jooq.version"] override removed — Boot 4 manages 3.19.35 which matches buildscript classpath.
+// Keep the runtime jOOQ version explicitly identical to the codegen version on the
+// buildscript classpath — do not rely on the Boot BOM staying on the same patch level.
+extra["jooq.version"] = "3.19.35"
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
 
