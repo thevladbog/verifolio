@@ -17,4 +17,12 @@ class SlidingWindowRateLimiter(private val limit: Int, private val window: Durat
             return true
         }
     }
+
+    /** Refunds the most recent acquisition for [key] — e.g. when the guarded action failed. */
+    fun release(key: String) {
+        val list = hits[key] ?: return
+        synchronized(list) {
+            if (list.isNotEmpty()) list.removeAt(list.size - 1)
+        }
+    }
 }

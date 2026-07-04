@@ -332,6 +332,108 @@ class ReferenceRequestIntegrationTest : IntegrationTest() {
         assertThat(send(cookieB, xsrfB, requestId).statusCode).isEqualTo(HttpStatus.NOT_FOUND)
     }
 
+    @Test
+    fun `editing the contact after attestation does not redirect the invitation`() {
+        val cookie = login("snapshot_owner@example.com")
+        val xsrfToken = xsrf(cookie)
+        val contactId = createContact(cookie, xsrfToken, email = "attested_rec@corp.example.com")
+        val templateId = anyTemplateId(cookie)
+        val requestId = createRequest(cookie, xsrfToken, contactId, templateId).body!!["id"] as String
+
+        // Owner edits the contact email after the attested request was created.
+        val updateResponse = rest.exchange(
+            "/api/v1/contacts/$contactId", HttpMethod.PUT,
+            HttpEntity(
+                mapOf(
+                    "name" to "Rec Ommender",
+                    "email" to "victim@corp.example.com",
+                    "relationshipType" to "MANAGER",
+                ),
+                authHeaders(cookie, xsrfToken),
+            ),
+            Map::class.java,
+        )
+        assertThat(updateResponse.statusCode).isEqualTo(HttpStatus.OK)
+
+        assertThat(send(cookie, xsrfToken, requestId).statusCode).isEqualTo(HttpStatus.OK)
+
+        // The invitation goes to the attested (snapshotted) address, never the edited one.
+        assertThat(mail.sent.map { it.to }).contains("attested_rec@corp.example.com")
+        assertThat(mail.sent.map { it.to }).doesNotContain("victim@corp.example.com")
+
+        val it = INVITATION_TOKEN
+        val tokenRow = dsl.selectFrom(it)
+            .where(it.REQUEST_ID.eq(UUID.fromString(requestId)))
+            .fetchOne()!!
+        assertThat(tokenRow.recommenderEmail).isEqualTo("attested_rec@corp.example.com")
+    }
+
+    @Test
+    fun `deleting a contact referenced by a request returns 409`() {
+        val cookie = login("delete_blocked@example.com")
+        val xsrfToken = xsrf(cookie)
+        val contactId = createContact(cookie, xsrfToken, email = "referenced_rec@corp.example.com")
+        val templateId = anyTemplateId(cookie)
+        createRequest(cookie, xsrfToken, contactId, templateId)
+
+        val response = rest.exchange(
+            "/api/v1/contacts/$contactId", HttpMethod.DELETE,
+            HttpEntity<Void>(authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(response.body!!["code"]).isEqualTo("CONTACT_IN_USE")
+    }
+
+    @Test
+    fun `failed email send refunds the rate limiter and keeps the request CREATED`() {
+        val cookie = login("mail_outage@example.com")
+        val xsrfToken = xsrf(cookie)
+        val contactId = createContact(cookie, xsrfToken, email = "outage_rec@corp.example.com")
+        val templateId = anyTemplateId(cookie)
+        val requestId = createRequest(cookie, xsrfToken, contactId, templateId).body!!["id"] as String
+
+        // Five failed attempts would exhaust the per-recommender window without the refund.
+        mail.failFor = "outage_rec@corp.example.com"
+        repeat(5) {
+            val failed = send(cookie, xsrfToken, requestId)
+            assertThat(failed.statusCode.is5xxServerError).isTrue()
+        }
+
+        val stillCreated = rest.exchange(
+            "/api/v1/reference-requests/$requestId", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        assertThat(stillCreated.body!!["status"]).isEqualTo("CREATED")
+
+        mail.failFor = null
+        assertThat(send(cookie, xsrfToken, requestId).statusCode).isEqualTo(HttpStatus.OK)
+    }
+
+    @Test
+    fun `create with omitted attestation field returns 400`() {
+        val cookie = login("omitted_attestation@example.com")
+        val xsrfToken = xsrf(cookie)
+        val contactId = createContact(cookie, xsrfToken, email = "omitted_rec@corp.example.com")
+        val templateId = anyTemplateId(cookie)
+
+        val response = rest.exchange(
+            "/api/v1/reference-requests", HttpMethod.POST,
+            HttpEntity(
+                mapOf(
+                    "recommenderContactId" to contactId,
+                    "templateId" to templateId,
+                ),
+                authHeaders(cookie, xsrfToken),
+            ),
+            Map::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+    }
+
     // ---- cancel ----
 
     private fun cancel(cookie: String, xsrfToken: String?, requestId: String) = rest.exchange(

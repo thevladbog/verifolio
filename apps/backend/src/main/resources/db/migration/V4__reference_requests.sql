@@ -2,6 +2,10 @@ create table reference_request (
     id                     uuid primary key default gen_random_uuid(),
     requester_profile_id   uuid not null references person_profile (id),
     recommender_contact_id uuid not null references recommender_contact (id) on delete restrict,
+    -- Snapshot of the contact at creation time: the verbal-consent attestation covers exactly
+    -- this recipient; later contact edits must not redirect an already-attested invitation.
+    recommender_name       text not null,
+    recommender_email      text not null,
     template_id            uuid not null references template (id),
     purpose                text,
     status                 text not null default 'CREATED'

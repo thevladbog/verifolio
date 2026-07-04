@@ -10,6 +10,7 @@ import com.verifolio.platform.ApiException
 import com.verifolio.profiles.ProfileService
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -99,9 +100,18 @@ internal class ContactService(
     fun delete(user: AuthenticatedUser, id: UUID) {
         val ownerProfileId = profileService.requireProfileId(user.userId, user.email)
         val rc = RECOMMENDER_CONTACT
-        val deleted = dsl.deleteFrom(rc)
-            .where(rc.ID.eq(id).and(rc.OWNER_PROFILE_ID.eq(ownerProfileId)))
-            .execute()
+        val deleted = try {
+            dsl.deleteFrom(rc)
+                .where(rc.ID.eq(id).and(rc.OWNER_PROFILE_ID.eq(ownerProfileId)))
+                .execute()
+        } catch (e: DataIntegrityViolationException) {
+            // reference_request.recommender_contact_id is ON DELETE RESTRICT
+            throw ApiException(
+                HttpStatus.CONFLICT,
+                "CONTACT_IN_USE",
+                "Contact is referenced by reference requests; cancel or complete them first",
+            )
+        }
 
         if (deleted == 0) throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Contact not found")
 

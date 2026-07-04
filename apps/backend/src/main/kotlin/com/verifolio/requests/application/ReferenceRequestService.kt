@@ -48,12 +48,12 @@ internal class ReferenceRequestService(
     fun create(user: AuthenticatedUser, req: CreateReferenceRequestRequest): ReferenceRequestResponse {
         val requesterProfileId = profileService.requireProfileId(user.userId, user.email)
 
-        contactLookup.findOwned(req.recommenderContactId!!, requesterProfileId)
+        val contact = contactLookup.findOwned(req.recommenderContactId!!, requesterProfileId)
             ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Contact not found")
         if (!templateLookup.exists(req.templateId!!)) {
             throw ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Unknown template")
         }
-        if (!req.verbalConsentAttested) {
+        if (req.verbalConsentAttested != true) {
             throw ApiException(
                 HttpStatus.BAD_REQUEST,
                 "CONSENT_REQUIRED",
@@ -65,6 +65,10 @@ internal class ReferenceRequestService(
         val record = dsl.insertInto(rr)
             .set(rr.REQUESTER_PROFILE_ID, requesterProfileId)
             .set(rr.RECOMMENDER_CONTACT_ID, req.recommenderContactId)
+            // Snapshot: the attestation covers this recipient; later contact edits must not
+            // redirect an already-attested invitation.
+            .set(rr.RECOMMENDER_NAME, contact.name)
+            .set(rr.RECOMMENDER_EMAIL, contact.email)
             .set(rr.TEMPLATE_ID, req.templateId)
             .set(rr.PURPOSE, req.purpose)
             .set(rr.STATUS, ReferenceRequestStatus.CREATED.name)
@@ -152,10 +156,13 @@ internal class ReferenceRequestService(
             )
         }
 
-        val contact = contactLookup.findOwned(record.recommenderContactId!!, requesterProfileId)
-            ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Contact not found")
+        // The snapshot taken at creation is authoritative: the verbal-consent attestation
+        // covers exactly this recipient, so contact edits after creation have no effect here.
+        val recommenderEmail = record.recommenderEmail!!
+        val recommenderName = record.recommenderName!!
 
-        if (!sendLimiter.tryAcquire(contact.email.lowercase())) {
+        val limiterKey = recommenderEmail.lowercase()
+        if (!sendLimiter.tryAcquire(limiterKey)) {
             throw ApiException(
                 HttpStatus.TOO_MANY_REQUESTS,
                 "RATE_LIMITED",
@@ -163,31 +170,38 @@ internal class ReferenceRequestService(
             )
         }
 
-        val rawToken = invitationTokens.mint(
-            requestId = id,
-            recommenderEmail = contact.email,
-            ttl = Duration.between(now, record.expiresAt),
-        )
+        try {
+            val rawToken = invitationTokens.mint(
+                requestId = id,
+                recommenderEmail = recommenderEmail,
+                ttl = Duration.between(now, record.expiresAt),
+            )
 
-        val base = props.auth.frontendBaseUrl
-        mail.send(
-            to = contact.email,
-            subject = "Reference request from ${user.email}",
-            textBody = buildString {
-                appendLine("Hello ${contact.name},")
-                appendLine()
-                appendLine("${user.email} asks you for a professional reference via Verifolio.")
-                record.purpose?.let {
+            val base = props.auth.frontendBaseUrl
+            mail.send(
+                to = recommenderEmail,
+                subject = "Reference request from ${user.email}",
+                textBody = buildString {
+                    appendLine("Hello $recommenderName,")
                     appendLine()
-                    appendLine("Context: $it")
-                }
-                appendLine()
-                appendLine("Open the request: $base/invitations/$rawToken")
-                appendLine()
-                appendLine("If you prefer not to respond, decline here: $base/invitations/$rawToken/decline")
-                appendLine("Report abuse: $base/invitations/$rawToken/report-abuse")
-            },
-        )
+                    appendLine("${user.email} asks you for a professional reference via Verifolio.")
+                    record.purpose?.let {
+                        appendLine()
+                        appendLine("Context: $it")
+                    }
+                    appendLine()
+                    appendLine("Open the request: $base/invitations/$rawToken")
+                    appendLine()
+                    appendLine("If you prefer not to respond, decline here: $base/invitations/$rawToken/decline")
+                    appendLine("Report abuse: $base/invitations/$rawToken/report-abuse")
+                },
+            )
+        } catch (e: Exception) {
+            // The transaction rolls back (no token, status stays CREATED) — refund the
+            // limiter slot so transient mail outages don't exhaust the recommender's window.
+            sendLimiter.release(limiterKey)
+            throw e
+        }
 
         val updated = dsl.update(rr)
             .set(rr.STATUS, ReferenceRequestStatus.SENT.name)

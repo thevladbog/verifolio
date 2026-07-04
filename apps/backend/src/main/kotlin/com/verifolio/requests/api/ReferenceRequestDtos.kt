@@ -8,7 +8,8 @@ data class CreateReferenceRequestRequest(
     @field:NotNull val recommenderContactId: UUID?,
     @field:NotNull val templateId: UUID?,
     @field:Size(max = 2000) val purpose: String? = null,
-    val verbalConsentAttested: Boolean = false,
+    /** Must be sent and true — the blocking verbal-consent attestation checkbox (USER_FLOWS.md Flow 2). */
+    @field:NotNull val verbalConsentAttested: Boolean?,
 )
 
 data class ReferenceRequestResponse(

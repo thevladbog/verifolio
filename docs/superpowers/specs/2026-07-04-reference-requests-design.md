@@ -158,7 +158,7 @@ DTO — clients join via the contacts API.
 
 ### Errors
 
-`CONSENT_REQUIRED` (400), `VALIDATION_FAILED` (400), `NOT_FOUND` (404),
+`CONSENT_REQUIRED` (400), `VALIDATION_ERROR` (400), `NOT_FOUND` (404),
 `INVALID_REQUEST_STATE` (409), `RATE_LIMITED` (429) — via existing `ApiException`/`ApiError`.
 
 ## State Machine

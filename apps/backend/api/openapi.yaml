@@ -750,10 +750,13 @@ components:
           maxLength: 2000
           minLength: 0
         verbalConsentAttested:
-          type: boolean
+          type:
+          - boolean
+          - "null"
       required:
       - recommenderContactId
       - templateId
+      - verbalConsentAttested
     ReferenceRequestResponse:
       type: object
       properties:

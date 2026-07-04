@@ -128,7 +128,10 @@ inherit context; append an entry when an iteration ships.
 
 ### What shipped
 
-- **Schema**: Flyway V4 migration adds `reference_request` (11-status check constraint),
+- **Schema**: Flyway V4 migration adds `reference_request` (11-status check constraint;
+  `recommender_name`/`recommender_email` snapshot the contact at creation so the
+  attestation covers exactly that recipient — contact edits never redirect an attested
+  invitation, and referenced contacts cannot be deleted: 409 `CONTACT_IN_USE`),
   `consent_record` (subject-attribution check: exactly one of `user_id` /
   `recommender_contact_id`, matched to `subject_type`; nullable `reference_request_id`
   FK links request-scoped consents), and `invitation_token` (unique `token_hash`).
@@ -151,8 +154,9 @@ inherit context; append an entry when an iteration ships.
 - **Audit**: `REFERENCE_REQUEST_CREATED`, `CONSENT_GRANTED`, `REFERENCE_REQUEST_SENT`,
   `REFERENCE_REQUEST_CANCELLED`, `INVITATION_TOKEN_REVOKED`. Metadata carries IDs/status/
   consent metadata only — no names or emails.
-- **Tests**: 68+ tests green; new unit state-machine test + 14 integration tests
-  (consent gating, token hashing, rate limiting, owner isolation, DB constraints).
+- **Tests**: 77 tests green; new unit state-machine + limiter tests and 20 integration
+  tests (consent gating, token hashing, rate limiting with refund-on-mail-failure,
+  contact-snapshot immutability, owner isolation, DB constraints).
 - **Docs/spec**: design spec `docs/superpowers/specs/2026-07-04-reference-requests-design.md`;
   plan `docs/superpowers/plans/2026-07-04-reference-requests.md`; OpenAPI snapshot refreshed.
 
