@@ -396,6 +396,46 @@ class ReferenceRequestIntegrationTest : IntegrationTest() {
         assertThat(sendAfterCancel.body!!["code"]).isEqualTo("INVALID_REQUEST_STATE")
     }
 
+    // ---- consent_record DB constraints ----
+
+    @Test
+    fun `consent record with no subject identifier is rejected by the database`() {
+        val cr = CONSENT_RECORD
+        org.junit.jupiter.api.assertThrows<org.springframework.dao.DataIntegrityViolationException> {
+            dsl.insertInto(cr)
+                .set(cr.SUBJECT_TYPE, "REQUESTER")
+                .set(cr.CONSENT_TYPE, "REQUESTER_VERBAL_CONSENT_ATTESTATION")
+                .set(cr.POLICY_TEXT_VERSION, "test:1")
+                .set(cr.REGION, "local")
+                .set(cr.STATUS, "GRANTED")
+                .execute()
+        }.also { assertThat(it.message).contains("chk_consent_subject") }
+    }
+
+    @Test
+    fun `consent record with both subject identifiers is rejected by the database`() {
+        val cookie = login("constraint_both@example.com")
+        val xsrfToken = xsrf(cookie)
+        val contactId = createContact(cookie, xsrfToken, email = "constraint_rec@corp.example.com")
+        val userId = dsl.select(com.verifolio.jooq.tables.references.USER_ACCOUNT.ID)
+            .from(com.verifolio.jooq.tables.references.USER_ACCOUNT)
+            .where(com.verifolio.jooq.tables.references.USER_ACCOUNT.EMAIL.eq("constraint_both@example.com"))
+            .fetchOne()!!.value1()!!
+
+        val cr = CONSENT_RECORD
+        org.junit.jupiter.api.assertThrows<org.springframework.dao.DataIntegrityViolationException> {
+            dsl.insertInto(cr)
+                .set(cr.SUBJECT_TYPE, "REQUESTER")
+                .set(cr.USER_ID, userId)
+                .set(cr.RECOMMENDER_CONTACT_ID, UUID.fromString(contactId))
+                .set(cr.CONSENT_TYPE, "REQUESTER_VERBAL_CONSENT_ATTESTATION")
+                .set(cr.POLICY_TEXT_VERSION, "test:1")
+                .set(cr.REGION, "local")
+                .set(cr.STATUS, "GRANTED")
+                .execute()
+        }.also { assertThat(it.message).contains("chk_consent_subject") }
+    }
+
     @Test
     fun `list with garbage status filter returns 400`() {
         val cookie = login("list_bad_status@example.com")
