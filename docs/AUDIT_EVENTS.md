@@ -219,7 +219,7 @@ Rules:
 - audit logs may be read only by per-region admins; every admin read of audit logs is itself audited;
 - audit-log retention is bounded per region policy (`REGION_POLICIES.md`) — no indefinite retention;
 - tamper-evidence is recommended: hash chaining of audit rows so deletions or edits are detectable;
-- on data subject erasure, audit rows are pseudonymized (actor identifiers replaced), never deleted (see `PRIVACY_AND_DATA_CLASSIFICATION.md`).
+- on data subject erasure, audit rows are pseudonymized (actor identifiers replaced) and retained only until the region's bounded audit-retention window expires (see `PRIVACY_AND_DATA_CLASSIFICATION.md`).
 
 ## AI-Agent Rule
 
