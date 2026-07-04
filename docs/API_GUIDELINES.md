@@ -22,11 +22,57 @@ Examples:
 /api/v1/profile
 /api/v1/reference-requests
 /api/v1/reference-requests/{id}
-api/v1/documents
+/api/v1/documents
 /api/v1/documents/{id}
-api/v1/documents/{id}/versions
+/api/v1/documents/{id}/versions
 /api/v1/files/{id}/download-url
 /api/v1/verification-pages/{token}
+/api/v1/templates
+/api/v1/templates/{id}
+/api/v1/contacts
+/api/v1/contacts/{id}
+/api/v1/verification-signals            (read-only)
+/api/v1/documents/{id}/verification-signals (read-only)
+/api/v1/share-links
+/api/v1/share-links/{id}
+/api/v1/consent-records
+/api/v1/consent-records/{id}
+```
+
+Auth:
+
+```text
+POST   /api/v1/auth/magic-links
+POST   /api/v1/auth/sessions
+DELETE /api/v1/auth/sessions/current
+```
+
+Invitations (recommender flow, token-scoped):
+
+```text
+GET  /api/v1/invitations/{token}
+POST /api/v1/invitations/{token}/confirm-email
+POST /api/v1/invitations/{token}/consent
+POST /api/v1/invitations/{token}/decline
+POST /api/v1/invitations/{token}/responses
+```
+
+File uploads:
+
+```text
+POST /api/v1/files/upload-requests
+```
+
+Data subject requests:
+
+```text
+POST /api/v1/data-subject-requests
+```
+
+Admin API uses a dedicated prefix with separate authorization:
+
+```text
+/api/v1/admin/...
 ```
 
 ## Command Endpoints
@@ -35,7 +81,7 @@ Use explicit commands for important state changes:
 
 ```text
 POST /api/v1/reference-requests/{id}/send
-POST /api/v1/reference-requests/{id}/revoke
+POST /api/v1/reference-requests/{id}/cancel
 POST /api/v1/documents/{id}/share-links
 POST /api/v1/share-links/{id}/revoke
 POST /api/v1/document-versions/{id}/lock
@@ -63,6 +109,9 @@ UNAUTHORIZED
 FORBIDDEN
 NOT_FOUND
 VALIDATION_ERROR
+CONFLICT                        (HTTP 409)
+RATE_LIMITED                    (HTTP 429)
+INTERNAL_ERROR                  (HTTP 500)
 TOKEN_EXPIRED
 TOKEN_REVOKED
 DOCUMENT_VERSION_LOCKED
@@ -71,6 +120,15 @@ REGION_POLICY_VIOLATION
 VERIFICATION_SIGNAL_INVALID
 SIGNATURE_VERIFICATION_FAILED
 ```
+
+## Idempotency
+
+Retryable command endpoints accept an `Idempotency-Key` header:
+
+- the client generates a UUID per logical operation;
+- a replayed request with the same key returns the original response (same status code and body), without repeating side effects;
+- keys are retained for 24 hours; after the retention window a reused key is treated as a new request;
+- reusing a key with a different request body returns `CONFLICT` (409).
 
 ## Authentication
 
@@ -89,6 +147,17 @@ Example:
 ```text
 GET /api/v1/documents?limit=20&cursor=...
 ```
+
+Response envelope:
+
+```json
+{
+  "items": [],
+  "nextCursor": "opaque-cursor-or-null"
+}
+```
+
+`nextCursor` is `null` on the last page.
 
 ## OpenAPI
 

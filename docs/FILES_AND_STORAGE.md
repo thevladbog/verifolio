@@ -43,23 +43,44 @@ FileObject
 - size_bytes
 - sha256_hash
 - purpose
+- status
 - uploaded_by_actor_id
 - created_at
 ```
+
+## FileObject Status Lifecycle
+
+```text
+PENDING → VALIDATING → READY | REJECTED
+                          ↓
+                       DELETED
+```
+
+- **PENDING** — metadata created, pre-signed upload URL issued, upload not yet confirmed;
+- **VALIDATING** — upload confirmed, async validation pipeline running;
+- **READY** — validation passed; the file may be attached, downloaded, and referenced;
+- **REJECTED** — validation failed; the object is inaccessible and scheduled for removal;
+- **DELETED** — erased per the deletion model below.
+
+Only `READY` files are available to any other module. `PENDING` and `VALIDATING` files must never be served.
+
+`PENDING` objects have a TTL. A cleanup job removes expired pending metadata and any orphaned storage objects.
 
 ## Object Key Strategy
 
 Recommended object key format:
 
 ```text
-{region}/{profile_id}/{document_id}/{document_version_id}/{file_id}/{safe_filename}
+{region}/{profile_id}/{document_id}/{document_version_id}/{file_id}
 ```
 
 Example:
 
 ```text
-eu/profile_123/doc_456/version_1/file_789/recommendation.pdf
+eu/profile_123/doc_456/version_1/file_789
 ```
+
+Object keys never contain the user-provided filename; keys use opaque IDs only. The original filename lives in FileObject metadata (`original_filename`) and is returned via the `Content-Disposition` header on download.
 
 Do not include raw personal names or emails in object keys.
 
@@ -69,13 +90,34 @@ Recommended flow:
 
 1. Frontend asks backend for upload permission.
 2. Backend validates actor and purpose.
-3. Backend creates pending FileObject metadata.
-4. Backend returns pre-signed upload URL.
+3. Backend creates FileObject metadata with status `PENDING`.
+4. Backend returns a pre-signed PUT URL.
 5. Client uploads to object storage.
-6. Backend confirms upload.
-7. Backend calculates or verifies hash.
-8. Backend marks FileObject as ready.
+6. Backend confirms upload and sets status `VALIDATING`.
+7. The async validation pipeline runs (see below).
+8. Backend marks FileObject `READY` or `REJECTED`.
 9. Backend creates audit event.
+
+Pre-signed PUT URLs must be constrained:
+
+- `content-length-range` matching the declared size and the size limit;
+- `content-type` fixed to the declared MIME type;
+- short expiry;
+- single opaque object key (no client-chosen keys).
+
+## Async Validation Pipeline
+
+Validation is an asynchronous post-upload step, executed as a Temporal workflow (see ADR 0005). It gates availability: a file is not visible to any consumer until it reaches `READY`.
+
+The pipeline runs after upload confirmation and includes:
+
+- MIME sniffing (content must match the declared type);
+- size verification;
+- antivirus scan;
+- SHA-256 hash calculation;
+- region policy check.
+
+Any failure sets status `REJECTED` and creates an audit event.
 
 ## Download Flow
 
@@ -89,21 +131,40 @@ Recommended flow:
 
 ## File Validation
 
-Minimum validation:
+Minimum validation (enforced by the async pipeline above):
 
 - size limit;
 - allowed MIME types;
 - extension check;
 - content sniffing;
-- antivirus scan where available;
+- antivirus scan;
 - hash calculation;
 - region policy check.
 
 ## File Immutability
 
-A FileObject is immutable after upload confirmation.
+A FileObject is immutable after it reaches `READY`.
 
 If a file changes, it must be stored as a new FileObject.
+
+## Signatures and File Targets
+
+Digital signatures reference specific FileObjects by SHA-256 hash, so a signature verification result is always bound to exact, immutable file contents.
+
+If no signature verification provider is available in a region, only `SIGNATURE_ATTACHED` is asserted — never `SIGNATURE_VERIFIED`. See ADR 0007 (`docs/adr/0007-signature-verification-providers.md`).
+
+## Deletion & Crypto-Shredding
+
+Erasure of a FileObject means either:
+
+- **physical deletion** of the storage object; or
+- **crypto-shredding** — destroying the per-object encryption key so the stored bytes become unrecoverable.
+
+Rules:
+
+- every deletion sets status `DELETED` and creates a `FILE_DELETED` audit event;
+- tombstoned document versions keep their hashes: locked document versions retain the file's SHA-256 hash and metadata needed for verification history, even after the file contents are erased;
+- deletion of files backing locked versions follows the data subject request process, not ad-hoc removal.
 
 ## MinIO Local Development
 

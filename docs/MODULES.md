@@ -20,6 +20,7 @@ signatures
 workflows
 notifications
 audit
+privacy
 admin
 ```
 
@@ -40,7 +41,7 @@ Owns:
 Does not own:
 
 - document permissions;
-- profile trust score;
+- profile trust summary;
 - reference content.
 
 ### profiles
@@ -51,7 +52,7 @@ Owns:
 - profile verification state;
 - public/private profile fields;
 - professional links;
-- profile trust signals.
+- profile trust summary presentation (consumes a read model of signals owned by `verification`; there is no numeric trust score).
 
 ### organizations
 
@@ -61,6 +62,8 @@ Owns:
 - domains;
 - company metadata;
 - organization verification signals.
+
+MVP scope is minimal: the `Organization` entity and domain records only. Full organization verification is post-MVP (see `docs/ROADMAP.md`).
 
 ### contacts
 
@@ -76,6 +79,8 @@ Owns:
 Owns:
 
 - reference request lifecycle;
+- reference responses;
+- consent records;
 - selected template;
 - requester context;
 - recommender invitation state;
@@ -116,8 +121,8 @@ Owns:
 
 Owns:
 
-- verification signals;
-- trust summary;
+- verification signal records (single owner; other modules consume read models only);
+- trust summary derivation (counts of confirmed signals by category — never a numeric score);
 - verification status;
 - evidence metadata;
 - verification page display model.
@@ -134,13 +139,18 @@ Owns:
 
 ### workflows
 
-Owns:
+Owns only the shared Temporal infrastructure:
 
-- Temporal workflow definitions;
-- long-running orchestration;
-- reminders;
-- expirations;
-- background verification flows.
+- Temporal client configuration;
+- worker registration;
+- shared workflow testing utilities.
+
+Workflow definitions live in the owning domain modules (e.g. the reference request lifecycle workflow lives in `requests`, signature verification flows in `signatures`, reminders in the module that triggers them). `workflows` must contain no domain logic.
+
+Allowed dependency edges:
+
+- domain modules → `workflows` (to register workers and obtain the Temporal client);
+- `workflows` → no domain module (it must not depend on domain modules).
 
 ### notifications
 
@@ -160,6 +170,17 @@ Owns:
 - append-only event records;
 - actor/action/entity metadata.
 
+### privacy
+
+A small dedicated compliance module (chosen explicitly instead of placing this under `admin`, so that data subject handling is not coupled to internal support tooling).
+
+Owns:
+
+- data subject requests (DELETION, EXPORT, REGION_MIGRATION, CONSENT_WITHDRAWAL, CORRECTION);
+- data subject request lifecycle and per-region SLA tracking;
+- erasure/export orchestration entry points (delegating deletion of module data to the owning modules);
+- intake for account holders and account-less recommenders.
+
 ### admin
 
 Owns:
@@ -168,6 +189,19 @@ Owns:
 - moderation;
 - operational dashboards;
 - controlled support actions.
+
+### platform
+
+Owns cross-cutting technical concerns:
+
+- configuration properties (`VerifolioProperties`);
+- API error contract (`ApiError`, `GlobalExceptionHandler`);
+- OpenAPI/Scalar wiring;
+- web infrastructure (filter configuration, proxy awareness).
+
+Must contain no domain logic. All domain modules may depend on its public API.
+
+The `platform` module exists in code alongside the domain modules in `apps/backend`.
 
 ## Module Dependency Rules
 

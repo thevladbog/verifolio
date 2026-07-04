@@ -2,7 +2,9 @@
 
 Generated: 2026-07-02
 
-This package extends the initial Verifolio development documentation with operational rules for human developers and AI agents.
+Status: governance and specification pack. The backend is bootstrapped under `apps/backend` (identity slice delivered — see `apps/backend/README.md`). Frontend (`apps/web`) remains target state. Operational docs (`LOCAL_DEVELOPMENT.md`, `CONTRIBUTING.md` commands) reflect this split.
+
+This repository contains the operational rules for human developers and AI agents, together with the Verifolio module documentation: `docs/` in this repository is the module documentation (architecture, data model, security, modules, workflows, and related specifications).
 
 It focuses on:
 
@@ -44,21 +46,17 @@ It focuses on:
 For AI coding agents:
 
 1. Read `AGENTS.md`.
-2. Read `docs/agent/AGENT_OPERATING_MODEL.md`.
+2. Follow the canonical reading list in `AGENTS.md` § Pre-Coding Reading List.
 3. Read the relevant skill in `skills/*/SKILL.md`.
-4. Read module-specific documentation from the main development docs package.
+4. Read the module-specific documentation in `docs/`.
 5. Implement only within documented boundaries.
 6. Add tests and documentation updates.
 
 ## Highest-Priority Rules
 
+The single canonical rule list lives in `AGENTS.md` § Non-Negotiable Rules. Headline examples:
+
 1. Do not modify locked document versions.
 2. Do not expose S3/MinIO object URLs publicly.
 3. Do not bypass domain authorization.
-4. Do not add database changes without Flyway migrations.
-5. Do not change API contracts without OpenAPI updates.
-6. Do not add sensitive actions without audit events.
-7. Do not introduce cross-region data flows without region policy review and an ADR.
-8. Do not create new verification signals without documenting semantics.
-9. Do not implement auth/security/file handling changes without tests.
-10. Do not let AI/OCR providers process regional data unless region policy explicitly allows it.
+4. Do not send regional user data to non-regional providers.

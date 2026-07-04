@@ -24,7 +24,7 @@ Handling:
 Examples:
 
 - email;
-- phone;
+- phone (collected only if/when SMS features ship; see RU SMS provider policy in `REGION_POLICIES.md`);
 - login events;
 - session metadata;
 - profile name.
@@ -64,6 +64,42 @@ Handling:
 - region-local;
 - sensitive;
 - strict access control.
+
+### Recommender PII
+
+Recommender personal data is personal data of a data subject who may have no Verifolio account.
+
+Examples:
+
+- recommender name;
+- recommender email;
+- recommender email confirmation events;
+- recommender consent records;
+- recommender uploads.
+
+Handling:
+
+- region-local (stored in the cell chosen by the requester's region);
+- processed only under an explicit recommender consent (see Consent Model);
+- operational recommender PII is erasable on decline, withdrawal, or data subject request;
+- consent records follow the retention rules in `Deletion & Erasure Model`;
+- never published without RECOMMENDER_PUBLIC_SHARING_CONSENT.
+
+### Public Viewer Telemetry
+
+Examples:
+
+- IP hash of anonymous verification page visitors;
+- user-agent hash of anonymous visitors;
+- aggregated/sampled page view counters.
+
+Handling:
+
+- hashes are keyed HMAC with a per-cell secret pepper (rotation defined in `SECURITY.md`);
+- keyed hashes remain personal data under GDPR and are classified as personal data;
+- page views are stored aggregated/sampled; full audit rows are recorded only for downloads and state changes;
+- region-local;
+- bounded retention per region policy.
 
 ### Document Files
 
@@ -143,9 +179,116 @@ Never log:
 
 Collect only what is required for the selected workflow.
 
+## Consent Model
+
+### Versioned Consent Texts
+
+Each region policy (RU/EU/GLOBAL) defines versioned consent texts:
+
+- a data-processing consent (152-FZ for RU, GDPR for EU);
+- a cross-border transfer consent, used when the data subject and the storing cell are in different jurisdictions.
+
+Every ConsentRecord references the exact consent text version accepted.
+
+### Consent Types
+
+```text
+REQUESTER_VERBAL_CONSENT_ATTESTATION
+RECOMMENDER_PROCESSING_CONSENT
+RECOMMENDER_PUBLIC_SHARING_CONSENT
+CROSS_BORDER_TRANSFER_CONSENT
+```
+
+### Requester Attestation
+
+At request creation, the requester must check an attestation:
+
+```text
+I confirm the recommender gave me verbal consent to receive this request.
+```
+
+Rules:
+
+- stored as a ConsentRecord of type REQUESTER_VERBAL_CONSENT_ATTESTATION;
+- audited (CONSENT_GRANTED);
+- invitations cannot be sent without it.
+
+### Recommender Processing Consent
+
+When the recommender opens the invitation (after email confirmation) and before entering any answers, they must either:
+
+- explicitly ACCEPT the region's data-processing policy — stored as a ConsentRecord of type RECOMMENDER_PROCESSING_CONSENT with the versioned text; or
+- explicitly DECLINE.
+
+Decline effects:
+
+- request status becomes DECLINED;
+- reminders stop immediately;
+- CONSENT_DECLINED audit event is emitted;
+- recommender PII is scheduled for erasure.
+
+### Public Sharing Consent
+
+RECOMMENDER_PUBLIC_SHARING_CONSENT is a separate, optional consent covering:
+
+- public verification pages;
+- downloadable copies of the recommender's uploads.
+
+Without it, the recommendation stays private to the recipient.
+
+### Withdrawal
+
+Any consent can be withdrawn later:
+
+- CONSENT_WITHDRAWN audit event;
+- triggers the retraction flow (verification signals set to REVOKED, public page marked retracted; see `WORKFLOWS.md`).
+
+## Data Subject Requests
+
+### Types
+
+```text
+DELETION
+EXPORT
+REGION_MIGRATION
+CONSENT_WITHDRAWAL
+CORRECTION
+```
+
+### Statuses
+
+```text
+RECEIVED -> IN_REVIEW -> APPROVED -> EXECUTED
+                      -> REJECTED
+```
+
+### Rules
+
+- Per-region SLA: GDPR — 30 days; 152-FZ — per statutory terms; defined in `REGION_POLICIES.md`.
+- Available to account holders and to recommenders. Recommenders are data subjects without accounts: they submit requests via a verified email flow (confirmation code sent to the recommender email on file); no account is required.
+- Every request and every status transition is audited (DATA_SUBJECT_REQUEST_RECEIVED / APPROVED / REJECTED / EXECUTED).
+- Stored as DataSubjectRequest entities (see `DATA_MODEL.md`).
+
+## Deletion & Erasure Model
+
+Rules:
+
+- FileObjects are physically deleted or crypto-shredded (deletion of the per-object encryption key).
+- Locked DocumentVersions are TOMBSTONED: content and files are deleted; the sha256 hash, version number, and lock date are retained.
+- Audit rows are pseudonymized and retained only for the region's defined audit-retention window, then deleted.
+- Public pages for tombstoned versions show: "content removed at data subject's request".
+
+Legal basis for retained hashes: the sha256 hash, version number, and lock date are retained as integrity evidence under legitimate interest — they do not reveal content and cannot be reversed, but preserve the ability to detect forged copies of previously issued documents.
+
 ## Retention
 
-Retention policies must be defined per region and data type.
+Retention periods are defined per region and data type in `REGION_POLICIES.md`.
+
+Rules:
+
+- audit-log retention must be bounded (no indefinite audit storage);
+- expired data is deleted per the Deletion & Erasure Model above;
+- consent records are retained as long as needed to evidence the lawful basis, then per region policy.
 
 ## User Controls
 
@@ -153,8 +296,9 @@ Users should be able to:
 
 - revoke share links;
 - delete drafts;
-- request export;
-- request deletion where applicable;
+- request export (Data Subject Request of type EXPORT);
+- request deletion (Data Subject Request of type DELETION);
+- withdraw consent (Data Subject Request of type CONSENT_WITHDRAWAL);
 - control public visibility.
 
 ## AI-Agent Rule

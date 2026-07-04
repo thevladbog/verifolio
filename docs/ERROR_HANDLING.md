@@ -18,12 +18,25 @@ AUTHORIZATION
 VALIDATION
 NOT_FOUND
 CONFLICT
+RATE_LIMITING
 REGION_POLICY
 EXTERNAL_PROVIDER
 WORKFLOW
 STORAGE
 SIGNATURE
 INTERNAL
+```
+
+Category-to-code mapping (aligned with `API_GUIDELINES.md`):
+
+```text
+AUTHENTICATION → UNAUTHORIZED (401)
+AUTHORIZATION  → FORBIDDEN (403)
+VALIDATION     → VALIDATION_ERROR (400)
+NOT_FOUND      → NOT_FOUND (404)
+CONFLICT       → CONFLICT (409)
+RATE_LIMITING  → RATE_LIMITED (429)
+INTERNAL       → INTERNAL_ERROR (500)
 ```
 
 ## Error Response
@@ -63,6 +76,8 @@ Logs should include:
 - error code;
 - safe metadata.
 
+Raw token values (magic link, invitation, share, or session tokens) must never appear in error messages or logs.
+
 Logs must not include:
 
 - raw tokens;
@@ -97,6 +112,18 @@ Invitation/share link has been revoked.
 ### SIGNATURE_VERIFICATION_FAILED
 
 Signature validation failed or provider could not verify the signature.
+
+### CONFLICT
+
+The request conflicts with current state (e.g. duplicate operation, stale version, or an `Idempotency-Key` reused with a different body).
+
+### RATE_LIMITED
+
+Too many requests; the client must slow down and retry after the indicated interval.
+
+### INTERNAL_ERROR
+
+Unexpected server-side failure. The message must stay generic; details are available only via the request ID in logs.
 
 ## Retryable Errors
 

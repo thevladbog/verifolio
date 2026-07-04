@@ -39,29 +39,7 @@ in one large PR unless explicitly planned.
 
 ## Required PR Sections
 
-```markdown
-## Summary
-
-## Affected Modules
-
-## Product Behavior
-
-## Domain Rules
-
-## Security / Authorization
-
-## Regional Data Impact
-
-## Database Changes
-
-## API Changes
-
-## Tests
-
-## Documentation
-
-## Risks / Follow-ups
-```
+`.github/PULL_REQUEST_TEMPLATE.md` is the authoritative definition of the required PR sections. Do not duplicate the section list here; update the template instead.
 
 ## Review Requirements
 
@@ -99,22 +77,13 @@ agent-generated
 
 ## AI-Generated PRs
 
-If an AI agent contributed significantly, include:
-
-```markdown
-## AI Contribution
-
-- Agent/tool used:
-- Files changed by agent:
-- Human review focus:
-- Known uncertainties:
-```
+If an AI agent contributed significantly, the AI Contribution Disclosure must be filled in. It is embedded in `.github/PULL_REQUEST_TEMPLATE.md` (tool, model, human review performed).
 
 ## Merge Requirements
 
 Before merge:
 
-- CI passes;
+- CI passes (CI for the docs repo is defined in `.github/workflows/docs.yml`; application CI will be bootstrapped with the code repo, see `docs/TESTING.md` § CI Requirements);
 - review comments resolved;
 - docs updated;
 - migrations reviewed;

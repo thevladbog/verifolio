@@ -34,9 +34,25 @@ User can add:
 - portfolio;
 - company profile.
 
+Links that are added but not verified are labeled "self-reported".
+
+Verification methods:
+
+- OAuth sign-in with the linked platform (where the platform supports it);
+- domain/page ownership proof via a meta tag or `rel="me"` link pointing back to the Verifolio profile.
+
+Link verification beyond these two methods is post-MVP.
+
 ### Name Consistency
 
-System checks whether document recipient names match profile name.
+System checks whether document recipient names match the profile name via the `NAME_MATCH` signal defined in `VERIFICATION_SIGNALS.md`, which specifies:
+
+- match levels;
+- transliteration handling;
+- user-first surfacing (the user sees the result before anyone else);
+- the dispute path.
+
+Non-strong match states are not shown publicly.
 
 ### Recipient Confirmed by Recommender
 
@@ -57,7 +73,7 @@ Public page may show:
 ```text
 Recipient profile: Verified email
 Recipient confirmed by recommender
-Name match: strong
+Name match signal (per NAME_MATCH in VERIFICATION_SIGNALS.md; only strong matches shown publicly)
 ```
 
 It must not show:

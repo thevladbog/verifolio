@@ -115,6 +115,8 @@ No Keycloak in v1.
 
 **Temporal**
 
+Self-hosted per regional cell (see ADR 0005, `docs/adr/0005-workflow-engine.md`).
+
 Used for long-running business processes:
 
 - reference request lifecycle;
@@ -124,6 +126,10 @@ Used for long-running business processes:
 - signature verification;
 - profile verification;
 - share link expiration and revocation.
+
+## Signature Verification
+
+Signature verification is provider-based and region-specific (eIDAS providers in the EU; GOST R 34.10-2012 / CryptoPro-ecosystem providers in RU). See ADR 0007 (`docs/adr/0007-signature-verification-providers.md`).
 
 ## Local Development
 
@@ -142,7 +148,7 @@ Local services:
 
 ## Frontend
 
-Recommended:
+Decided (see ADR 0006, `docs/adr/0006-frontend-stack.md`):
 
 - Next.js;
 - React;
@@ -153,6 +159,8 @@ Recommended:
 - Zod;
 - TanStack Query;
 - generated OpenAPI client.
+
+The frontend is deployed per regional cell; public verification pages are rendered within the cell.
 
 ## Testing
 

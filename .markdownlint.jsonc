@@ -1,0 +1,11 @@
+{
+  // Style-only rules relaxed for this documentation-heavy repo.
+  "MD013": false, // line length
+  "MD041": false, // first line must be H1 (PR template starts with ##)
+  "MD033": false, // inline HTML
+  "MD024": { "siblings_only": true }, // duplicate headings allowed across sections
+  "MD060": false, // table column style — compact tables used throughout
+  "MD031": false, // blanks around fences — plan docs embed fences tightly in lists
+  "MD032": false, // blanks around lists — same reason
+  "MD036": false  // emphasis used instead of heading — stylistic in tech-stack docs
+}

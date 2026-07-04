@@ -1,5 +1,7 @@
 # Contributing
 
+> Status: backend commands under `apps/backend` are real and functional (run from `apps/backend/`). Frontend (`apps/web`) commands remain target state — that app has not yet been bootstrapped.
+
 ## Development Philosophy
 
 Verifolio is a trust product. Code quality, security, auditability, and data residency are product features.
@@ -45,29 +47,12 @@ npm run build
 
 ## Pull Request Description
 
-Every PR should include:
+Use the pull request template in `.github/PULL_REQUEST_TEMPLATE.md`. It is the single source for required PR sections.
 
-```markdown
-## Summary
+## Documentation Governance
 
-## Affected Modules
-
-## Domain Rules Considered
-
-## Security / Authorization Impact
-
-## Regional Data Impact
-
-## Database Changes
-
-## API Changes
-
-## Tests
-
-## Documentation Updates
-
-## Risks / Follow-ups
-```
+- The issue tracker is GitHub Issues in this repository.
+- Changes to `AGENTS.md`, `DEFINITION_OF_DONE.md`, and `skills/**` require human approval per `CODEOWNERS`.
 
 ## Documentation Requirements
 

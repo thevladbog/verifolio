@@ -34,7 +34,7 @@ Requirements:
 
 - secure HTTP-only cookies;
 - SameSite protection;
-- CSRF protection where applicable;
+- CSRF protection (required for all cookie-based sessions);
 - server-side sessions;
 - session expiration;
 - session revocation;
@@ -44,6 +44,43 @@ Requirements:
 - audit events.
 
 Magic link tokens and invitation tokens must be stored hashed, not plaintext.
+
+## Admin Access
+
+Admin and support access rules (separate per-region admin accounts, mandatory MFA, audited reads, no modification of locked versions or signals) are defined in `AUTHENTICATION.md` (Admin & Support Access).
+
+## Encryption & Secrets
+
+Requirements:
+
+- TLS 1.2+ for all connections (external and service-to-service);
+- at-rest encryption for PostgreSQL, object storage, and backups;
+- per-cell secrets stored in a vault/KMS — never in code, config repos, or shared across cells;
+- `ip_hash`/`user_agent_hash` use keyed HMAC with a per-cell secret pepper;
+- pepper rotation is defined per cell (rotated at least annually and on suspected compromise; old pepper retained only long enough to rotate stored hashes or expire them);
+- keyed hashes remain personal data under GDPR.
+
+## Backups & Disaster Recovery
+
+Requirements:
+
+- backup residency equals cell residency — backups never leave the cell's jurisdiction;
+- backups are encrypted;
+- restore tests are performed periodically;
+- backup deletion follows the erasure model in `PRIVACY_AND_DATA_CLASSIFICATION.md`.
+
+## Link Lifetimes
+
+- Magic links and pre-signed download URLs are short-lived.
+- Share links are durable but revocable, and optionally expiring.
+
+## Share-Token Hygiene
+
+Requirements:
+
+- token URLs are excluded or redacted from access logs;
+- verification pages set `Referrer-Policy: no-referrer`;
+- only `token_hash` is persisted — never the raw share token.
 
 ## Authorization Security
 
@@ -82,11 +119,13 @@ Requirements:
 
 Rules:
 
+- versions are locked only after the recipient accepts the response in NEEDS_REVIEW (see `WORKFLOWS.md`); PDF generation, hashing, version locking, and signal creation happen only after that acceptance;
 - locked versions are immutable;
-- changing confirmed content creates a new version;
+- corrections happen via a new response cycle producing a new document version — locked versions are never edited;
 - recommender-confirmed content cannot be silently edited by requester;
 - signatures are linked to file hashes;
-- verification pages must show the exact document version.
+- verification pages must show the exact document version;
+- public page enablement is an explicit recipient action, never automatic.
 
 ## Public Verification Pages
 
@@ -115,7 +154,7 @@ Prefer:
 - request IDs;
 - actor IDs;
 - entity IDs;
-- hashed IP/user-agent where necessary.
+- keyed-HMAC hashed IP/user-agent only (never raw values).
 
 ## Audit Events
 
@@ -134,7 +173,7 @@ Audit events are required for:
 - signature verified;
 - share link created;
 - share link revoked;
-- public verification page viewed;
+- public verification page viewed (aggregated/sampled; full audit rows only for downloads and state changes — see `AUDIT_EVENTS.md`);
 - file downloaded.
 
 ## AI/OCR Security

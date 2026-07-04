@@ -10,7 +10,10 @@ Examples:
 
 - Russian deployment for Russian users.
 - EU deployment for EU users.
+- GLOBAL cell for users with no residency requirement.
 - Future country or region-specific deployments.
+
+Cells can launch sequentially (for example, EU first). See `docs/ROADMAP.md` for the staged rollout plan.
 
 ## Regional Cell
 
@@ -22,11 +25,19 @@ Each regional cell contains:
 - frontend application;
 - PostgreSQL database;
 - S3-compatible object storage;
-- Temporal cluster/namespace;
+- dedicated Temporal cluster (or at minimum a cluster whose persistence store is physically inside the region);
 - mail provider configuration;
 - audit logs;
 - monitoring/logging;
 - optional OCR/AI services.
+
+Shared Temporal-cluster namespaces across cells are forbidden for cells with `dataResidency: required` — workflow state is regional data. See ADR 0005.
+
+The current cells are:
+
+- **EU** — hosted in the European Union;
+- **RU** — hosted in the Russian Federation;
+- **GLOBAL** — a normal regional cell hosted in a named jurisdiction (placeholder: EU-hosted infrastructure) for users with no residency requirement. It is distinct from the stateless global marketing/region-selection layer and offers weaker residency guarantees, as stated in the Terms of Service. See `docs/REGION_POLICIES.md`.
 
 ## Region Selection
 
@@ -46,6 +57,10 @@ This determines where your personal data, documents, files, and audit records wi
 
 IP-based region detection may be used only as a suggestion. It must not silently determine the storage region.
 
+## Region Routing at Login
+
+Users authenticate on region-specific app domains (for example `app.eu.verifolio.com`, `app.ru.verifolio.com`). The global layer only performs region selection; there is no global email→region directory in v1. See ADR 0008 (`docs/adr/0008-region-routing-at-login.md`).
+
 ## Region Immutability
 
 A user's region must not be changed automatically.
@@ -57,6 +72,22 @@ Region migration requires:
 - audit trail;
 - legal review;
 - deletion or retention policy for the source region.
+
+## Region Migration
+
+Region migration is a user-initiated **data subject request** (DSR).
+
+Execution:
+
+1. Export from the source cell.
+2. Import into the target cell.
+3. Verified deletion in the source cell.
+
+Requirements:
+
+- audited on both sides with `REGION_MIGRATION_STARTED`, `REGION_MIGRATION_COMPLETED`, and `REGION_MIGRATION_FAILED` events;
+- locked document versions and their hashes are preserved across the migration;
+- consent texts are re-accepted in the target region before the migration completes.
 
 ## Data That Must Stay Regional
 
@@ -118,7 +149,9 @@ https://verify.eu.verifolio.example/v/...
 https://verify.ru.verifolio.example/v/...
 ```
 
-or a global router may redirect to the correct regional cell without storing personal data globally.
+or a global verification router may redirect to the correct regional cell.
+
+The global verification router is **stateless**: share-link and verification tokens encode the region (via a region-encoded token prefix or region subdomains), so routing requires no lookup and no personal data is stored globally. See ADR 0008.
 
 ## External Providers
 
@@ -134,6 +167,12 @@ Examples:
 - monitoring/logging provider.
 
 If a region cannot legally or operationally use a provider, the related feature must be disabled or implemented locally.
+
+## Monitoring & Logging
+
+Monitoring and log pipelines are per-cell.
+
+Log data containing personal data must not leave the region. Any centralized dashboards may consume only aggregated, non-personal metrics.
 
 ## AI/OCR Processing Modes
 

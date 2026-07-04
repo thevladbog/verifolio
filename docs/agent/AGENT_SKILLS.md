@@ -45,3 +45,5 @@ Each skill includes:
 - common mistakes;
 - required tests;
 - done checklist.
+
+For documentation-only skills, the "Required Tests" section may instead be titled "Required Verification" and contain verification steps rather than executable tests.

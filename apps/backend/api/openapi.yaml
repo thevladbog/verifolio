@@ -1,0 +1,168 @@
+openapi: 3.1.0
+info:
+  title: Verifolio API
+  description: "Verifolio backend API. Trust model: verification signals, not binary\
+    \ verified flags."
+  version: v1
+servers:
+- url: http://localhost:8080
+  description: Generated server url
+paths:
+  /api/v1/auth/sessions:
+    post:
+      tags:
+      - auth-controller
+      operationId: createSession
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CurrentUserResponse"
+        "401":
+          description: Invalid or expired token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/auth/magic-links:
+    post:
+      tags:
+      - auth-controller
+      operationId: requestMagicLink
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MagicLinkRequest"
+        required: true
+      responses:
+        "202":
+          description: Accepted — same response whether or not the account exists
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Validation failed
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limited
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /docs:
+    get:
+      tags:
+      - api-docs-ui-controller
+      operationId: scalarUi
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+  /api/v1/auth/sessions/current:
+    get:
+      tags:
+      - auth-controller
+      operationId: currentSession
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CurrentUserResponse"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      tags:
+      - auth-controller
+      operationId: logout
+      parameters:
+      - name: verifolio_session
+        in: cookie
+        required: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Session revoked (idempotent)
+        "403":
+          description: Missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  schemas:
+    SessionRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+      required:
+      - token
+    ApiError:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties:
+            type: string
+        requestId:
+          type: string
+      required:
+      - code
+      - details
+      - message
+    CurrentUserResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        email:
+          type: string
+        region:
+          type: string
+      required:
+      - email
+      - region
+      - userId
+    MagicLinkRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          minLength: 1
+      required:
+      - email
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+      - message

@@ -7,14 +7,11 @@ alwaysApply: true
 
 Read `AGENTS.md` before working.
 
-Non-negotiable:
+The most catastrophic rules, inline:
 
 - Do not modify locked document versions.
 - Do not expose S3/MinIO URLs publicly.
 - Do not bypass domain authorization.
-- Do not add DB changes without Flyway migrations.
-- Do not change APIs without OpenAPI updates.
-- Do not add sensitive actions without audit events.
-- Do not send regional data to non-regional providers.
-- Do not add verification signals without documentation.
-- Always add tests for behavior changes.
+- Do not move regional data (including consent records) out of its region or send it to non-regional providers.
+
+The full non-negotiable list lives in `AGENTS.md` § Non-Negotiable Rules — read it before any change. `AGENTS.md` is the single canonical rule source.
