@@ -13,4 +13,7 @@ interface ProfileService {
      * the profile is created on-the-fly (self-heal) and the new id is returned.
      */
     fun requireProfileId(userAccountId: UUID, email: String): UUID
+
+    /** Display name of a profile, or null if the profile does not exist. */
+    fun displayName(profileId: UUID): String?
 }
