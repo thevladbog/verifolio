@@ -1,4 +1,4 @@
-package com.verifolio.identity.infrastructure
+package com.verifolio.platform
 
 import java.time.Duration
 import java.time.Instant
