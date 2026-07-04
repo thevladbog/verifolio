@@ -1,0 +1,20 @@
+---
+description: Core Verifolio rules for all AI coding work
+alwaysApply: true
+---
+
+# Verifolio Core Rules
+
+Read `AGENTS.md` before working.
+
+Non-negotiable:
+
+- Do not modify locked document versions.
+- Do not expose S3/MinIO URLs publicly.
+- Do not bypass domain authorization.
+- Do not add DB changes without Flyway migrations.
+- Do not change APIs without OpenAPI updates.
+- Do not add sensitive actions without audit events.
+- Do not send regional data to non-regional providers.
+- Do not add verification signals without documentation.
+- Always add tests for behavior changes.

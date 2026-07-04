@@ -1,0 +1,15 @@
+---
+description: File and object storage rules
+globs:
+  - "apps/backend/**/files/**/*.kt"
+  - "apps/backend/**/documents/**/*.kt"
+alwaysApply: false
+---
+
+# Storage Rules
+
+- Only the files module may call object storage directly.
+- Never expose public object storage URLs.
+- Store FileObject metadata and hashes.
+- Downloads require backend authorization.
+- Uploads require validation and audit events.

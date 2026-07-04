@@ -1,0 +1,16 @@
+---
+description: Backend Kotlin/Spring rules
+globs:
+  - "apps/backend/**/*.kt"
+alwaysApply: false
+---
+
+# Backend Rules
+
+- Keep controllers thin.
+- Put use-case orchestration in application services.
+- Keep domain rules in domain classes/policies.
+- Use jOOQ for DB access.
+- Use Flyway for migrations.
+- Do not access another module's repositories directly.
+- Add authorization checks and audit events for sensitive actions.
