@@ -3,20 +3,33 @@ package com.verifolio.requests.application
 import com.verifolio.audit.AuditService
 import com.verifolio.identity.InvitationAccess
 import com.verifolio.identity.InvitationTokenService
+import com.verifolio.identity.RecommenderActor
 import com.verifolio.identity.RecommenderGrant
 import com.verifolio.identity.RecommenderSessions
 import com.verifolio.jooq.tables.records.ReferenceRequestRecord
+import com.verifolio.jooq.tables.references.CONSENT_RECORD
 import com.verifolio.jooq.tables.references.REFERENCE_REQUEST
+import com.verifolio.jooq.tables.references.REFERENCE_RESPONSE
 import com.verifolio.notifications.MailPort
 import com.verifolio.platform.ApiException
+import com.verifolio.platform.VerifolioProperties
 import com.verifolio.profiles.ProfileService
+import com.verifolio.requests.api.ConsentDecisionRequest
+import com.verifolio.requests.api.ConsentTextRef
+import com.verifolio.requests.api.ConsentTextsDto
+import com.verifolio.requests.api.DraftDto
+import com.verifolio.requests.api.DraftRequest
 import com.verifolio.requests.api.InvitationPreviewResponse
+import com.verifolio.requests.api.RecommenderRequestContext
+import com.verifolio.requests.api.SubmitResponseRequest
 import com.verifolio.requests.domain.ReferenceRequestStatus
 import com.verifolio.templates.TemplateLookup
 import org.jooq.DSLContext
+import org.jooq.JSONB
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import tools.jackson.databind.ObjectMapper
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -31,6 +44,8 @@ internal class RecommenderFlowService(
     private val templateLookup: TemplateLookup,
     private val mail: MailPort,
     private val audit: AuditService,
+    private val props: VerifolioProperties,
+    private val objectMapper: ObjectMapper,
 ) {
 
     @Transactional
@@ -113,6 +128,275 @@ internal class RecommenderFlowService(
             metadata = mapOf("reason" to reason, "previousStatus" to status.name),
         )
     }
+
+    // ---- session-scoped flow ----
+
+    @Transactional(readOnly = true)
+    fun context(actor: RecommenderActor): RecommenderRequestContext {
+        val record = loadActiveRequest(actor.requestId)
+        val template = templateLookup.snapshot(record.templateId!!) ?: throw invitationNotFound()
+        val rr = REFERENCE_RESPONSE
+        val draft = dsl.selectFrom(rr)
+            .where(rr.REQUEST_ID.eq(actor.requestId).and(rr.SUBMITTED_AT.isNull))
+            .fetchOne()
+        return RecommenderRequestContext(
+            status = record.status!!,
+            requesterName = profileService.displayName(record.requesterProfileId!!) ?: "A Verifolio user",
+            purpose = record.purpose,
+            templateName = template.name,
+            questionSchema = parseJson(template.questionSchemaJson),
+            consents = ConsentTextsDto(
+                processing = ConsentTextRef(props.consents.processing.textId, props.consents.processing.version),
+                crossBorderTransfer = ConsentTextRef(
+                    props.consents.crossBorderTransfer.textId,
+                    props.consents.crossBorderTransfer.version,
+                ),
+            ),
+            draft = draft?.let {
+                DraftDto(
+                    answersJson = parseJson(it.answersJson!!.data()),
+                    approvedLetterText = it.approvedLetterText,
+                    updatedAt = it.updatedAt!!.toString(),
+                )
+            },
+        )
+    }
+
+    @Transactional
+    fun consent(actor: RecommenderActor, decision: ConsentDecisionRequest): ReferenceRequestStatus {
+        val record = loadActiveRequest(actor.requestId)
+        val status = ReferenceRequestStatus.valueOf(record.status!!)
+        if (status != ReferenceRequestStatus.OPENED) {
+            throw ApiException(
+                HttpStatus.CONFLICT,
+                "INVALID_REQUEST_STATE",
+                "The consent decision is only accepted at the consent gate (OPENED)",
+            )
+        }
+        val now = OffsetDateTime.now()
+
+        return if (decision.accepted == true) {
+            val processingConsentId = insertRecommenderConsent(
+                record, "RECOMMENDER_PROCESSING_CONSENT", props.consents.processing.versionedId,
+                granted = true, now = now,
+            )
+            auditConsent("CONSENT_GRANTED", processingConsentId, record, "RECOMMENDER_PROCESSING_CONSENT", props.consents.processing.versionedId)
+            if (decision.crossBorderAccepted == true) {
+                val crossBorderConsentId = insertRecommenderConsent(
+                    record, "CROSS_BORDER_TRANSFER_CONSENT", props.consents.crossBorderTransfer.versionedId,
+                    granted = true, now = now,
+                )
+                auditConsent("CONSENT_GRANTED", crossBorderConsentId, record, "CROSS_BORDER_TRANSFER_CONSENT", props.consents.crossBorderTransfer.versionedId)
+            }
+            transition(record.id!!, status, ReferenceRequestStatus.IN_PROGRESS)
+            ReferenceRequestStatus.IN_PROGRESS
+        } else {
+            val declinedConsentId = insertRecommenderConsent(
+                record, "RECOMMENDER_PROCESSING_CONSENT", props.consents.processing.versionedId,
+                granted = false, now = now,
+            )
+            auditConsent("CONSENT_DECLINED", declinedConsentId, record, "RECOMMENDER_PROCESSING_CONSENT", props.consents.processing.versionedId)
+            transition(record.id!!, status, ReferenceRequestStatus.DECLINED)
+            invitationTokens.revokeForRequest(record.id!!)
+            recommenderSessions.revokeForRequest(record.id!!)
+            audit.record(
+                actorType = "RECOMMENDER",
+                actorId = null,
+                action = "REQUEST_DECLINED",
+                entityType = "REFERENCE_REQUEST",
+                entityId = record.id.toString(),
+                metadata = mapOf("reason" to "consent_declined", "previousStatus" to status.name),
+            )
+            ReferenceRequestStatus.DECLINED
+        }
+    }
+
+    @Transactional
+    fun saveDraft(actor: RecommenderActor, draft: DraftRequest): DraftDto {
+        val record = loadActiveRequest(actor.requestId)
+        requireStatus(record, ReferenceRequestStatus.IN_PROGRESS)
+
+        val rr = REFERENCE_RESPONSE
+        val answers = JSONB.valueOf(objectMapper.writeValueAsString(draft.answersJson))
+        val existing = dsl.selectFrom(rr)
+            .where(rr.REQUEST_ID.eq(actor.requestId).and(rr.SUBMITTED_AT.isNull))
+            .forUpdate()
+            .fetchOne()
+
+        val row = if (existing == null) {
+            val inserted = dsl.insertInto(rr)
+                .set(rr.REQUEST_ID, actor.requestId)
+                .set(rr.RECOMMENDER_EMAIL, actor.email)
+                .set(rr.ANSWERS_JSON, answers)
+                .set(rr.APPROVED_LETTER_TEXT, draft.approvedLetterText)
+                .returning()
+                .fetchOne()!!
+            audit.record(
+                actorType = "RECOMMENDER",
+                actorId = null,
+                action = "REFERENCE_RESPONSE_STARTED",
+                entityType = "REFERENCE_RESPONSE",
+                entityId = inserted.id.toString(),
+                metadata = mapOf("requestId" to actor.requestId.toString()),
+            )
+            inserted
+        } else {
+            dsl.update(rr)
+                .set(rr.ANSWERS_JSON, answers)
+                .set(rr.APPROVED_LETTER_TEXT, draft.approvedLetterText)
+                .set(rr.UPDATED_AT, OffsetDateTime.now())
+                .where(rr.ID.eq(existing.id))
+                .returning()
+                .fetchOne()!!
+        }
+
+        return DraftDto(
+            answersJson = parseJson(row.answersJson!!.data()),
+            approvedLetterText = row.approvedLetterText,
+            updatedAt = row.updatedAt!!.toString(),
+        )
+    }
+
+    @Transactional
+    fun submit(actor: RecommenderActor, req: SubmitResponseRequest): ReferenceRequestStatus {
+        val record = loadActiveRequest(actor.requestId)
+        requireStatus(record, ReferenceRequestStatus.IN_PROGRESS)
+
+        val cr = CONSENT_RECORD
+        val consentGranted = dsl.fetchExists(
+            dsl.selectFrom(cr).where(
+                cr.REFERENCE_REQUEST_ID.eq(actor.requestId)
+                    .and(cr.CONSENT_TYPE.eq("RECOMMENDER_PROCESSING_CONSENT"))
+                    .and(cr.STATUS.eq("GRANTED")),
+            ),
+        )
+        if (!consentGranted) {
+            throw ApiException(HttpStatus.CONFLICT, "CONSENT_REQUIRED", "Processing consent record is missing")
+        }
+        if (req.recipientConfirmed != true || req.relationshipConfirmed != true) {
+            throw ApiException(
+                HttpStatus.BAD_REQUEST,
+                "CONFIRMATION_REQUIRED",
+                "Recipient and relationship confirmations are required before submission",
+            )
+        }
+
+        val now = OffsetDateTime.now()
+        val rr = REFERENCE_RESPONSE
+        val existing = dsl.selectFrom(rr)
+            .where(rr.REQUEST_ID.eq(actor.requestId).and(rr.SUBMITTED_AT.isNull))
+            .forUpdate()
+            .fetchOne()
+        val answers = req.answersJson?.let { JSONB.valueOf(objectMapper.writeValueAsString(it)) }
+
+        val responseId = if (existing == null) {
+            dsl.insertInto(rr)
+                .set(rr.REQUEST_ID, actor.requestId)
+                .set(rr.RECOMMENDER_EMAIL, actor.email)
+                .set(rr.ANSWERS_JSON, answers ?: JSONB.valueOf("{}"))
+                .set(rr.APPROVED_LETTER_TEXT, req.approvedLetterText)
+                .set(rr.CONFIRMATION_TEXT, req.confirmationText)
+                .set(rr.RECIPIENT_CONFIRMED, true)
+                .set(rr.RELATIONSHIP_CONFIRMED, true)
+                .set(rr.SUBMITTED_AT, now)
+                .returning(rr.ID)
+                .fetchOne()!!.id!!
+        } else {
+            var update = dsl.update(rr)
+                .set(rr.APPROVED_LETTER_TEXT, req.approvedLetterText)
+                .set(rr.CONFIRMATION_TEXT, req.confirmationText)
+                .set(rr.RECIPIENT_CONFIRMED, true)
+                .set(rr.RELATIONSHIP_CONFIRMED, true)
+                .set(rr.SUBMITTED_AT, now)
+                .set(rr.UPDATED_AT, now)
+            if (answers != null) update = update.set(rr.ANSWERS_JSON, answers)
+            update.where(rr.ID.eq(existing.id)).execute()
+            existing.id!!
+        }
+
+        // IN_PROGRESS -> SUBMITTED -> NEEDS_REVIEW: the second hop is the automatic
+        // system transition into the recipient review queue (WORKFLOWS.md).
+        transition(record.id!!, ReferenceRequestStatus.IN_PROGRESS, ReferenceRequestStatus.SUBMITTED)
+        transition(record.id!!, ReferenceRequestStatus.SUBMITTED, ReferenceRequestStatus.NEEDS_REVIEW)
+
+        audit.record(
+            actorType = "RECOMMENDER",
+            actorId = null,
+            action = "REFERENCE_RESPONSE_SUBMITTED",
+            entityType = "REFERENCE_RESPONSE",
+            entityId = responseId.toString(),
+            metadata = mapOf("requestId" to actor.requestId.toString()),
+        )
+        audit.record(
+            actorType = "RECOMMENDER", actorId = null,
+            action = "RECIPIENT_CONFIRMED_BY_RECOMMENDER",
+            entityType = "REFERENCE_RESPONSE", entityId = responseId.toString(),
+        )
+        audit.record(
+            actorType = "RECOMMENDER", actorId = null,
+            action = "RELATIONSHIP_CONFIRMED_BY_RECOMMENDER",
+            entityType = "REFERENCE_RESPONSE", entityId = responseId.toString(),
+        )
+
+        recommenderSessions.revokeForRequest(actor.requestId)
+        return ReferenceRequestStatus.NEEDS_REVIEW
+    }
+
+    private fun insertRecommenderConsent(
+        record: ReferenceRequestRecord,
+        consentType: String,
+        policyTextVersion: String,
+        granted: Boolean,
+        now: OffsetDateTime,
+    ): UUID {
+        val cr = CONSENT_RECORD
+        var step = dsl.insertInto(cr)
+            .set(cr.SUBJECT_TYPE, "RECOMMENDER")
+            .set(cr.RECOMMENDER_CONTACT_ID, record.recommenderContactId)
+            .set(cr.REFERENCE_REQUEST_ID, record.id)
+            .set(cr.CONSENT_TYPE, consentType)
+            .set(cr.POLICY_TEXT_VERSION, policyTextVersion)
+            .set(cr.REGION, props.region)
+            .set(cr.STATUS, if (granted) "GRANTED" else "DECLINED")
+        step = if (granted) step.set(cr.GRANTED_AT, now) else step.set(cr.DECLINED_AT, now)
+        return step.returning(cr.ID).fetchOne()!!.id!!
+    }
+
+    private fun auditConsent(
+        action: String,
+        consentId: UUID,
+        record: ReferenceRequestRecord,
+        consentType: String,
+        policyTextVersion: String,
+    ) {
+        audit.record(
+            actorType = "RECOMMENDER",
+            actorId = null,
+            action = action,
+            entityType = "CONSENT_RECORD",
+            entityId = consentId.toString(),
+            metadata = mapOf(
+                "consentType" to consentType,
+                "policyTextVersion" to policyTextVersion,
+                "region" to props.region,
+                "referenceRequestId" to record.id.toString(),
+            ),
+        )
+    }
+
+    private fun requireStatus(record: ReferenceRequestRecord, expected: ReferenceRequestStatus) {
+        if (ReferenceRequestStatus.valueOf(record.status!!) != expected) {
+            throw ApiException(
+                HttpStatus.CONFLICT,
+                "INVALID_REQUEST_STATE",
+                "Request must be in the $expected status for this action",
+            )
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseJson(json: String): Map<String, Any?> =
+        objectMapper.readValue(json, Map::class.java) as Map<String, Any?>
 
     // ---- shared helpers (also used by the session-scoped flow) ----
 

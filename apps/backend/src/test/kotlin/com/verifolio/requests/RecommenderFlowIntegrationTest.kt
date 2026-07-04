@@ -153,6 +153,31 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
             .first { it.startsWith("verifolio_recommender_session=") }.substringBefore(";")
     }
 
+    /** Fetch XSRF token using the recommender session cookie. */
+    private fun recommenderXsrf(cookie: String): String? {
+        val response = rest.exchange(
+            "/api/v1/recommender/request", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        return response.headers[HttpHeaders.SET_COOKIE]
+            ?.firstOrNull { it.startsWith("XSRF-TOKEN=") }
+            ?.substringAfter("XSRF-TOKEN=")?.substringBefore(";")
+    }
+
+    private fun acceptConsent(cookie: String, crossBorder: Boolean? = null): Map<*, *> {
+        val xsrfToken = recommenderXsrf(cookie)
+        val body = mutableMapOf<String, Any>("accepted" to true)
+        if (crossBorder != null) body["crossBorderAccepted"] = crossBorder
+        val response = rest.exchange(
+            "/api/v1/recommender/consent", HttpMethod.POST,
+            HttpEntity(body, authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        return response.body!!
+    }
+
     // ---- open ----
 
     @Test
@@ -257,6 +282,219 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
             .limit(1)
             .fetchOne(AUDIT_EVENT.METADATA)!!
         assertThat(metadata.data()).contains("abuse_report")
+    }
+
+    // ---- consent gate, draft, submission ----
+
+    @Test
+    fun `full happy path from open to NEEDS_REVIEW`() {
+        val (rawToken, requestId) = sendInvitation("happy_requester@example.com", "happy_rec@corp.example.com")
+        openInvitation(rawToken)
+        val cookie = confirmEmail(rawToken, "happy_rec@corp.example.com")
+
+        // Context at the consent gate.
+        val context = rest.exchange(
+            "/api/v1/recommender/request", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        assertThat(context.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(context.body!!["status"]).isEqualTo("OPENED")
+        @Suppress("UNCHECKED_CAST")
+        val consents = context.body!!["consents"] as Map<String, Map<String, Any>>
+        assertThat(consents["processing"]!!["textId"]).isEqualTo("local-processing")
+
+        assertThat(acceptConsent(cookie, crossBorder = true)["status"]).isEqualTo("IN_PROGRESS")
+
+        val xsrfToken = recommenderXsrf(cookie)
+        val draftResponse = rest.exchange(
+            "/api/v1/recommender/response-draft", HttpMethod.PUT,
+            HttpEntity(
+                mapOf("answersJson" to mapOf("q1" to "Great colleague"), "approvedLetterText" to "Draft letter"),
+                authHeaders(cookie, xsrfToken),
+            ),
+            Map::class.java,
+        )
+        assertThat(draftResponse.statusCode).isEqualTo(HttpStatus.OK)
+
+        val submitResponse = rest.exchange(
+            "/api/v1/recommender/responses", HttpMethod.POST,
+            HttpEntity(
+                mapOf(
+                    "approvedLetterText" to "Final approved letter text",
+                    "confirmationText" to "I confirm this recommendation is accurate",
+                    "recipientConfirmed" to true,
+                    "relationshipConfirmed" to true,
+                ),
+                authHeaders(cookie, xsrfToken),
+            ),
+            Map::class.java,
+        )
+        assertThat(submitResponse.statusCode).isEqualTo(HttpStatus.CREATED)
+        assertThat(submitResponse.body!!["status"]).isEqualTo("NEEDS_REVIEW")
+        assertThat(requestStatus(requestId)).isEqualTo("NEEDS_REVIEW")
+
+        val rr = com.verifolio.jooq.tables.references.REFERENCE_RESPONSE
+        val row = dsl.selectFrom(rr).where(rr.REQUEST_ID.eq(UUID.fromString(requestId))).fetchOne()!!
+        assertThat(row.approvedLetterText).isEqualTo("Final approved letter text")
+        assertThat(row.recipientConfirmed).isTrue()
+        assertThat(row.relationshipConfirmed).isTrue()
+        assertThat(row.submittedAt).isNotNull()
+        assertThat(row.answersJson!!.data()).contains("Great colleague")
+
+        val cr = com.verifolio.jooq.tables.references.CONSENT_RECORD
+        val consentTypes = dsl.select(cr.CONSENT_TYPE).from(cr)
+            .where(cr.REFERENCE_REQUEST_ID.eq(UUID.fromString(requestId)).and(cr.SUBJECT_TYPE.eq("RECOMMENDER")))
+            .fetch(cr.CONSENT_TYPE)
+        assertThat(consentTypes).containsExactlyInAnyOrder(
+            "RECOMMENDER_PROCESSING_CONSENT",
+            "CROSS_BORDER_TRANSFER_CONSENT",
+        )
+
+        assertThat(auditActions()).contains(
+            "CONSENT_GRANTED", "REFERENCE_RESPONSE_STARTED", "REFERENCE_RESPONSE_SUBMITTED",
+            "RECIPIENT_CONFIRMED_BY_RECOMMENDER", "RELATIONSHIP_CONFIRMED_BY_RECOMMENDER",
+        )
+
+        // Session revoked after submission.
+        val afterSubmit = rest.exchange(
+            "/api/v1/recommender/request", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        assertThat(afterSubmit.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `declining at the consent gate records a DECLINED consent and revokes the session`() {
+        val (rawToken, requestId) = sendInvitation("gate_requester@example.com", "gate_rec@corp.example.com")
+        openInvitation(rawToken)
+        val cookie = confirmEmail(rawToken, "gate_rec@corp.example.com")
+        val xsrfToken = recommenderXsrf(cookie)
+
+        val response = rest.exchange(
+            "/api/v1/recommender/consent", HttpMethod.POST,
+            HttpEntity(mapOf("accepted" to false), authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body!!["status"]).isEqualTo("DECLINED")
+        assertThat(requestStatus(requestId)).isEqualTo("DECLINED")
+
+        val cr = com.verifolio.jooq.tables.references.CONSENT_RECORD
+        val declined = dsl.selectFrom(cr)
+            .where(cr.REFERENCE_REQUEST_ID.eq(UUID.fromString(requestId)).and(cr.SUBJECT_TYPE.eq("RECOMMENDER")))
+            .fetchOne()!!
+        assertThat(declined.status).isEqualTo("DECLINED")
+        assertThat(declined.declinedAt).isNotNull()
+        assertThat(declined.recommenderContactId).isNotNull()
+        assertThat(declined.userId).isNull()
+        assertThat(auditActions()).contains("CONSENT_DECLINED")
+
+        val after = rest.exchange(
+            "/api/v1/recommender/request", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        assertThat(after.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `draft before consent acceptance returns 409`() {
+        val (rawToken, _) = sendInvitation("early_requester@example.com", "early_rec@corp.example.com")
+        openInvitation(rawToken)
+        val cookie = confirmEmail(rawToken, "early_rec@corp.example.com")
+        val xsrfToken = recommenderXsrf(cookie)
+
+        val response = rest.exchange(
+            "/api/v1/recommender/response-draft", HttpMethod.PUT,
+            HttpEntity(mapOf("answersJson" to mapOf("q1" to "too early")), authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(response.body!!["code"]).isEqualTo("INVALID_REQUEST_STATE")
+    }
+
+    @Test
+    fun `submit without confirmations returns 400 CONFIRMATION_REQUIRED`() {
+        val (rawToken, _) = sendInvitation("noconf_requester@example.com", "noconf_rec@corp.example.com")
+        openInvitation(rawToken)
+        val cookie = confirmEmail(rawToken, "noconf_rec@corp.example.com")
+        acceptConsent(cookie)
+        val xsrfToken = recommenderXsrf(cookie)
+
+        val response = rest.exchange(
+            "/api/v1/recommender/responses", HttpMethod.POST,
+            HttpEntity(
+                mapOf(
+                    "approvedLetterText" to "Letter",
+                    "recipientConfirmed" to false,
+                    "relationshipConfirmed" to true,
+                ),
+                authHeaders(cookie, xsrfToken),
+            ),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.body!!["code"]).isEqualTo("CONFIRMATION_REQUIRED")
+    }
+
+    @Test
+    fun `submit twice returns 409`() {
+        val (rawToken, _) = sendInvitation("twice_requester@example.com", "submit_twice_rec@corp.example.com")
+        openInvitation(rawToken)
+        val cookie = confirmEmail(rawToken, "submit_twice_rec@corp.example.com")
+        acceptConsent(cookie)
+        val xsrfToken = recommenderXsrf(cookie)
+
+        val body = mapOf(
+            "approvedLetterText" to "Letter",
+            "recipientConfirmed" to true,
+            "relationshipConfirmed" to true,
+        )
+        val first = rest.exchange(
+            "/api/v1/recommender/responses", HttpMethod.POST,
+            HttpEntity(body, authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(first.statusCode).isEqualTo(HttpStatus.CREATED)
+
+        // Session already revoked after submission → 401 (not 409): flow is closed.
+        val second = rest.exchange(
+            "/api/v1/recommender/responses", HttpMethod.POST,
+            HttpEntity(body, authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(second.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `user session on recommender endpoint returns 403`() {
+        val userCookie = login("regular_user@example.com")
+
+        val response = rest.exchange(
+            "/api/v1/recommender/request", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, userCookie) }),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+    }
+
+    @Test
+    fun `expired recommender session returns 401`() {
+        val (rawToken, _) = sendInvitation("expire_requester@example.com", "expire_rec@corp.example.com")
+        openInvitation(rawToken)
+        val cookie = confirmEmail(rawToken, "expire_rec@corp.example.com")
+
+        val rs = com.verifolio.jooq.tables.references.RECOMMENDER_SESSION
+        dsl.update(rs).set(rs.EXPIRES_AT, java.time.OffsetDateTime.now().minusMinutes(1)).execute()
+
+        val response = rest.exchange(
+            "/api/v1/recommender/request", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
     }
 
     @Test
