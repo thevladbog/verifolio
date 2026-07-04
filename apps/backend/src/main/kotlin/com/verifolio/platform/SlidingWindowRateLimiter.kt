@@ -1,4 +1,4 @@
-package com.verifolio.identity.infrastructure
+package com.verifolio.platform
 
 import java.time.Duration
 import java.time.Instant
@@ -15,6 +15,14 @@ class SlidingWindowRateLimiter(private val limit: Int, private val window: Durat
             if (list.size >= limit) return false
             list.add(now)
             return true
+        }
+    }
+
+    /** Refunds the most recent acquisition for [key] — e.g. when the guarded action failed. */
+    fun release(key: String) {
+        val list = hits[key] ?: return
+        synchronized(list) {
+            if (list.isNotEmpty()) list.removeAt(list.size - 1)
         }
     }
 }

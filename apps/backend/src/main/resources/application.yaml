@@ -36,3 +36,11 @@ verifolio:
     cookie-secure: false # local dev over plain http; MUST be true in any deployed environment
   mail:
     from: no-reply@verifolio.local
+  consents:
+    requester-attestation:
+      text-id: local-requester-attestation # region policy consent text id; overridden per cell (docs/REGION_POLICIES.md)
+      version: 1
+  requests:
+    expiry: 21d
+    send-limit-per-recommender: 5 # global anti-spam limit across all requesters (docs/RECOMMENDER_EXPERIENCE.md)
+    send-limit-window: 1d

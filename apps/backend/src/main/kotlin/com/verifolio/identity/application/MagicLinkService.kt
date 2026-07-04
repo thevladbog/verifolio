@@ -3,7 +3,7 @@ package com.verifolio.identity.application
 import com.verifolio.audit.AuditService
 import com.verifolio.identity.domain.TokenGenerator
 import com.verifolio.identity.domain.TokenHasher
-import com.verifolio.identity.infrastructure.SlidingWindowRateLimiter
+import com.verifolio.platform.SlidingWindowRateLimiter
 import com.verifolio.jooq.tables.references.MAGIC_LINK_TOKEN
 import com.verifolio.notifications.MailPort
 import com.verifolio.platform.ApiException
