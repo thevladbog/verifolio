@@ -1,6 +1,6 @@
 # Contributing
 
-> Status: the commands in this document describe the target state. The application code repository has not been bootstrapped yet.
+> Status: backend commands under `apps/backend` are real and functional (run from `apps/backend/`). Frontend (`apps/web`) commands remain target state — that app has not yet been bootstrapped.
 
 ## Development Philosophy
 

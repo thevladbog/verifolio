@@ -2,7 +2,7 @@
 
 Generated: 2026-07-02
 
-Status: governance and specification pack; application code has not been bootstrapped yet. Operational docs (`LOCAL_DEVELOPMENT.md`, `CONTRIBUTING.md` commands) describe the target state.
+Status: governance and specification pack. The backend is bootstrapped under `apps/backend` (identity slice delivered — see `apps/backend/README.md`). Frontend (`apps/web`) remains target state. Operational docs (`LOCAL_DEVELOPMENT.md`, `CONTRIBUTING.md` commands) reflect this split.
 
 This repository contains the operational rules for human developers and AI agents, together with the Verifolio module documentation: `docs/` in this repository is the module documentation (architecture, data model, security, modules, workflows, and related specifications).
 

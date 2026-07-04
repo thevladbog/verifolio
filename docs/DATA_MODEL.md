@@ -464,6 +464,8 @@ REQUESTER
 RECOMMENDER
 ```
 
+Attribution constraint: `subject_type` determines which identifier must be present. Exactly one of `user_id` or `recommender_contact_id` must be non-null — `REQUESTER` maps to `user_id`; `RECOMMENDER` maps to `recommender_contact_id`. Both-null and both-set states are invalid and must be rejected at the application layer.
+
 Consent types:
 
 ```text

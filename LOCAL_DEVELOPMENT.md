@@ -58,10 +58,11 @@ MINIO_SECRET_KEY=minio123
 TEMPORAL_ADDRESS=localhost:7233
 MAIL_HOST=localhost
 MAIL_PORT=1025
-SESSION_COOKIE_SECURE=false
 ```
 
 `APP_REGION=local` is development-only and must never be used as a production value. The production region registry lives in `docs/REGION_POLICIES.md`.
+
+The session cookie Secure attribute is controlled by the Spring property `verifolio.auth.cookie-secure` (defaults to `false` in `application.yaml` for local development over plain HTTP). Do not set this via an environment variable; use the Spring property instead.
 
 ## Start
 

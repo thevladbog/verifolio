@@ -81,7 +81,8 @@ Handling:
 
 - region-local (stored in the cell chosen by the requester's region);
 - processed only under an explicit recommender consent (see Consent Model);
-- erasable on decline, withdrawal, or data subject request (see Deletion & Erasure Model);
+- operational recommender PII is erasable on decline, withdrawal, or data subject request;
+- consent records follow the retention rules in `Deletion & Erasure Model`;
 - never published without RECOMMENDER_PUBLIC_SHARING_CONSENT.
 
 ### Public Viewer Telemetry
@@ -274,7 +275,7 @@ Rules:
 
 - FileObjects are physically deleted or crypto-shredded (deletion of the per-object encryption key).
 - Locked DocumentVersions are TOMBSTONED: content and files are deleted; the sha256 hash, version number, and lock date are retained.
-- Audit rows are pseudonymized, never deleted.
+- Audit rows are pseudonymized and retained only for the region's defined audit-retention window, then deleted.
 - Public pages for tombstoned versions show: "content removed at data subject's request".
 
 Legal basis for retained hashes: the sha256 hash, version number, and lock date are retained as integrity evidence under legitimate interest — they do not reveal content and cannot be reversed, but preserve the ability to detect forged copies of previously issued documents.

@@ -109,7 +109,7 @@ Avoid using real personal data in tests.
 
 ## CI Requirements
 
-> Status: application CI is not yet configured; bootstrapping it is a tracked task. Docs CI already exists in `.github/workflows/docs.yml`. The requirements below describe the target application CI.
+> Status: backend CI is configured in `.github/workflows/backend.yml` (build + full test suite including Testcontainers-based integration tests). Frontend CI remains future work. Docs CI already exists in `.github/workflows/docs.yml`. The requirements below describe the full target application CI.
 
 A pull request must pass:
 

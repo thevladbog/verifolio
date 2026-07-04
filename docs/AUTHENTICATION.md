@@ -75,7 +75,7 @@ Magic link rules:
 
 - single-use: the token is consumed on first successful validation;
 - bounded TTL (15 minutes);
-- requesting a new magic link invalidates all prior unconsumed tokens for that email and purpose;
+- requesting a new magic link invalidates all prior unconsumed tokens for that email (post-MVP: invalidation will also be scoped by `purpose` once that field is persisted);
 - the response to a magic link request is identical whether or not the email has an account (anti-enumeration).
 
 ## Session Requirements

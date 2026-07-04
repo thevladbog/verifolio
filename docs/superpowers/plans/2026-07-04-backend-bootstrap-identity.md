@@ -18,6 +18,8 @@
 
 ---
 
+## Tasks
+
 ### Task 1: Gradle scaffold for apps/backend
 
 **Files:**
@@ -2084,4 +2086,3 @@ git commit -m "docs: backend developer docs and agent implementation history"
 - User documentation: spec says "skip unless warranted" — nothing user-facing to document for an API-only slice; noted in T15.
 - Known risk: Spring Security CSRF token issuance for SPA-style clients may need the `CsrfTokenRequestAttributeHandler` adjustment (called out in T11 step 2).
 - jOOQ generated property names (`tokenHash`, `actorType`, …) follow KotlinGenerator camelCase mapping of snake_case columns; if generation output differs, adjust accessors accordingly — do not edit generated code.
-```

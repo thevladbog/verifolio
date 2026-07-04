@@ -16,11 +16,11 @@ This flow follows the canonical end-to-end sequence in `USER_FLOWS.md`.
 4. Accept or decline the processing consent (see Consent Gate below). Declining ends the flow: the request becomes `DECLINED`, reminders stop, and the recommender's PII is scheduled for erasure.
 5. Review request context.
 6. Answer guided questions.
-7. AI drafts the letter; review and approve the final text. Exactly the approved text is rendered into the PDF after the recipient accepts — no post-submission content changes.
+7. AI drafts the letter; review and approve the final text — no post-submission content changes to the approved text.
 8. Optionally upload scan/PDF and choose per upload whether it "may be shared publicly".
 9. Optionally attach signature (a signature covers the specific uploaded scan, never the generated PDF).
 10. Confirm recipient and relationship.
-11. Submit. The recipient then reviews the submission and either accepts it or requests a correction (a correction starts a new response cycle and produces a new document version).
+11. Submit. The recipient then reviews the submission in `NEEDS_REVIEW` and either accepts it or requests a correction. On acceptance, exactly the approved letter text is rendered into the final PDF and the document version is locked. A correction starts a new response cycle and produces a new document version.
 
 ## Consent Gate
 
