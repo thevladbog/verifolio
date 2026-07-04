@@ -1,5 +1,9 @@
 # Core Domain Model
 
+## Implementation Status
+
+The auth-related tables `user_account`, `magic_link_token`, `user_session`, and `audit_event` are implemented in `apps/backend` (Flyway V1 migration). All other entities described in this document are specification-only so far and have no corresponding migrations.
+
 ## Canonical Enums
 
 ### EntityType

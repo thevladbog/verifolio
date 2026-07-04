@@ -190,6 +190,19 @@ Owns:
 - operational dashboards;
 - controlled support actions.
 
+### platform
+
+Owns cross-cutting technical concerns:
+
+- configuration properties (`VerifolioProperties`);
+- API error contract (`ApiError`, `GlobalExceptionHandler`);
+- OpenAPI/Scalar wiring;
+- web infrastructure (filter configuration, proxy awareness).
+
+Must contain no domain logic. All domain modules may depend on its public API.
+
+The `platform` module exists in code alongside the domain modules in `apps/backend`.
+
 ## Module Dependency Rules
 
 Allowed:

@@ -4,6 +4,11 @@ import com.verifolio.identity.application.AuthenticatedUser
 import com.verifolio.identity.application.SessionService
 import com.verifolio.identity.domain.TokenHasher
 import com.verifolio.identity.application.MagicLinkService
+import com.verifolio.platform.web.ApiError
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.responses.ApiResponses
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.http.HttpHeaders
@@ -26,6 +31,11 @@ class AuthController(
     private val hasher: TokenHasher,
 ) {
 
+    @ApiResponses(
+        ApiResponse(responseCode = "202", description = "Accepted — same response whether or not the account exists"),
+        ApiResponse(responseCode = "400", description = "Validation failed", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "429", description = "Rate limited", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
     @PostMapping("/magic-links")
     fun requestMagicLink(
         @Valid @RequestBody body: MagicLinkRequest,
@@ -37,6 +47,10 @@ class AuthController(
             .body(MessageResponse("If the address is valid, a sign-in link has been sent."))
     }
 
+    @ApiResponses(
+        ApiResponse(responseCode = "200"),
+        ApiResponse(responseCode = "401", description = "Invalid or expired token", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
     @PostMapping("/sessions")
     fun createSession(
         @Valid @RequestBody body: SessionRequest,
@@ -49,10 +63,18 @@ class AuthController(
             .body(CurrentUserResponse(created.user.userId.toString(), created.user.email, created.user.region))
     }
 
+    @ApiResponses(
+        ApiResponse(responseCode = "200"),
+        ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
     @GetMapping("/sessions/current")
     fun currentSession(@AuthenticationPrincipal user: AuthenticatedUser): CurrentUserResponse =
         CurrentUserResponse(user.userId.toString(), user.email, user.region)
 
+    @ApiResponses(
+        ApiResponse(responseCode = "204", description = "Session revoked (idempotent)"),
+        ApiResponse(responseCode = "403", description = "Missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
     @DeleteMapping("/sessions/current")
     fun logout(
         @CookieValue(SessionCookie.NAME, required = false) rawToken: String?,

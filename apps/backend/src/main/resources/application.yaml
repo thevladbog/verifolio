@@ -28,3 +28,5 @@ verifolio:
     magic-link-ttl: 15m
     session-ttl: 30d
     frontend-base-url: http://localhost:3000
+  mail:
+    from: no-reply@verifolio.local
