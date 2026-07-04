@@ -2,7 +2,7 @@
 
 ## Implementation Status
 
-The auth-related tables `user_account`, `magic_link_token`, `user_session`, and `audit_event` are implemented in `apps/backend` (Flyway V1 migration). All other entities described in this document are specification-only so far and have no corresponding migrations.
+The auth-related tables `user_account`, `magic_link_token`, `user_session`, and `audit_event` are implemented in `apps/backend` (Flyway V1 migration). The `person_profile`, `organization` (minimal), `recommender_contact`, and `template` tables are implemented in `apps/backend` (Flyway V2 migration); six English-locale templates are seeded via Flyway V3 data migration. All other entities described in this document are specification-only so far and have no corresponding migrations.
 
 ## Canonical Enums
 
@@ -128,6 +128,19 @@ RecommenderContact
 - relationship_type
 - created_at
 - updated_at
+```
+
+`relationship_type` enum values:
+
+```text
+MANAGER
+COLLEAGUE
+DIRECT_REPORT
+CLIENT
+PROFESSOR
+MENTOR
+PERSONAL
+OTHER
 ```
 
 ## ReferenceRequest

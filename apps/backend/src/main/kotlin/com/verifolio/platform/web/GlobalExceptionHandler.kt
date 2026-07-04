@@ -10,6 +10,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 import java.util.UUID
 
@@ -35,6 +36,11 @@ class GlobalExceptionHandler {
     fun handleNotReadable(ex: HttpMessageNotReadableException): ResponseEntity<ApiError> =
         ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(ApiError("VALIDATION_ERROR", "Request body is missing or malformed", requestId = UUID.randomUUID().toString()))
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+    fun handleTypeMismatch(ex: MethodArgumentTypeMismatchException): ResponseEntity<ApiError> =
+        ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(ApiError("VALIDATION_ERROR", "Invalid parameter format", requestId = UUID.randomUUID().toString()))
 
     @ExceptionHandler(NoResourceFoundException::class)
     fun handleNoResource(ex: NoResourceFoundException): ResponseEntity<ApiError> =

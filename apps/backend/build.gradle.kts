@@ -10,24 +10,25 @@ import org.testcontainers.containers.PostgreSQLContainer
 buildscript {
     repositories { mavenCentral() }
     dependencies {
-        classpath("org.testcontainers:postgresql:1.21.3")
-        classpath("org.flywaydb:flyway-database-postgresql:11.10.0")
+        classpath("org.testcontainers:postgresql:1.21.4")
+        classpath("org.flywaydb:flyway-database-postgresql:11.14.1")
         classpath("org.postgresql:postgresql:42.7.7")
-        classpath("org.jooq:jooq-codegen:3.20.5")
+        classpath("org.jooq:jooq-codegen:3.19.35")
     }
 }
 
 plugins {
-    kotlin("jvm") version "2.1.21"
-    kotlin("plugin.spring") version "2.1.21"
-    id("org.springframework.boot") version "3.5.3"
+    kotlin("jvm") version "2.4.0"
+    kotlin("plugin.spring") version "2.4.0"
+    id("org.springframework.boot") version "4.0.7"
     id("io.spring.dependency-management") version "1.1.7"
 }
 
 group = "com.verifolio"
 version = "0.1.0-SNAPSHOT"
-// Keep the runtime jOOQ version identical to the codegen version on the buildscript classpath.
-extra["jooq.version"] = "3.20.5"
+// Keep the runtime jOOQ version explicitly identical to the codegen version on the
+// buildscript classpath — do not rely on the Boot BOM staying on the same patch level.
+extra["jooq.version"] = "3.19.35"
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
 
@@ -40,13 +41,17 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-jooq")
     implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.springframework.modulith:spring-modulith-starter-core")
+    // spring-boot-starter-flyway includes spring-boot-flyway (autoconfiguration) + flyway-core
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-core")
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.9")
+    implementation("tools.jackson.module:jackson-module-kotlin")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.3")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.boot:spring-boot-resttestclient")
+    testImplementation("org.springframework.boot:spring-boot-restclient")
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
     testImplementation("org.testcontainers:postgresql")
@@ -55,8 +60,8 @@ dependencies {
 
 dependencyManagement {
     imports {
-        mavenBom("org.springframework.modulith:spring-modulith-bom:1.4.1")
-        mavenBom("org.testcontainers:testcontainers-bom:1.21.3")
+        mavenBom("org.springframework.modulith:spring-modulith-bom:2.0.5")
+        mavenBom("org.testcontainers:testcontainers-bom:1.21.4")
     }
 }
 

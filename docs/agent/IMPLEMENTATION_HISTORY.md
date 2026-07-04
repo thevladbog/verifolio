@@ -75,3 +75,51 @@ inherit context; append an entry when an iteration ships.
   config key is the tracked fix.
 - **Event-driven audit dispatch** — currently `REQUIRES_NEW` transaction (Hikari pool
   sized to 20); migration to `AFTER_COMMIT` event dispatch is the long-term fix.
+
+## 2026-07 — Profiles, contacts, templates (iteration 2)
+
+### What shipped
+
+- **Schema**: Flyway V2 migration adds `person_profile`, `organization` (minimal),
+  `recommender_contact`, and `template` tables. Flyway V3 seeds six English-locale
+  templates (EMPLOYMENT_REFERENCE, IMMIGRATION_REFERENCE, VISA_SUPPORT_LETTER,
+  ACADEMIC_RECOMMENDATION, CLIENT_TESTIMONIAL, CHARACTER_REFERENCE).
+- **Profiles module** (`GET /api/v1/profile`, `PUT /api/v1/profile`): profile is
+  auto-created synchronously via a `UserAccountCreated` application event published by
+  the identity module (AFTER_COMMIT listener). Locale allowlist: `en`, `ru`. Audit
+  events: `PROFILE_CREATED`, `PROFILE_UPDATED`.
+- **Contacts module** (owner-scoped CRUD under `/api/v1/contacts`): keyset-cursor
+  pagination (page size 50); `RelationshipType` enum
+  MANAGER/COLLEAGUE/DIRECT_REPORT/CLIENT/PROFESSOR/MENTOR/PERSONAL/OTHER;
+  `org_id` is not exposed in the API. Audit events: `CONTACT_CREATED`,
+  `CONTACT_UPDATED`, `CONTACT_DELETED` (metadata contains `relationshipType` only —
+  name and email are never included).
+- **Templates module** (read-only, `GET /api/v1/templates?locale=`, `GET
+  /api/v1/templates/{id}`): JSON schemas returned as objects. Template reads are not
+  audited — templates contain no personal data and reads cross no authorization boundary.
+- **Identity public API**: `AuthenticatedUser` principal type and `UserAccountCreated`
+  event moved/created at `com.verifolio.identity` package root as shared module API.
+- **OpenAPI snapshot**: refreshed to include all new endpoints.
+- **Tests**: 43 tests green (unit + Testcontainers integration).
+
+### Conventions established
+
+| Convention | Detail |
+|---|---|
+| Cross-module communication | Application events published from the identity public API; other modules listen synchronously with `@TransactionalEventListener(phase = AFTER_COMMIT)` |
+| Persistent event registry | Not yet implemented — tracked as a follow-up |
+| Keyset-cursor pagination | Cursor = Base64(`ISO-createdAt\|id`); pageSize+1 lookahead to determine `hasNext` |
+| Seed data | Ships as Flyway data migrations (e.g., V3) |
+| Principal type | `com.verifolio.identity.AuthenticatedUser` is shared module API; inject via `@AuthenticationPrincipal` |
+
+### Deferred items
+
+- **Organizations API** — `organization` table is minimal (name + domains); the full
+  organizations module is scheduled for v1.1.
+- **Contact communication preferences** — not yet modelled.
+- **CUSTOM template authoring** — templates are read-only in MVP; custom authoring is
+  post-MVP.
+- **RU locales** — locale allowlist accepts `ru` but no RU-locale templates are seeded yet.
+- **Persistent event publication registry** — profile auto-creation relies on the
+  synchronous AFTER_COMMIT listener; a persistent outbox/registry is the tracked
+  long-term fix.

@@ -1,5 +1,6 @@
 package com.verifolio.identity.api
 
+import com.verifolio.identity.AuthenticatedUser
 import com.verifolio.identity.application.SessionService
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest

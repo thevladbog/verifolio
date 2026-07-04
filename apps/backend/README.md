@@ -68,6 +68,18 @@ Each module exposes its public API at the **package root** via a marker/aggregat
 object. Internal implementation lives in subpackages and is not accessible to other
 modules. Module boundaries are verified at test time by `ModularityTests`.
 
+### Implemented Modules
+
+| Module | Description |
+|---|---|
+| `identity` | Magic-link authentication, session management, CSRF, rate limiting |
+| `profiles` | User professional profile (auto-created on account creation); `GET/PUT /api/v1/profile` |
+| `contacts` | Owner-scoped recommender contact CRUD with keyset-cursor pagination; `/api/v1/contacts` |
+| `templates` | Read-only request template catalogue with locale filtering; `/api/v1/templates` |
+| `audit` | Append-only audit event log; written by all other modules |
+| `notifications` | Outbound email via `MailPort` / `SmtpMailAdapter` |
+| `platform` | Shared web infrastructure (`ApiError`, `GlobalExceptionHandler`, `OpenApiConfig`) |
+
 The `platform.web` subpackage is exposed as a named interface
 (`@NamedInterface("web")`) so other modules can depend on `ApiError`,
 `GlobalExceptionHandler`, `OpenApiConfig`, and `ApiDocsUiController`.

@@ -1,3 +1,5 @@
 build/
 .gradle/
 .kotlin/
+META-INF/
+org/
