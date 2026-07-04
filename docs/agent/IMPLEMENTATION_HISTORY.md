@@ -171,3 +171,8 @@ inherit context; append an entry when an iteration ships.
 - **Requester attestation consent texts per region** — config carries `local` placeholder
   text id/version; real per-region texts land with region policy configuration.
 - **Rate limiter remains in-process** — same limitation as auth rate limits.
+- **Invitation email sent inside the transaction** — matches the MagicLinkService
+  pattern; a failed send rolls everything back and refunds the limiter slot. The
+  residual window (commit failure after a successful SMTP send) leaves a dead link
+  only. Outbox/AFTER_COMMIT dispatch is the long-term fix, together with the
+  event-driven audit dispatch item from iteration 1.
