@@ -10,7 +10,7 @@ import org.testcontainers.containers.PostgreSQLContainer
 buildscript {
     repositories { mavenCentral() }
     dependencies {
-        classpath("org.testcontainers:postgresql:1.21.3")
+        classpath("org.testcontainers:postgresql:1.21.4")
         classpath("org.flywaydb:flyway-database-postgresql:11.10.0")
         classpath("org.postgresql:postgresql:42.7.7")
         classpath("org.jooq:jooq-codegen:3.20.5")
@@ -18,8 +18,8 @@ buildscript {
 }
 
 plugins {
-    kotlin("jvm") version "2.1.21"
-    kotlin("plugin.spring") version "2.1.21"
+    kotlin("jvm") version "2.4.0"
+    kotlin("plugin.spring") version "2.4.0"
     id("org.springframework.boot") version "3.5.3"
     id("io.spring.dependency-management") version "1.1.7"
 }
@@ -42,7 +42,7 @@ dependencies {
     implementation("org.springframework.modulith:spring-modulith-starter-core")
     implementation("org.flywaydb:flyway-core")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.9")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.17")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 
@@ -56,7 +56,7 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.modulith:spring-modulith-bom:1.4.1")
-        mavenBom("org.testcontainers:testcontainers-bom:1.21.3")
+        mavenBom("org.testcontainers:testcontainers-bom:1.21.4")
     }
 }
 
