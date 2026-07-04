@@ -1,6 +1,6 @@
 package com.verifolio.identity.api
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import com.verifolio.platform.web.ApiError
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -10,7 +10,6 @@ import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository
 import org.springframework.security.web.csrf.CsrfFilter
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
 
 @Configuration
 class SecurityConfig(
@@ -20,12 +19,15 @@ class SecurityConfig(
 
     @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
-        // Spring Security 6 defers CSRF token loading by default, which means the XSRF-TOKEN
-        // cookie is never written unless the token attribute is accessed.  Setting
-        // csrfRequestAttributeName = null switches to the plain (non-deferred) handler so the
-        // cookie is materialised on every response — required for SPA clients that read the
-        // cookie on a GET before issuing a state-changing request.
-        val csrfHandler = CsrfTokenRequestAttributeHandler().apply { setCsrfRequestAttributeName(null) }
+        // Spring Security defers CSRF token loading by default, which means the XSRF-TOKEN
+        // cookie is never written unless the token attribute is accessed.  CsrfHandlerFactory
+        // creates an XorCsrfTokenRequestAttributeHandler with csrfRequestAttributeName = null,
+        // which opts out of deferred loading so the cookie is materialised on every response —
+        // required for SPA clients that read the cookie on a GET before issuing a state-changing
+        // request.  XorCsrfTokenRequestAttributeHandler also provides BREACH protection by
+        // XOR-masking the token value on each response (Security 7 recommended approach).
+        // The null is set via a Java helper to avoid the JSpecify @NullMarked compile error in Kotlin.
+        val csrfHandler = CsrfHandlerFactory.eagerCookieHandler()
 
         http
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }

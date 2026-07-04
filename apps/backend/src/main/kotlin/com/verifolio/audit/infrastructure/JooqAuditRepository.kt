@@ -1,6 +1,6 @@
 package com.verifolio.audit.infrastructure
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import com.verifolio.audit.AuditService
 import com.verifolio.jooq.tables.references.AUDIT_EVENT
 import org.jooq.DSLContext

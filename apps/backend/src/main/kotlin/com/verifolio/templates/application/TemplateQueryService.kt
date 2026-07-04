@@ -1,6 +1,6 @@
 package com.verifolio.templates.application
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import com.verifolio.jooq.tables.references.TEMPLATE
 import com.verifolio.platform.ApiException
 import com.verifolio.templates.api.TemplateListItem

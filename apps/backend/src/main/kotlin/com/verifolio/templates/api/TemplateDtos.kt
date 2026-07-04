@@ -1,6 +1,6 @@
 package com.verifolio.templates.api
 
-import com.fasterxml.jackson.databind.JsonNode
+import tools.jackson.databind.JsonNode
 
 data class TemplateListItem(
     val id: String,

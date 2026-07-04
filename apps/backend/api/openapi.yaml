@@ -429,10 +429,6 @@ components:
           type:
           - string
           - "null"
-      required:
-      - code
-      - details
-      - message
     ProfileResponse:
       type: object
       properties:
@@ -448,11 +444,6 @@ components:
           type: string
         profileVerificationStatus:
           type: string
-      required:
-      - displayName
-      - preferredLocale
-      - profileId
-      - profileVerificationStatus
     ContactRequest:
       type: object
       properties:
@@ -511,12 +502,6 @@ components:
           type:
           - string
           - "null"
-      required:
-      - createdAt
-      - email
-      - id
-      - name
-      - relationshipType
     SessionRequest:
       type: object
       properties:
@@ -534,10 +519,6 @@ components:
           type: string
         region:
           type: string
-      required:
-      - email
-      - region
-      - userId
     MagicLinkRequest:
       type: object
       properties:
@@ -551,8 +532,6 @@ components:
       properties:
         message:
           type: string
-      required:
-      - message
     TemplateListItem:
       type: object
       properties:
@@ -566,12 +545,6 @@ components:
           type: string
         description:
           type: string
-      required:
-      - description
-      - id
-      - locale
-      - name
-      - type
     TemplateListResponse:
       type: object
       properties:
@@ -579,9 +552,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TemplateListItem"
-      required:
-      - items
-    JsonNode: {}
     TemplateResponse:
       type: object
       properties:
@@ -595,24 +565,10 @@ components:
           type: string
         description:
           type: string
-        questionSchema:
-          $ref: "#/components/schemas/JsonNode"
-        outputSchema:
-          $ref: "#/components/schemas/JsonNode"
-        requiredFields:
-          $ref: "#/components/schemas/JsonNode"
-        verificationRecommendations:
-          $ref: "#/components/schemas/JsonNode"
-      required:
-      - description
-      - id
-      - locale
-      - name
-      - outputSchema
-      - questionSchema
-      - requiredFields
-      - type
-      - verificationRecommendations
+        questionSchema: {}
+        outputSchema: {}
+        requiredFields: {}
+        verificationRecommendations: {}
     ContactListResponse:
       type: object
       properties:
@@ -624,5 +580,3 @@ components:
           type:
           - string
           - "null"
-      required:
-      - items
