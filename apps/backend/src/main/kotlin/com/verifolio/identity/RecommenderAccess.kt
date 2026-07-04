@@ -30,15 +30,16 @@ interface InvitationAccess {
 
     /**
      * Generates and stores a one-time confirmation code (HMAC-hashed); returns the RAW code
-     * for the caller to email. Throws RATE_LIMITED over the per-invitation issue limit.
+     * for the caller to email. Issue-rate limiting is the caller's responsibility.
      */
     fun issueEmailConfirmation(rawToken: String): String
 
     /**
-     * Verifies the code, consumes the invitation token, and mints a recommender session.
+     * Verifies the code, consumes the invitation token single-use, and mints a recommender
+     * session. Raw IP / user-agent values are HMAC-hashed inside identity before storage.
      * Audited (RECOMMENDER_EMAIL_CONFIRMED, INVITATION_TOKEN_CONSUMED).
      */
-    fun confirmEmail(rawToken: String, code: String, ipHash: String?, userAgentHash: String?): RecommenderGrant
+    fun confirmEmail(rawToken: String, code: String, rawIp: String?, rawUserAgent: String?): RecommenderGrant
 }
 
 /** Public API: recommender session lifecycle. */

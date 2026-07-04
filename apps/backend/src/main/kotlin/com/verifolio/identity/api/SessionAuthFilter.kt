@@ -13,6 +13,14 @@ import org.springframework.web.filter.OncePerRequestFilter
 @Component
 class SessionAuthFilter(private val sessionService: SessionService) : OncePerRequestFilter() {
 
+    /**
+     * Recommender routes are authenticated exclusively by RecommenderSessionAuthFilter;
+     * skipping them here means a browser holding both a user and a recommender cookie
+     * still completes the invitation flow with the recommender principal.
+     */
+    override fun shouldNotFilter(request: HttpServletRequest): Boolean =
+        RecommenderSessionAuthFilter.isRecommenderRoute(request)
+
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,

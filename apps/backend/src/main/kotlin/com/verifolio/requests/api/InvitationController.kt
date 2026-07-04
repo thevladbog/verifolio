@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
+import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -54,8 +55,10 @@ internal class InvitationController(
     fun confirmEmail(
         @PathVariable token: String,
         @Valid @RequestBody body: ConfirmEmailRequest,
+        request: HttpServletRequest,
     ): ResponseEntity<ConfirmEmailResponse> {
-        val (grant, status) = flow.confirmEmail(token, body.code, null, null)
+        // Raw values; identity HMAC-hashes them before storing (parity with auth endpoints).
+        val (grant, status) = flow.confirmEmail(token, body.code, request.remoteAddr, request.getHeader("User-Agent"))
         val cookie = ResponseCookie.from(RECOMMENDER_SESSION_COOKIE, grant.rawSessionToken)
             .httpOnly(true)
             .secure(props.auth.cookieSecure)

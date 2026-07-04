@@ -15,6 +15,13 @@ class RecommenderSessionAuthFilter(
     private val recommenderSessions: RecommenderSessions,
 ) : OncePerRequestFilter() {
 
+    // Scoped to recommender routes only: a recommender session is a request-scoped
+    // credential and must never satisfy account-session authorization on user endpoints.
+    // SessionAuthFilter skips these routes symmetrically, so a browser holding both
+    // cookies still resolves the recommender principal here.
+    override fun shouldNotFilter(request: HttpServletRequest): Boolean =
+        !isRecommenderRoute(request)
+
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
@@ -28,5 +35,12 @@ class RecommenderSessionAuthFilter(
             }
         }
         filterChain.doFilter(request, response)
+    }
+
+    companion object {
+        fun isRecommenderRoute(request: HttpServletRequest): Boolean {
+            val path = request.servletPath
+            return path == "/api/v1/recommender" || path.startsWith("/api/v1/recommender/")
+        }
     }
 }

@@ -81,11 +81,19 @@ class InvitationAccessIntegrationTest : IntegrationTest() {
 
     @Test
     fun `expired code is rejected and token stays unconsumed`() {
-        val (raw, _) = mintInvitation("expired_code@example.com")
+        val (raw, requestId) = mintInvitation("expired_code@example.com")
         val code = invitationAccess.issueEmailConfirmation(raw)
 
         val ecc = EMAIL_CONFIRMATION_CODE
-        dsl.update(ecc).set(ecc.EXPIRES_AT, OffsetDateTime.now().minusMinutes(1)).execute()
+        dsl.update(ecc)
+            .set(ecc.EXPIRES_AT, OffsetDateTime.now().minusMinutes(1))
+            .where(
+                ecc.INVITATION_TOKEN_ID.`in`(
+                    dsl.select(INVITATION_TOKEN.ID).from(INVITATION_TOKEN)
+                        .where(INVITATION_TOKEN.REQUEST_ID.eq(requestId)),
+                ),
+            )
+            .execute()
 
         assertThatThrownBy { invitationAccess.confirmEmail(raw, code, null, null) }
             .isInstanceOf(ApiException::class.java)
@@ -107,12 +115,4 @@ class InvitationAccessIntegrationTest : IntegrationTest() {
         assertThat(row.consumedAt).isNotNull()
     }
 
-    @Test
-    fun `code issuing is rate limited per invitation`() {
-        val (raw, _) = mintInvitation("code_limit@example.com")
-        repeat(3) { invitationAccess.issueEmailConfirmation(raw) }
-        assertThatThrownBy { invitationAccess.issueEmailConfirmation(raw) }
-            .isInstanceOf(ApiException::class.java)
-            .hasMessageContaining("Too many")
-    }
 }

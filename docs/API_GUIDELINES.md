@@ -48,8 +48,10 @@ DELETE /api/v1/auth/sessions/current
 ```
 
 Invitations (recommender flow). The invitation token is a credential only until email
-confirmation, where it is consumed single-use (`AUTHENTICATION.md`); afterwards the flow
-runs under the recommender session cookie, never under the token:
+confirmation, where it is consumed single-use (`AUTHENTICATION.md`). The flow then runs
+under the recommender session cookie — except the email-only one-click
+`decline` / `report-abuse` links, which stay token-scoped and keep working after
+consumption while the request is non-terminal:
 
 ```text
 GET  /api/v1/invitations/{token}                      (open; pre-session)

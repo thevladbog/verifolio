@@ -469,7 +469,9 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
     }
 
     @Test
-    fun `user session on recommender endpoint returns 403`() {
+    fun `user session on recommender endpoint returns 401`() {
+        // SessionAuthFilter skips /api/v1/recommender/**, so a user cookie carries no
+        // authentication there — the request is anonymous, not a wrong-principal 403.
         val userCookie = login("regular_user@example.com")
 
         val response = rest.exchange(
@@ -477,17 +479,102 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
             HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, userCookie) }),
             Map::class.java,
         )
-        assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+        assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `recommender session does not authenticate user endpoints`() {
+        val (rawToken, _) = sendInvitation("scope_requester@example.com", "scope_rec@corp.example.com")
+        openInvitation(rawToken)
+        val recommenderCookie = confirmEmail(rawToken, "scope_rec@corp.example.com")
+
+        val response = rest.exchange(
+            "/api/v1/contacts", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, recommenderCookie) }),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `browser with both cookies completes the recommender flow`() {
+        val (rawToken, _) = sendInvitation("both_requester@example.com", "both_rec@corp.example.com")
+        openInvitation(rawToken)
+        val recommenderCookie = confirmEmail(rawToken, "both_rec@corp.example.com")
+        val userCookie = login("some_other_user@example.com")
+
+        val response = rest.exchange(
+            "/api/v1/recommender/request", HttpMethod.GET,
+            HttpEntity<Void>(
+                HttpHeaders().apply {
+                    add(HttpHeaders.COOKIE, userCookie)
+                    add(HttpHeaders.COOKIE, recommenderCookie)
+                },
+            ),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body!!["status"]).isEqualTo("OPENED")
+    }
+
+    @Test
+    fun `code issuing is rate limited per invitation and refunded on mail failure`() {
+        val (rawToken, _) = sendInvitation("limit_requester@example.com", "limit_rec@corp.example.com")
+        openInvitation(rawToken)
+
+        // Mail outage: three failed issues must not consume the window (refund on failure).
+        mail.failFor = "limit_rec@corp.example.com"
+        repeat(3) {
+            assertThat(requestCode(rawToken).statusCode.is5xxServerError).isTrue()
+        }
+        mail.failFor = null
+
+        // Full window still available: 3 successful issues, then the 4th is limited.
+        repeat(3) {
+            assertThat(requestCode(rawToken).statusCode).isEqualTo(HttpStatus.ACCEPTED)
+        }
+        val limited = requestCode(rawToken)
+        assertThat(limited.statusCode).isEqualTo(HttpStatus.TOO_MANY_REQUESTS)
+        assertThat(limited.body!!["code"]).isEqualTo("RATE_LIMITED")
+    }
+
+    @Test
+    fun `explicit cross-border refusal is recorded as a DECLINED consent`() {
+        val (rawToken, requestId) = sendInvitation("xborder_requester@example.com", "xborder_rec@corp.example.com")
+        openInvitation(rawToken)
+        val cookie = confirmEmail(rawToken, "xborder_rec@corp.example.com")
+        val xsrfToken = recommenderXsrf(cookie)
+
+        val response = rest.exchange(
+            "/api/v1/recommender/consent", HttpMethod.POST,
+            HttpEntity(mapOf("accepted" to true, "crossBorderAccepted" to false), authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body!!["status"]).isEqualTo("IN_PROGRESS")
+
+        val cr = com.verifolio.jooq.tables.references.CONSENT_RECORD
+        val crossBorder = dsl.selectFrom(cr)
+            .where(
+                cr.REFERENCE_REQUEST_ID.eq(UUID.fromString(requestId))
+                    .and(cr.CONSENT_TYPE.eq("CROSS_BORDER_TRANSFER_CONSENT")),
+            )
+            .fetchOne()!!
+        assertThat(crossBorder.status).isEqualTo("DECLINED")
+        assertThat(crossBorder.declinedAt).isNotNull()
     }
 
     @Test
     fun `expired recommender session returns 401`() {
-        val (rawToken, _) = sendInvitation("expire_requester@example.com", "expire_rec@corp.example.com")
+        val (rawToken, requestId) = sendInvitation("expire_requester@example.com", "expire_rec@corp.example.com")
         openInvitation(rawToken)
         val cookie = confirmEmail(rawToken, "expire_rec@corp.example.com")
 
         val rs = com.verifolio.jooq.tables.references.RECOMMENDER_SESSION
-        dsl.update(rs).set(rs.EXPIRES_AT, java.time.OffsetDateTime.now().minusMinutes(1)).execute()
+        dsl.update(rs)
+            .set(rs.EXPIRES_AT, java.time.OffsetDateTime.now().minusMinutes(1))
+            .where(rs.REQUEST_ID.eq(UUID.fromString(requestId)))
+            .execute()
 
         val response = rest.exchange(
             "/api/v1/recommender/request", HttpMethod.GET,

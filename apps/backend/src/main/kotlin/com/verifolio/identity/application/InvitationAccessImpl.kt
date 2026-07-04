@@ -11,10 +11,8 @@ import com.verifolio.jooq.tables.references.EMAIL_CONFIRMATION_CODE
 import com.verifolio.jooq.tables.references.INVITATION_TOKEN
 import com.verifolio.jooq.tables.references.RECOMMENDER_SESSION
 import com.verifolio.platform.ApiException
-import com.verifolio.platform.SlidingWindowRateLimiter
 import com.verifolio.platform.VerifolioProperties
 import org.jooq.DSLContext
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -30,7 +28,6 @@ internal class InvitationAccessImpl(
     private val hasher: TokenHasher,
     private val audit: AuditService,
     private val props: VerifolioProperties,
-    @Qualifier("emailConfirmationLimiter") private val issueLimiter: SlidingWindowRateLimiter,
     private val attemptRecorder: ConfirmationAttemptRecorder,
 ) : InvitationAccess {
 
@@ -50,14 +47,6 @@ internal class InvitationAccessImpl(
     override fun issueEmailConfirmation(rawToken: String): String {
         val token = findValidToken(rawToken)
 
-        if (!issueLimiter.tryAcquire(token.id!!.toString())) {
-            throw ApiException(
-                HttpStatus.TOO_MANY_REQUESTS,
-                "RATE_LIMITED",
-                "Too many confirmation codes were requested for this invitation",
-            )
-        }
-
         val rawCode = "%06d".format(random.nextInt(1_000_000))
         val ecc = EMAIL_CONFIRMATION_CODE
         dsl.insertInto(ecc)
@@ -72,11 +61,13 @@ internal class InvitationAccessImpl(
     override fun confirmEmail(
         rawToken: String,
         code: String,
-        ipHash: String?,
-        userAgentHash: String?,
+        rawIp: String?,
+        rawUserAgent: String?,
     ): RecommenderGrant {
         val token = findValidToken(rawToken)
         val now = OffsetDateTime.now()
+        val ipHash = rawIp?.let { hasher.hash(it) }
+        val userAgentHash = rawUserAgent?.let { hasher.hash(it) }
 
         val ecc = EMAIL_CONFIRMATION_CODE
         // No FOR UPDATE here: the failed-attempt increment runs in a REQUIRES_NEW
@@ -97,10 +88,21 @@ internal class InvitationAccessImpl(
             throw codeInvalid()
         }
 
-        dsl.update(ecc).set(ecc.CONSUMED_AT, now).where(ecc.ID.eq(codeRow.id)).execute()
+        // Conditional consumption: a concurrent confirm that committed first leaves zero
+        // affected rows here, so the second request fails instead of minting a duplicate
+        // session (single-use guarantee, docs/AUTHENTICATION.md).
+        val codeConsumed = dsl.update(ecc)
+            .set(ecc.CONSUMED_AT, now)
+            .where(ecc.ID.eq(codeRow.id).and(ecc.CONSUMED_AT.isNull))
+            .execute()
+        if (codeConsumed == 0) throw codeInvalid()
 
         val it = INVITATION_TOKEN
-        dsl.update(it).set(it.CONSUMED_AT, now).where(it.ID.eq(token.id)).execute()
+        val tokenConsumed = dsl.update(it)
+            .set(it.CONSUMED_AT, now)
+            .where(it.ID.eq(token.id).and(it.CONSUMED_AT.isNull))
+            .execute()
+        if (tokenConsumed == 0) throw codeInvalid()
 
         val rawSessionToken = TokenGenerator.generate()
         val rs = RECOMMENDER_SESSION

@@ -24,8 +24,10 @@ import com.verifolio.requests.api.RecommenderRequestContext
 import com.verifolio.requests.api.SubmitResponseRequest
 import com.verifolio.requests.domain.ReferenceRequestStatus
 import com.verifolio.templates.TemplateLookup
+import com.verifolio.platform.SlidingWindowRateLimiter
 import org.jooq.DSLContext
 import org.jooq.JSONB
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -46,6 +48,7 @@ internal class RecommenderFlowService(
     private val audit: AuditService,
     private val props: VerifolioProperties,
     private val objectMapper: ObjectMapper,
+    @Qualifier("emailConfirmationLimiter") private val codeLimiter: SlidingWindowRateLimiter,
 ) {
 
     @Transactional
@@ -55,15 +58,19 @@ internal class RecommenderFlowService(
 
         var status = ReferenceRequestStatus.valueOf(record.status!!)
         if (status == ReferenceRequestStatus.SENT) {
-            transition(record.id!!, status, ReferenceRequestStatus.OPENED)
+            // Tolerant CAS: a concurrent first open wins the flip; either way the preview
+            // is served, and the OPENED audit event is emitted exactly once.
+            val flipped = tryTransition(record.id!!, status, ReferenceRequestStatus.OPENED)
             status = ReferenceRequestStatus.OPENED
-            audit.record(
-                actorType = "RECOMMENDER",
-                actorId = null,
-                action = "REFERENCE_REQUEST_OPENED",
-                entityType = "REFERENCE_REQUEST",
-                entityId = record.id.toString(),
-            )
+            if (flipped) {
+                audit.record(
+                    actorType = "RECOMMENDER",
+                    actorId = null,
+                    action = "REFERENCE_REQUEST_OPENED",
+                    entityType = "REFERENCE_REQUEST",
+                    entityId = record.id.toString(),
+                )
+            }
         }
 
         val template = templateLookup.snapshot(record.templateId!!)
@@ -81,25 +88,43 @@ internal class RecommenderFlowService(
     fun requestEmailConfirmation(rawToken: String) {
         val info = invitationAccess.peek(rawToken) ?: throw invitationNotFound()
         loadActiveRequest(info.requestId)
-        val rawCode = invitationAccess.issueEmailConfirmation(rawToken)
-        mail.send(
-            to = info.recommenderEmail,
-            subject = "Your Verifolio confirmation code",
-            textBody = buildString {
-                appendLine("Use this code to confirm your email address:")
-                appendLine()
-                appendLine("Code: $rawCode")
-                appendLine()
-                appendLine("The code expires in 10 minutes. If you did not request it, ignore this email.")
-            },
-        )
+
+        val limiterKey = info.requestId.toString()
+        if (!codeLimiter.tryAcquire(limiterKey)) {
+            throw ApiException(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "RATE_LIMITED",
+                "Too many confirmation codes were requested for this invitation",
+            )
+        }
+
+        try {
+            val rawCode = invitationAccess.issueEmailConfirmation(rawToken)
+            val ttlMinutes = props.auth.emailConfirmationTtl.toMinutes()
+            mail.send(
+                to = info.recommenderEmail,
+                subject = "Your Verifolio confirmation code",
+                textBody = buildString {
+                    appendLine("Use this code to confirm your email address:")
+                    appendLine()
+                    appendLine("Code: $rawCode")
+                    appendLine()
+                    appendLine("The code expires in $ttlMinutes minutes. If you did not request it, ignore this email.")
+                },
+            )
+        } catch (e: Exception) {
+            // Transaction rolls back the stored code — refund the limiter slot so a mail
+            // outage doesn't exhaust the invitation's window (same pattern as send).
+            codeLimiter.release(limiterKey)
+            throw e
+        }
     }
 
     @Transactional
-    fun confirmEmail(rawToken: String, code: String, ipHash: String?, userAgentHash: String?): Pair<RecommenderGrant, String> {
+    fun confirmEmail(rawToken: String, code: String, rawIp: String?, rawUserAgent: String?): Pair<RecommenderGrant, String> {
         val info = invitationAccess.peek(rawToken) ?: throw invitationNotFound()
         val record = loadActiveRequest(info.requestId)
-        val grant = invitationAccess.confirmEmail(rawToken, code, ipHash, userAgentHash)
+        val grant = invitationAccess.confirmEmail(rawToken, code, rawIp, rawUserAgent)
         return grant to record.status!!
     }
 
@@ -181,12 +206,19 @@ internal class RecommenderFlowService(
                 granted = true, now = now,
             )
             auditConsent("CONSENT_GRANTED", processingConsentId, record, "RECOMMENDER_PROCESSING_CONSENT", props.consents.processing.versionedId)
-            if (decision.crossBorderAccepted == true) {
+            // crossBorderAccepted == null means the consent was not presented (same-cell
+            // case); an explicit true/false is always recorded for the audit trail.
+            if (decision.crossBorderAccepted != null) {
+                val granted = decision.crossBorderAccepted
                 val crossBorderConsentId = insertRecommenderConsent(
                     record, "CROSS_BORDER_TRANSFER_CONSENT", props.consents.crossBorderTransfer.versionedId,
-                    granted = true, now = now,
+                    granted = granted, now = now,
                 )
-                auditConsent("CONSENT_GRANTED", crossBorderConsentId, record, "CROSS_BORDER_TRANSFER_CONSENT", props.consents.crossBorderTransfer.versionedId)
+                auditConsent(
+                    if (granted) "CONSENT_GRANTED" else "CONSENT_DECLINED",
+                    crossBorderConsentId, record, "CROSS_BORDER_TRANSFER_CONSENT",
+                    props.consents.crossBorderTransfer.versionedId,
+                )
             }
             transition(record.id!!, status, ReferenceRequestStatus.IN_PROGRESS)
             ReferenceRequestStatus.IN_PROGRESS
@@ -410,13 +442,28 @@ internal class RecommenderFlowService(
         return record
     }
 
+    /**
+     * Compare-and-set transition: the WHERE clause pins the expected current status so a
+     * stale caller (e.g. the requester cancelled concurrently) cannot overwrite a terminal
+     * state. Throws 409 when another transaction moved the status first.
+     */
     internal fun transition(requestId: UUID, from: ReferenceRequestStatus, to: ReferenceRequestStatus) {
+        if (!tryTransition(requestId, from, to)) {
+            throw ApiException(
+                HttpStatus.CONFLICT,
+                "INVALID_REQUEST_STATE",
+                "The request status changed concurrently; reload and retry",
+            )
+        }
+    }
+
+    private fun tryTransition(requestId: UUID, from: ReferenceRequestStatus, to: ReferenceRequestStatus): Boolean {
         check(from.canTransitionTo(to)) { "Illegal transition $from -> $to" }
-        dsl.update(REFERENCE_REQUEST)
+        return dsl.update(REFERENCE_REQUEST)
             .set(REFERENCE_REQUEST.STATUS, to.name)
             .set(REFERENCE_REQUEST.UPDATED_AT, OffsetDateTime.now())
-            .where(REFERENCE_REQUEST.ID.eq(requestId))
-            .execute()
+            .where(REFERENCE_REQUEST.ID.eq(requestId).and(REFERENCE_REQUEST.STATUS.eq(from.name)))
+            .execute() == 1
     }
 
     private fun invitationNotFound() =
