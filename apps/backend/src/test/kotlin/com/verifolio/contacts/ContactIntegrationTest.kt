@@ -114,6 +114,27 @@ class ContactIntegrationTest : IntegrationTest() {
     }
 
     @Test
+    fun `invalid email format is rejected`() {
+        val cookie = login("email_validation_user@example.com")
+        val xsrfToken = xsrf(cookie)
+
+        val body = mapOf(
+            "name" to "Bad Email Contact",
+            "email" to "not-an-email",
+            "relationshipType" to "COLLEAGUE",
+        )
+
+        val response = rest.exchange(
+            "/api/v1/contacts", HttpMethod.POST,
+            HttpEntity(body, authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.body!!["code"]).isEqualTo("VALIDATION_ERROR")
+    }
+
+    @Test
     fun `contacts are isolated per owner`() {
         val cookieA = login("owner_a_contacts@example.com")
         val xsrfA = xsrf(cookieA)
@@ -134,6 +155,7 @@ class ContactIntegrationTest : IntegrationTest() {
 
         // User B cannot access User A's contact by ID
         val cookieB = login("owner_b_contacts@example.com")
+        val xsrfB = xsrf(cookieB)
 
         val getResponse = rest.exchange(
             "/api/v1/contacts/$contactId", HttpMethod.GET,
@@ -153,6 +175,36 @@ class ContactIntegrationTest : IntegrationTest() {
         @Suppress("UNCHECKED_CAST")
         val items = listResponse.body!!["items"] as List<Map<*, *>>
         assertThat(items.map { it["id"] }).doesNotContain(contactId)
+
+        // User B's PUT on User A's contact → 404
+        val putBody = mapOf(
+            "name" to "Alice Contact",
+            "email" to "alice.contact@example.com",
+            "relationshipType" to "COLLEAGUE",
+        )
+        val putResponse = rest.exchange(
+            "/api/v1/contacts/$contactId", HttpMethod.PUT,
+            HttpEntity(putBody, authHeaders(cookieB, xsrfB)),
+            Map::class.java,
+        )
+        assertThat(putResponse.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(putResponse.body!!["code"]).isEqualTo("NOT_FOUND")
+
+        // User B's DELETE on User A's contact → 404
+        val deleteHeaders = HttpHeaders().apply {
+            add(HttpHeaders.COOKIE, cookieB)
+            if (xsrfB != null) {
+                add(HttpHeaders.COOKIE, "XSRF-TOKEN=$xsrfB")
+                add("X-XSRF-TOKEN", xsrfB)
+            }
+        }
+        val deleteResponse = rest.exchange(
+            "/api/v1/contacts/$contactId", HttpMethod.DELETE,
+            HttpEntity<Void>(deleteHeaders),
+            Map::class.java,
+        )
+        assertThat(deleteResponse.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(deleteResponse.body!!["code"]).isEqualTo("NOT_FOUND")
     }
 
     @Test
@@ -173,6 +225,7 @@ class ContactIntegrationTest : IntegrationTest() {
         )
         assertThat(createResponse.statusCode).isEqualTo(HttpStatus.CREATED)
         val contactId = createResponse.body!!["id"].toString()
+        val updatedAtAfterCreate = createResponse.body!!["updatedAt"] as String?
 
         // Update the title
         val updateBody = mapOf(
@@ -188,6 +241,11 @@ class ContactIntegrationTest : IntegrationTest() {
         )
         assertThat(updateResponse.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(updateResponse.body!!["title"]).isEqualTo("Senior Engineer")
+
+        // updatedAt must be present and must differ from the value after create
+        val updatedAtAfterPut = updateResponse.body!!["updatedAt"] as String?
+        assertThat(updatedAtAfterPut).isNotNull()
+        assertThat(updatedAtAfterPut).isNotEqualTo(updatedAtAfterCreate)
 
         // Delete the contact
         val deleteHeaders = HttpHeaders().apply {

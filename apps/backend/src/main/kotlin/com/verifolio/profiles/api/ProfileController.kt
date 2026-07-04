@@ -26,11 +26,10 @@ internal class ProfileController(
     @ApiResponses(
         ApiResponse(responseCode = "200"),
         ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
-        ApiResponse(responseCode = "404", description = "Profile not found", content = [Content(schema = Schema(implementation = ApiError::class))]),
     )
     @GetMapping
     fun getProfile(@AuthenticationPrincipal user: AuthenticatedUser): ProfileResponse =
-        profileService.get(user.userId).toResponse()
+        profileService.get(user.userId, user.email).toResponse()
 
     @ApiResponses(
         ApiResponse(responseCode = "200"),

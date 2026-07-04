@@ -41,26 +41,19 @@ class ProfileIntegrationTest : IntegrationTest() {
             .first { it.startsWith("verifolio_session=") }.substringBefore(";")
     }
 
-    /** Poll GET /api/v1/profile until 200 or timeout (5 seconds). */
-    private fun pollUntilProfileReady(cookie: String): Map<*, *> {
-        val deadline = System.currentTimeMillis() + 5_000L
-        while (System.currentTimeMillis() < deadline) {
-            val response = rest.exchange(
-                "/api/v1/profile", HttpMethod.GET,
-                HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
-                Map::class.java,
-            )
-            if (response.statusCode == HttpStatus.OK) return response.body!!
-            Thread.sleep(100)
-        }
-        error("Profile was not created within 5 seconds")
-    }
-
     @Test
     fun `first login auto-creates a profile with defaults and audit event`() {
         val cookie = login("newuser@example.com")
 
-        val profile = pollUntilProfileReady(cookie)
+        // The AFTER_COMMIT listener runs synchronously in the same thread before the
+        // HTTP response is returned, so the profile is available immediately — no polling needed.
+        val response = rest.exchange(
+            "/api/v1/profile", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        val profile = response.body!!
 
         assertThat(profile["displayName"]).isEqualTo("newuser")
         assertThat(profile["preferredLocale"]).isEqualTo("en")
@@ -89,14 +82,12 @@ class ProfileIntegrationTest : IntegrationTest() {
     fun `profile can be updated and update is audited`() {
         val cookie = login("updateme@example.com")
 
-        // Wait for profile to be auto-created, then extract XSRF token
-        pollUntilProfileReady(cookie)
-
         val getResponse = rest.exchange(
             "/api/v1/profile", HttpMethod.GET,
             HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
             Map::class.java,
         )
+        assertThat(getResponse.statusCode).isEqualTo(HttpStatus.OK)
         val xsrf = getResponse.headers[HttpHeaders.SET_COOKIE]
             ?.firstOrNull { it.startsWith("XSRF-TOKEN=") }
             ?.substringAfter("XSRF-TOKEN=")?.substringBefore(";")
@@ -147,5 +138,51 @@ class ProfileIntegrationTest : IntegrationTest() {
     fun `unauthenticated profile access is rejected`() {
         val response = rest.getForEntity("/api/v1/profile", Map::class.java)
         assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    /**
+     * Regression test for I1: simulate the "stuck" state where the AFTER_COMMIT listener
+     * succeeded but the profile row was subsequently lost (or the listener failed silently).
+     *
+     * Expected behaviour:
+     * - GET /api/v1/profile → 200 (self-heal, not 404)
+     * - Audit log contains a second PROFILE_CREATED event
+     */
+    @Test
+    fun `self-heal - profile is re-created if row is missing after login`() {
+        val cookie = login("stuck_user@example.com")
+
+        // Verify that the initial profile was created
+        val initial = rest.exchange(
+            "/api/v1/profile", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        assertThat(initial.statusCode).isEqualTo(HttpStatus.OK)
+
+        // Simulate the stuck state: delete the profile row directly
+        val account = dsl.selectFrom(USER_ACCOUNT)
+            .where(USER_ACCOUNT.EMAIL.eq("stuck_user@example.com"))
+            .fetchOne()!!
+        dsl.deleteFrom(PERSON_PROFILE)
+            .where(PERSON_PROFILE.USER_ACCOUNT_ID.eq(account.id))
+            .execute()
+
+        // Self-heal: GET /api/v1/profile must return 200 with a freshly created profile
+        val healed = rest.exchange(
+            "/api/v1/profile", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        assertThat(healed.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(healed.body!!["displayName"]).isEqualTo("stuck_user")
+
+        // Audit must contain at least two PROFILE_CREATED events (initial + self-heal)
+        val profileCreatedEvents = dsl.select(AUDIT_EVENT.ACTION)
+            .from(AUDIT_EVENT)
+            .where(AUDIT_EVENT.ACTION.eq("PROFILE_CREATED"))
+            .and(AUDIT_EVENT.ACTOR_ID.eq(account.id!!.toString()))
+            .fetch(AUDIT_EVENT.ACTION)
+        assertThat(profileCreatedEvents).hasSizeGreaterThanOrEqualTo(2)
     }
 }

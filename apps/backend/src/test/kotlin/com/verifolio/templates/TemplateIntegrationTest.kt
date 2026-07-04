@@ -75,8 +75,9 @@ class TemplateIntegrationTest : IntegrationTest() {
     fun `locale filter returns empty for unseeded locale`() {
         val cookie = login("template_locale@example.com")
 
+        // "ru" is an allowed locale but has no seeded templates → empty list
         val response = rest.exchange(
-            "/api/v1/templates?locale=de",
+            "/api/v1/templates?locale=ru",
             HttpMethod.GET,
             HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
             Map::class.java,
@@ -86,6 +87,21 @@ class TemplateIntegrationTest : IntegrationTest() {
         @Suppress("UNCHECKED_CAST")
         val items = response.body!!["items"] as List<Map<*, *>>
         assertThat(items).isEmpty()
+    }
+
+    @Test
+    fun `unsupported locale returns 400 VALIDATION_ERROR`() {
+        val cookie = login("template_locale_bad@example.com")
+
+        val response = rest.exchange(
+            "/api/v1/templates?locale=de",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.body!!["code"]).isEqualTo("VALIDATION_ERROR")
     }
 
     @Test

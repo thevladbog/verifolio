@@ -29,7 +29,7 @@ internal class ContactService(
 
     @Transactional
     fun create(user: AuthenticatedUser, req: ContactRequest): ContactResponse {
-        val ownerProfileId = profileService.requireProfileId(user.userId)
+        val ownerProfileId = profileService.requireProfileId(user.userId, user.email)
         val relType = parseRelationshipType(req.relationshipType)
 
         val rc = RECOMMENDER_CONTACT
@@ -58,7 +58,7 @@ internal class ContactService(
 
     @Transactional(readOnly = true)
     fun get(user: AuthenticatedUser, id: UUID): ContactResponse {
-        val ownerProfileId = profileService.requireProfileId(user.userId)
+        val ownerProfileId = profileService.requireProfileId(user.userId, user.email)
         val rc = RECOMMENDER_CONTACT
         return dsl.selectFrom(rc)
             .where(rc.ID.eq(id).and(rc.OWNER_PROFILE_ID.eq(ownerProfileId)))
@@ -69,7 +69,7 @@ internal class ContactService(
 
     @Transactional
     fun update(user: AuthenticatedUser, id: UUID, req: ContactRequest): ContactResponse {
-        val ownerProfileId = profileService.requireProfileId(user.userId)
+        val ownerProfileId = profileService.requireProfileId(user.userId, user.email)
         val relType = parseRelationshipType(req.relationshipType)
 
         val rc = RECOMMENDER_CONTACT
@@ -100,7 +100,7 @@ internal class ContactService(
 
     @Transactional
     fun delete(user: AuthenticatedUser, id: UUID) {
-        val ownerProfileId = profileService.requireProfileId(user.userId)
+        val ownerProfileId = profileService.requireProfileId(user.userId, user.email)
         val rc = RECOMMENDER_CONTACT
         val deleted = dsl.deleteFrom(rc)
             .where(rc.ID.eq(id).and(rc.OWNER_PROFILE_ID.eq(ownerProfileId)))
@@ -119,7 +119,7 @@ internal class ContactService(
 
     @Transactional(readOnly = true)
     fun list(user: AuthenticatedUser, cursor: String?): ContactListResponse {
-        val ownerProfileId = profileService.requireProfileId(user.userId)
+        val ownerProfileId = profileService.requireProfileId(user.userId, user.email)
         val rc = RECOMMENDER_CONTACT
 
         val cursorCondition = if (cursor != null) {
@@ -189,5 +189,6 @@ internal class ContactService(
         title = title,
         relationshipType = relationshipType!!,
         createdAt = createdAt!!.toString(),
+        updatedAt = updatedAt?.toString(),
     )
 }

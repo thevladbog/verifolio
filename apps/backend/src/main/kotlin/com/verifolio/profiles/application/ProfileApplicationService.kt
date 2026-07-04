@@ -28,12 +28,26 @@ internal class ProfileApplicationService(
     private val audit: AuditService,
 ) : ProfileService {
 
-    override fun requireProfileId(userAccountId: UUID): UUID =
-        dsl.select(PERSON_PROFILE.ID)
+    /**
+     * Returns the profile ID for the given user account.
+     * If no profile exists (e.g. the AFTER_COMMIT listener failed during signup)
+     * the profile is created on-the-fly (self-heal) and the new id is returned.
+     */
+    @Transactional
+    override fun requireProfileId(userAccountId: UUID, email: String): UUID {
+        val existing = dsl.select(PERSON_PROFILE.ID)
             .from(PERSON_PROFILE)
             .where(PERSON_PROFILE.USER_ACCOUNT_ID.eq(userAccountId))
             .fetchOne(PERSON_PROFILE.ID)
-            ?: throw ApiException(HttpStatus.NOT_FOUND, "PROFILE_NOT_FOUND", "Profile not found for user")
+        if (existing != null) return existing
+
+        // Self-heal: profile was not created by the AFTER_COMMIT listener
+        createIfAbsent(userAccountId, email)
+        return dsl.select(PERSON_PROFILE.ID)
+            .from(PERSON_PROFILE)
+            .where(PERSON_PROFILE.USER_ACCOUNT_ID.eq(userAccountId))
+            .fetchOne(PERSON_PROFILE.ID)!!
+    }
 
     @Transactional
     fun createIfAbsent(userAccountId: UUID, email: String) {
@@ -56,22 +70,41 @@ internal class ProfileApplicationService(
         }
     }
 
-    @Transactional(readOnly = true)
-    fun get(userAccountId: UUID): ProfileRow =
-        dsl.selectFrom(PERSON_PROFILE)
+    /**
+     * Returns the profile for the given user account.
+     * If no profile exists the profile is created on-the-fly (self-heal) so that
+     * an authenticated user can never receive a 404 on GET /api/v1/profile.
+     */
+    @Transactional
+    fun get(userAccountId: UUID, email: String): ProfileRow {
+        val row = dsl.selectFrom(PERSON_PROFILE)
             .where(PERSON_PROFILE.USER_ACCOUNT_ID.eq(userAccountId))
             .fetchOne()
-            ?.let {
-                ProfileRow(
-                    profileId = it.id!!,
-                    userAccountId = it.userAccountId!!,
-                    displayName = it.displayName!!,
-                    legalName = it.legalName,
-                    preferredLocale = it.preferredLocale!!,
-                    profileVerificationStatus = it.profileVerificationStatus!!,
-                )
-            }
-            ?: throw ApiException(HttpStatus.NOT_FOUND, "PROFILE_NOT_FOUND", "Profile not found for user")
+        if (row != null) {
+            return ProfileRow(
+                profileId = row.id!!,
+                userAccountId = row.userAccountId!!,
+                displayName = row.displayName!!,
+                legalName = row.legalName,
+                preferredLocale = row.preferredLocale!!,
+                profileVerificationStatus = row.profileVerificationStatus!!,
+            )
+        }
+
+        // Self-heal: profile was not created by the AFTER_COMMIT listener
+        createIfAbsent(userAccountId, email)
+        val healed = dsl.selectFrom(PERSON_PROFILE)
+            .where(PERSON_PROFILE.USER_ACCOUNT_ID.eq(userAccountId))
+            .fetchOne()!!
+        return ProfileRow(
+            profileId = healed.id!!,
+            userAccountId = healed.userAccountId!!,
+            displayName = healed.displayName!!,
+            legalName = healed.legalName,
+            preferredLocale = healed.preferredLocale!!,
+            profileVerificationStatus = healed.profileVerificationStatus!!,
+        )
+    }
 
     @Transactional
     fun update(

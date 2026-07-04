@@ -1,6 +1,7 @@
 package com.verifolio.profiles.application
 
 import com.verifolio.identity.UserAccountCreated
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
@@ -17,7 +18,13 @@ import org.springframework.transaction.event.TransactionalEventListener
  *   deterministic without polling delays (the listener runs before the HTTP response
  *   returns from the session-create request).
  *
- * Trade-off: if the profile insert fails after commit the event is lost (no retry).
+ * Trade-off: if the profile insert fails the event is lost (no retry). Failures are
+ * logged but NOT rethrown — re-throwing from an AFTER_COMMIT listener propagates the
+ * exception to the HTTP response layer, which would return a 500 and cause the session
+ * cookie to be lost. Instead, the system self-heals: on the next profile access
+ * (GET /api/v1/profile or any contact operation) ProfileApplicationService.createIfAbsent
+ * is called automatically, so a missed listener never leaves the user permanently stuck.
+ *
  * createIfAbsent uses ON CONFLICT DO NOTHING so a duplicate insert is safe.
  * A persistent event store (@ApplicationModuleListener) is tracked for production
  * hardening in a follow-up.
@@ -26,9 +33,18 @@ import org.springframework.transaction.event.TransactionalEventListener
 internal class UserAccountCreatedListener(
     private val profileApplicationService: ProfileApplicationService,
 ) {
+    private val log = LoggerFactory.getLogger(UserAccountCreatedListener::class.java)
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun onUserAccountCreated(event: UserAccountCreated) {
-        profileApplicationService.createIfAbsent(event.userAccountId, event.email)
+        try {
+            profileApplicationService.createIfAbsent(event.userAccountId, event.email)
+        } catch (ex: Exception) {
+            log.error(
+                "Profile auto-creation failed for account {} (will self-heal on next profile access)",
+                event.userAccountId,
+                ex,
+            )
+        }
     }
 }

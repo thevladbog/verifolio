@@ -1,10 +1,11 @@
 package com.verifolio.contacts.api
 
+import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 
 data class ContactRequest(
     @field:NotBlank val name: String,
-    @field:NotBlank val email: String,
+    @field:NotBlank @field:Email val email: String,
     val companyName: String? = null,
     val companyDomain: String? = null,
     val title: String? = null,
@@ -20,6 +21,7 @@ data class ContactResponse(
     val title: String?,
     val relationshipType: String,
     val createdAt: String,
+    val updatedAt: String?,
 )
 
 data class ContactListResponse(
