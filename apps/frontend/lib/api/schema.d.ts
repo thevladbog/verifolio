@@ -2203,6 +2203,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Type not applicable to the account-holder channel (e.g. consent withdrawal) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     stopReminders: {
