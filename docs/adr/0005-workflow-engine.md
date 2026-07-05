@@ -52,3 +52,12 @@ Negative:
 - additional infrastructure expertise required per region.
 
 Fallback position: if the operational cost proves too high for the MVP, a DB-backed scheduler implemented behind the same application-service interfaces is the documented retreat path. Workflow logic must therefore stay behind application-level interfaces and not leak Temporal APIs into domain modules.
+
+## Implementation Note (2026-07)
+
+The MVP engaged the fallback: the `workflows` module ships a DB-backed scheduler
+(`RecurringTask` public interface + a Spring TaskScheduler runner) and the reminder/
+expiration/cleanup tasks are implemented as `RecurringTask` beans in their owning domain
+modules. No Temporal APIs appear anywhere; the Temporal migration replaces the runner
+behind the same interface. Temporal remains the target engine, and the docker-compose
+Temporal services stay in place for that migration.

@@ -196,6 +196,13 @@ Every recommender email must include a one-click stop-reminders link and a repor
 
 A global per-recommender-email rate limit applies across all requesters to prevent spam.
 
+Implementation note (2026-07): the reminder schedule and auto-expiration run on the
+ADR-0005 DB-scheduler fallback (`workflows.RecurringTask`); offsets come from
+`verifolio.workflows.reminder-offsets` (default 3d/7d/14d from `sent_at`, the last one
+carrying the expiration warning). Reminder emails re-mint the invitation token (raw
+tokens are never stored) and every recommender email carries the one-click
+stop-reminders link.
+
 ## Mandatory Audit Events
 
 Audit events for these surfaces are mandatory, not "where appropriate":
