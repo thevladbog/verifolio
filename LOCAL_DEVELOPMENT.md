@@ -137,6 +137,21 @@ cd apps/frontend
 npx playwright test
 ```
 
+The admin E2E (`e2e/admin.spec.ts`) logs in as a bootstrapped SUPERADMIN, so the
+backend must be started with the matching admin email seeded via
+`verifolio.admin.bootstrap-emails`:
+
+```bash
+cd apps/backend
+./gradlew bootRun --args='--spring.profiles.active=local \
+  --verifolio.storage.access-key=<minio-user> --verifolio.storage.secret-key=<minio-pass> \
+  --verifolio.admin.bootstrap-emails=admin-e2e@verifolio.test'
+```
+
+The MinIO credentials must match the running MinIO container
+(`MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`). The CI e2e job passes the same
+`bootstrap-emails` flag (see `.github/workflows/frontend.yml`).
+
 ## MinIO Setup
 
 Local buckets should be initialized automatically.

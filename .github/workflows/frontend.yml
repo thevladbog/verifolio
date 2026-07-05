@@ -65,7 +65,8 @@ jobs:
         working-directory: apps/backend
         run: |
           # Credentials must match the compose minio service (MINIO_ROOT_USER/PASSWORD).
-          ./gradlew bootRun --args='--spring.profiles.active=local --verifolio.storage.access-key=verifolio --verifolio.storage.secret-key=verifolio-local' &
+          # bootstrap-emails seeds the SUPERADMIN the admin E2E (e2e/admin.spec.ts) logs in as.
+          ./gradlew bootRun --args='--spring.profiles.active=local --verifolio.storage.access-key=verifolio --verifolio.storage.secret-key=verifolio-local --verifolio.admin.bootstrap-emails=admin-e2e@verifolio.test' &
           timeout 300 bash -c 'until curl -sf http://localhost:8080/v3/api-docs > /dev/null; do sleep 3; done'
       - run: npm ci
       - run: npx playwright install --with-deps chromium
