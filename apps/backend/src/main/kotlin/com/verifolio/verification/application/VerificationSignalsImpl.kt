@@ -65,10 +65,17 @@ internal class VerificationSignalsImpl(
     }
 
     @Transactional
-    override fun markRevoked(entityType: String, entityId: UUID, signalType: String): Int {
+    override fun markRevoked(entityType: String, entityId: UUID, signalType: String): Int =
+        flipVerified(entityType, entityId, signalType, "REVOKED")
+
+    @Transactional
+    override fun markExpired(entityType: String, entityId: UUID, signalType: String): Int =
+        flipVerified(entityType, entityId, signalType, "EXPIRED")
+
+    private fun flipVerified(entityType: String, entityId: UUID, signalType: String, newStatus: String): Int {
         val vs = VERIFICATION_SIGNAL
         val flipped = dsl.update(vs)
-            .set(vs.STATUS, "REVOKED")
+            .set(vs.STATUS, newStatus)
             .where(
                 vs.ENTITY_TYPE.eq(entityType)
                     .and(vs.ENTITY_ID.eq(entityId))
@@ -88,7 +95,7 @@ internal class VerificationSignalsImpl(
                     "signalType" to signalType,
                     "entityType" to entityType,
                     "entityId" to entityId.toString(),
-                    "newStatus" to "REVOKED",
+                    "newStatus" to newStatus,
                 ),
             )
         }

@@ -26,6 +26,7 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
     @Autowired lateinit var rest: TestRestTemplate
     @Autowired lateinit var mail: RecordingMailPort
     @Autowired lateinit var dsl: DSLContext
+    @Autowired lateinit var context: org.springframework.context.ApplicationContext
 
     @BeforeEach
     fun resetMail() {
@@ -464,6 +465,37 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
             .fetch(cr.STATUS)
         assertThat(declined).contains("DECLINED")
         assertThat(auditActions()).contains("CONSENT_DECLINED")
+    }
+
+    @Test
+    fun `expired link signal is swept to EXPIRED while revoked stays REVOKED`() {
+        val (cookie, documentId) = completeDocument("sweep_owner@example.com", "sweep_rec@corp.example.com")
+        val expiredLink = createLink(cookie, documentId, expiresInDays = 1)
+        val revokedLink = createLink(cookie, documentId)
+
+        // Revoke one link; backdate the other's expiry.
+        rest.exchange(
+            "/api/v1/share-links/${revokedLink["id"]}/revoke", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(cookie, xsrf(cookie))), Map::class.java,
+        )
+        val sl = SHARE_LINK
+        dsl.update(sl)
+            .set(sl.EXPIRES_AT, OffsetDateTime.now().minusMinutes(1))
+            .where(sl.ID.eq(UUID.fromString(expiredLink["id"] as String)))
+            .execute()
+
+        val task = context.getBeansOfType(com.verifolio.workflows.RecurringTask::class.java).values
+            .first { it.name == "expired-share-link-signals" }
+        task.run()
+
+        val vs = VERIFICATION_SIGNAL
+        fun signalStatus(linkId: String): String =
+            dsl.select(vs.STATUS).from(vs)
+                .where(vs.ENTITY_TYPE.eq("SHARE_LINK").and(vs.ENTITY_ID.eq(UUID.fromString(linkId))))
+                .fetchOne(vs.STATUS)!!
+        assertThat(signalStatus(expiredLink["id"] as String)).isEqualTo("EXPIRED")
+        assertThat(signalStatus(revokedLink["id"] as String)).isEqualTo("REVOKED")
+        assertThat(auditActions()).contains("VERIFICATION_SIGNAL_UPDATED")
     }
 
     @Test
