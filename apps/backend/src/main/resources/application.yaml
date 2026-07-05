@@ -75,6 +75,9 @@ verifolio:
     reminder-offsets: [3d, 7d, 14d] # from sent_at; the last carries the expiration warning
     cleanup-interval: 1h
     pending-upload-ttl: 24h
+  privacy:
+    sla: 30d # DSR response deadline; GDPR default, per-cell statutory value with region-policy work
+    decline-erasure-grace: 24h # abuse-investigation window before declined recommender PII erasure (Flow 9)
   verification:
     free-email-domains: # deny-list for CORPORATE_DOMAIN_CONFIRMED (docs/VERIFICATION_SIGNALS.md)
       - gmail.com
