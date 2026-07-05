@@ -52,6 +52,22 @@ internal class PublicVerificationController(
         return pageService.downloadUrl(token, ipHash(request), userAgentHash(request))
     }
 
+    @Operation(operationId = "publicAttachmentDownloadUrl")
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "Short-lived presigned link to a publicly shared attachment"),
+        ApiResponse(responseCode = "404", description = "Unknown link or attachment not publicly downloadable", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "429", description = "Rate limited", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
+    @GetMapping("/{token}/attachments/{attachmentId}/download-url")
+    fun attachmentDownloadUrl(
+        @PathVariable token: String,
+        @PathVariable attachmentId: java.util.UUID,
+        request: HttpServletRequest,
+    ): PublicDownloadLinkResponse {
+        rateLimit(request)
+        return pageService.attachmentDownloadUrl(token, attachmentId, ipHash(request), userAgentHash(request))
+    }
+
     private fun rateLimit(request: HttpServletRequest) {
         val key = request.remoteAddr ?: "unknown"
         if (!ipLimiter.tryAcquire(key)) {

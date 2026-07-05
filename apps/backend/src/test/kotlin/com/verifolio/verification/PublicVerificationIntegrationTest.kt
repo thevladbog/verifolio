@@ -161,6 +161,9 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
     private fun rawTokenFrom(created: Map<*, *>): String =
         (created["url"] as String).substringAfterLast("/verify/")
 
+    private fun auditActions(): List<String?> =
+        dsl.select(AUDIT_EVENT.ACTION).from(AUDIT_EVENT).fetch(AUDIT_EVENT.ACTION)
+
     private fun page(rawToken: String) = rest.exchange(
         "/api/v1/verification-pages/$rawToken", HttpMethod.GET,
         HttpEntity<Void>(HttpHeaders()),
@@ -360,6 +363,166 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
 
         val actions = dsl.select(AUDIT_EVENT.ACTION).from(AUDIT_EVENT).fetch(AUDIT_EVENT.ACTION)
         assertThat(actions).contains("PUBLIC_VERIFICATION_PAGE_DOWNLOAD")
+    }
+
+    /** Uploads a scan (optionally shared) during the response; call before completeDocument's accept. */
+    private fun completeDocumentWithUploads(
+        requesterEmail: String,
+        recommenderEmail: String,
+        scanShared: Boolean,
+    ): Triple<String, String, String> {
+        val cookie = login(requesterEmail)
+        val xsrfToken = xsrf(cookie)
+
+        val contactId = rest.exchange(
+            "/api/v1/contacts", HttpMethod.POST,
+            HttpEntity(
+                mapOf("name" to "Rec Ommender", "email" to recommenderEmail, "relationshipType" to "MANAGER"),
+                authHeaders(cookie, xsrfToken),
+            ),
+            Map::class.java,
+        ).body!!["id"] as String
+
+        @Suppress("UNCHECKED_CAST")
+        val templates = rest.exchange(
+            "/api/v1/templates?locale=en", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        ).body!!["items"] as List<Map<String, Any>>
+        val templateId = (templates.firstOrNull { it["type"] == "EMPLOYMENT_REFERENCE" } ?: templates.first())["id"] as String
+
+        val requestId = rest.exchange(
+            "/api/v1/reference-requests", HttpMethod.POST,
+            HttpEntity(
+                mapOf(
+                    "recommenderContactId" to contactId, "templateId" to templateId,
+                    "purpose" to "With evidence", "verbalConsentAttested" to true,
+                ),
+                authHeaders(cookie, xsrfToken),
+            ),
+            Map::class.java,
+        ).body!!["id"] as String
+        rest.exchange(
+            "/api/v1/reference-requests/$requestId/send", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(cookie, xsrfToken)), Map::class.java,
+        )
+        val invToken = Regex("/invitations/([A-Za-z0-9_-]+)")
+            .find(mail.sent.last { it.to == recommenderEmail }.textBody)!!.groupValues[1]
+
+        rest.exchange("/api/v1/invitations/$invToken", HttpMethod.GET, HttpEntity<Void>(HttpHeaders()), Map::class.java)
+        rest.exchange("/api/v1/invitations/$invToken/email-confirmations", HttpMethod.POST, HttpEntity<Void>(HttpHeaders()), Map::class.java)
+        val code = Regex("Code: (\\d{6})").find(mail.sent.last { it.to == recommenderEmail }.textBody)!!.groupValues[1]
+        val recCookie = rest.exchange(
+            "/api/v1/invitations/$invToken/confirm-email", HttpMethod.POST,
+            HttpEntity(mapOf("code" to code), HttpHeaders().apply { set(HttpHeaders.CONTENT_TYPE, "application/json") }),
+            Map::class.java,
+        ).headers[HttpHeaders.SET_COOKIE]!!.first { it.startsWith("verifolio_recommender_session=") }.substringBefore(";")
+        val recXsrf = rest.exchange(
+            "/api/v1/recommender/request", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, recCookie) }), Map::class.java,
+        ).headers[HttpHeaders.SET_COOKIE]?.firstOrNull { it.startsWith("XSRF-TOKEN=") }
+            ?.substringAfter("XSRF-TOKEN=")?.substringBefore(";")
+        rest.exchange(
+            "/api/v1/recommender/consent", HttpMethod.POST,
+            HttpEntity(mapOf("accepted" to true), authHeaders(recCookie, recXsrf)), Map::class.java,
+        )
+
+        // Scan upload with the requested sharing toggle.
+        val scanBytes = "%PDF-1.7 uploaded evidence scan".toByteArray(Charsets.US_ASCII)
+        val created = rest.exchange(
+            "/api/v1/recommender/uploads", HttpMethod.POST,
+            HttpEntity(
+                mapOf(
+                    "kind" to "SCAN", "filename" to "letterhead-scan.pdf",
+                    "mimeType" to "application/pdf", "sizeBytes" to scanBytes.size,
+                    "sharedPublicly" to scanShared,
+                ),
+                authHeaders(recCookie, recXsrf),
+            ),
+            Map::class.java,
+        )
+        assertThat(created.statusCode).isEqualTo(HttpStatus.CREATED)
+        val put = java.net.http.HttpClient.newHttpClient().send(
+            java.net.http.HttpRequest.newBuilder(java.net.URI(created.body!!["uploadUrl"] as String))
+                .header("Content-Type", "application/pdf")
+                .PUT(java.net.http.HttpRequest.BodyPublishers.ofByteArray(scanBytes))
+                .build(),
+            java.net.http.HttpResponse.BodyHandlers.discarding(),
+        ).statusCode()
+        assertThat(put).isEqualTo(200)
+        rest.exchange(
+            "/api/v1/recommender/uploads/${created.body!!["uploadId"]}/confirm", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(recCookie, recXsrf)), Map::class.java,
+        )
+
+        rest.exchange(
+            "/api/v1/recommender/responses", HttpMethod.POST,
+            HttpEntity(
+                mapOf("approvedLetterText" to "Letter.", "recipientConfirmed" to true, "relationshipConfirmed" to true),
+                authHeaders(recCookie, recXsrf),
+            ),
+            Map::class.java,
+        )
+        val accept = rest.exchange(
+            "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(cookie, xsrf(cookie))), Map::class.java,
+        )
+        assertThat(accept.statusCode).isEqualTo(HttpStatus.OK)
+        return Triple(cookie, accept.body!!["documentId"] as String, requestId)
+    }
+
+    @Test
+    fun `consented attachment is publicly listed and downloadable`() {
+        val (cookie, documentId, _) = completeDocumentWithUploads(
+            "attdl_owner@example.com", "attdl_rec@corp.example.com", scanShared = true,
+        )
+        val rawToken = rawTokenFrom(createLink(cookie, documentId))
+
+        val pageResponse = page(rawToken)
+        @Suppress("UNCHECKED_CAST")
+        val downloads = pageResponse.body!!["downloads"] as List<Map<String, Any>>
+        assertThat(downloads.first()["id"]).isEqualTo("generated-pdf")
+        val scanDownload = downloads.first { it["kind"] == "SCAN" }
+        assertThat(scanDownload["downloadable"]).isEqualTo(true)
+        assertThat(scanDownload["filename"]).isEqualTo("letterhead-scan.pdf")
+
+        // Badges include the scan signal.
+        @Suppress("UNCHECKED_CAST")
+        val badges = pageResponse.body!!["badges"] as List<Map<String, Any>>
+        assertThat(badges.map { it["signalType"] }).contains("SCAN_ATTACHED")
+
+        val attachmentId = scanDownload["id"] as String
+        val link = rest.exchange(
+            "/api/v1/verification-pages/$rawToken/attachments/$attachmentId/download-url", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders()),
+            Map::class.java,
+        )
+        assertThat(link.statusCode).isEqualTo(HttpStatus.OK)
+        val bytes = java.net.URI(link.body!!["url"] as String).toURL().readBytes()
+        assertThat(String(bytes.copyOfRange(0, 5), Charsets.US_ASCII)).isEqualTo("%PDF-")
+        assertThat(auditActions()).contains("PUBLIC_VERIFICATION_PAGE_DOWNLOAD", "FILE_DOWNLOAD_GRANTED")
+    }
+
+    @Test
+    fun `unconsented attachment is listed without filename and not downloadable`() {
+        val (cookie, documentId, _) = completeDocumentWithUploads(
+            "attnodl_owner@example.com", "attnodl_rec@corp.example.com", scanShared = false,
+        )
+        val rawToken = rawTokenFrom(createLink(cookie, documentId))
+
+        val pageResponse = page(rawToken)
+        @Suppress("UNCHECKED_CAST")
+        val downloads = pageResponse.body!!["downloads"] as List<Map<String, Any>>
+        val scanDownload = downloads.first { it["kind"] == "SCAN" }
+        assertThat(scanDownload["downloadable"]).isEqualTo(false)
+        assertThat(scanDownload["filename"]).isNull()
+
+        val link = rest.exchange(
+            "/api/v1/verification-pages/$rawToken/attachments/${scanDownload["id"]}/download-url", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders()),
+            Map::class.java,
+        )
+        assertThat(link.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
     }
 
     @Test

@@ -3,7 +3,12 @@ package com.verifolio.documents.application
 import com.verifolio.audit.AuditService
 import com.verifolio.documents.PinnedPdf
 import com.verifolio.documents.ShareLinkAccess
+import com.verifolio.documents.SharedAttachment
 import com.verifolio.documents.SharedVersionView
+import com.verifolio.jooq.tables.references.CONSENT_RECORD
+import com.verifolio.jooq.tables.references.DOCUMENT_ATTACHMENT
+import com.verifolio.jooq.tables.references.FILE_OBJECT
+import com.verifolio.jooq.tables.references.RESPONSE_UPLOAD
 import com.verifolio.documents.api.CreateShareLinkRequest
 import com.verifolio.documents.api.ShareLinkCreatedResponse
 import com.verifolio.documents.api.ShareLinkListResponse
@@ -181,6 +186,15 @@ internal class ShareLinkService(
         return PinnedPdf(download = fileStore.presignedDownloadUrl(pdfFileId), fileId = pdfFileId)
     }
 
+    @Transactional(readOnly = true)
+    override fun presignAttachment(rawToken: String, attachmentId: UUID): PinnedPdf {
+        val view = resolve(rawToken)
+            ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Verification page not found")
+        val attachment = view.attachments.firstOrNull { it.attachmentId == attachmentId && it.publiclyDownloadable }
+            ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Attachment not found")
+        return PinnedPdf(download = fileStore.presignedDownloadUrl(attachment.fileId), fileId = attachment.fileId)
+    }
+
     // ---- helpers ----
 
     private fun toView(link: ShareLinkRecord): SharedVersionView? {
@@ -208,7 +222,41 @@ internal class ShareLinkService(
             versionStatus = version.status!!,
             supersededByNewerVersion = version.versionNumber!! < currentNumber,
             shareLinkCreatedAt = link.createdAt!!,
+            attachments = sharedAttachments(version.id!!),
         )
+    }
+
+    /**
+     * Attachments of the pinned version with their public-download eligibility:
+     * shared_publicly on the backing upload AND a GRANTED, non-withdrawn
+     * RECOMMENDER_PUBLIC_SHARING_CONSENT record. Filenames are exposed only for
+     * downloadable attachments (names may contain PII).
+     */
+    private fun sharedAttachments(versionId: UUID): List<SharedAttachment> {
+        val da = DOCUMENT_ATTACHMENT
+        val ru = RESPONSE_UPLOAD
+        val fo = FILE_OBJECT
+        val cr = CONSENT_RECORD
+        return dsl.select(da.ID, da.FILE_OBJECT_ID, da.TYPE, fo.ORIGINAL_FILENAME, ru.SHARED_PUBLICLY, cr.STATUS, cr.WITHDRAWN_AT)
+            .from(da)
+            .join(fo).on(fo.ID.eq(da.FILE_OBJECT_ID))
+            .leftJoin(ru).on(ru.FILE_OBJECT_ID.eq(da.FILE_OBJECT_ID))
+            .leftJoin(cr).on(cr.ID.eq(ru.CONSENT_RECORD_ID))
+            .where(da.DOCUMENT_VERSION_ID.eq(versionId))
+            .orderBy(da.CREATED_AT.asc())
+            .fetch()
+            .map { row ->
+                val downloadable = row.get(ru.SHARED_PUBLICLY) == true &&
+                    row.get(cr.STATUS) == "GRANTED" &&
+                    row.get(cr.WITHDRAWN_AT) == null
+                SharedAttachment(
+                    attachmentId = row.get(da.ID)!!,
+                    fileId = row.get(da.FILE_OBJECT_ID)!!,
+                    kind = row.get(da.TYPE)!!,
+                    filename = if (downloadable) row.get(fo.ORIGINAL_FILENAME) else null,
+                    publiclyDownloadable = downloadable,
+                )
+            }
     }
 
     private fun loadOwnedDocument(user: AuthenticatedUser, documentId: UUID): com.verifolio.jooq.tables.records.DocumentRecord {

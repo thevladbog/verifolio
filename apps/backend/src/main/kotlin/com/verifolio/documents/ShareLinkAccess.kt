@@ -18,6 +18,17 @@ data class SharedVersionView(
     val versionStatus: String,
     val supersededByNewerVersion: Boolean,
     val shareLinkCreatedAt: OffsetDateTime,
+    val attachments: List<SharedAttachment>,
+)
+
+data class SharedAttachment(
+    val attachmentId: UUID,
+    val fileId: UUID,
+    val kind: String,
+    /** Null when not publicly downloadable — the original filename may contain PII. */
+    val filename: String?,
+    /** shared_publicly with a GRANTED, non-withdrawn RECOMMENDER_PUBLIC_SHARING_CONSENT. */
+    val publiclyDownloadable: Boolean,
 )
 
 /**
@@ -31,6 +42,9 @@ interface ShareLinkAccess {
 
     /** Presigned GET for the pinned version's generated PDF. Throws NOT_FOUND when invalid. */
     fun presignPinnedPdf(rawToken: String): PinnedPdf
+
+    /** Presigned GET for a publicly downloadable attachment of the pinned version; NOT_FOUND otherwise. */
+    fun presignAttachment(rawToken: String, attachmentId: UUID): PinnedPdf
 }
 
 /** The file id accompanies the link so callers can emit file-level audit events. */
