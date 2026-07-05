@@ -40,9 +40,7 @@ jobs:
       - run: npm run build
 
   e2e:
-    # Non-blocking while the compose-backed flow stabilizes; promote once green.
     runs-on: ubuntu-latest
-    continue-on-error: true
     needs: build-test
     steps:
       - uses: actions/checkout@v4
