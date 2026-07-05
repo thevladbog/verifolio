@@ -106,6 +106,81 @@ test.describe.serial("admin console", () => {
     }
   });
 
+  test("EXPORT DSR: admin executes → EXECUTED + subject receives export link", async ({
+    browser,
+  }) => {
+    expect(mfaSecret, "enroll test must run first").toBeTruthy();
+    const exportOwnerEmail = `e2e-export-owner-${run}@example.com`;
+
+    // An account holder submits an EXPORT DSR from the /profile Data & privacy card.
+    const ownerContext = await browser.newContext();
+    try {
+      const ownerPage = await ownerContext.newPage();
+      await loginViaMagicLink(ownerPage, exportOwnerEmail);
+      await ownerPage.goto("/profile");
+      await expect(ownerPage.getByText("Data & privacy")).toBeVisible();
+      // Default type is DELETION; switch the request-type select to EXPORT.
+      await ownerPage.getByRole("combobox", { name: "Request type" }).click();
+      await ownerPage.getByRole("option", { name: "Export my data" }).click();
+      await ownerPage.getByRole("button", { name: "Submit request" }).click();
+      await expect(
+        ownerPage.getByText("Your request was received."),
+      ).toBeVisible();
+    } finally {
+      await ownerContext.close();
+    }
+
+    // The already-enrolled admin challenge-logs in and executes the EXPORT DSR.
+    const adminContext = await browser.newContext();
+    try {
+      const admin = await adminContext.newPage();
+      await requestAdminLink(admin);
+      await expect(admin).toHaveURL(/\/admin\/mfa\/challenge/);
+      await admin.getByLabel("Authenticator code").fill(totp(mfaSecret));
+      await admin.getByRole("button", { name: "Verify" }).click();
+      await expect(admin).toHaveURL(/\/admin$/);
+
+      await admin.goto("/admin/data-requests");
+      const row = admin
+        .getByRole("button")
+        .filter({ hasText: exportOwnerEmail });
+      await expect(row).toBeVisible();
+      await row.click();
+
+      // The detail panel shows the EXPORT request; execute it.
+      await expect(
+        admin.getByRole("heading", { name: "Export" }),
+      ).toBeVisible();
+      await admin
+        .getByRole("button", { name: "Execute", exact: true })
+        .click();
+
+      // EXPORT now executes synchronously — the DSR flips to EXECUTED and the
+      // calm "manual execution required" state never fires for this type.
+      await expect(admin.getByText("Executed").first()).toBeVisible();
+      await expect(
+        admin.getByText("Manual execution required"),
+      ).toHaveCount(0);
+    } finally {
+      await adminContext.close();
+    }
+
+    // The subject's inbox receives the data-export email carrying a short-lived
+    // MinIO presigned GET link; fetching it yields the account-holder JSON package.
+    const [downloadUrl] = await waitForMail(
+      exportOwnerEmail,
+      /http:\/\/localhost:9000\/\S+/,
+    );
+    const res = await fetch(downloadUrl);
+    expect(res.ok).toBeTruthy();
+    const pkg = (await res.json()) as {
+      subjectType?: string;
+      account?: unknown;
+    };
+    expect(pkg.subjectType).toBe("ACCOUNT_HOLDER");
+    expect(pkg.account).toBeTruthy();
+  });
+
   test("re-login routes through MFA challenge", async ({ browser }) => {
     expect(mfaSecret, "enroll test must run first").toBeTruthy();
 
