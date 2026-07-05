@@ -1,6 +1,13 @@
 package com.verifolio.verification
 
+import java.time.OffsetDateTime
 import java.util.UUID
+
+data class SignalView(
+    val signalType: String,
+    val status: String,
+    val verifiedAt: OffsetDateTime?,
+)
 
 /**
  * Public write API of the verification module — the single owner of signal records
@@ -20,4 +27,13 @@ interface VerificationSignals {
         evidence: Map<String, String>,
         provider: String? = null,
     ): UUID
+
+    /** VERIFIED signals for one entity — the read model for display surfaces. */
+    fun listVerified(entityType: String, entityId: UUID): List<SignalView>
+
+    /**
+     * Flips VERIFIED signals of the given type on the entity to REVOKED; returns the
+     * number flipped. Audits VERIFICATION_SIGNAL_UPDATED per row.
+     */
+    fun markRevoked(entityType: String, entityId: UUID, signalType: String): Int
 }

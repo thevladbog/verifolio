@@ -308,6 +308,7 @@ internal class ReferenceRequestService(
                     ?: throw ApiException(HttpStatus.CONFLICT, "INVALID_REQUEST_STATE", "Response has no approved letter text"),
                 answersJson = response.answersJson!!.data(),
                 recommenderName = record.recommenderName!!,
+                recipientName = profileService.displayName(requesterProfileId) ?: user.email,
                 purpose = record.purpose,
                 lockedByActorId = user.userId.toString(),
             ),

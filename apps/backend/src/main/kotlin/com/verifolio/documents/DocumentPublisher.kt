@@ -10,6 +10,8 @@ data class PublishDocumentCommand(
     /** Raw JSON of the structured answers. */
     val answersJson: String,
     val recommenderName: String,
+    /** Recipient display name at publish time — snapshotted into the locked content. */
+    val recipientName: String,
     val purpose: String?,
     val lockedByActorId: String,
 )

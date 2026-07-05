@@ -2,6 +2,7 @@ package com.verifolio.verification.application
 
 import com.verifolio.audit.AuditService
 import com.verifolio.jooq.tables.references.VERIFICATION_SIGNAL
+import com.verifolio.verification.SignalView
 import com.verifolio.verification.VerificationSignals
 import org.jooq.DSLContext
 import org.jooq.JSONB
@@ -51,5 +52,46 @@ internal class VerificationSignalsImpl(
             ),
         )
         return id
+    }
+
+    @Transactional(readOnly = true)
+    override fun listVerified(entityType: String, entityId: UUID): List<SignalView> {
+        val vs = VERIFICATION_SIGNAL
+        return dsl.selectFrom(vs)
+            .where(vs.ENTITY_TYPE.eq(entityType).and(vs.ENTITY_ID.eq(entityId)).and(vs.STATUS.eq("VERIFIED")))
+            .orderBy(vs.CREATED_AT.asc())
+            .fetch()
+            .map { SignalView(it.signalType!!, it.status!!, it.verifiedAt) }
+    }
+
+    @Transactional
+    override fun markRevoked(entityType: String, entityId: UUID, signalType: String): Int {
+        val vs = VERIFICATION_SIGNAL
+        val flipped = dsl.update(vs)
+            .set(vs.STATUS, "REVOKED")
+            .where(
+                vs.ENTITY_TYPE.eq(entityType)
+                    .and(vs.ENTITY_ID.eq(entityId))
+                    .and(vs.SIGNAL_TYPE.eq(signalType))
+                    .and(vs.STATUS.eq("VERIFIED")),
+            )
+            .returning(vs.ID)
+            .fetch()
+        flipped.forEach { row ->
+            audit.record(
+                actorType = "SYSTEM",
+                actorId = null,
+                action = "VERIFICATION_SIGNAL_UPDATED",
+                entityType = "VERIFICATION_SIGNAL",
+                entityId = row.id.toString(),
+                metadata = mapOf(
+                    "signalType" to signalType,
+                    "entityType" to entityType,
+                    "entityId" to entityId.toString(),
+                    "newStatus" to "REVOKED",
+                ),
+            )
+        }
+        return flipped.size
     }
 }

@@ -269,3 +269,48 @@ inherit context; append an entry when an iteration ships.
 - **Signals read API / trust summary** — with the public verification page.
 - **PDF generation stays synchronous in the accept transaction** — Temporal
   orchestration with the "minimal workflows" item.
+
+## 2026-07 — Share links & public verification page (iteration 6)
+
+### What shipped
+
+- **Schema**: Flyway V7 adds `share_link` (version-pinned `document_version_id`, unique
+  HMAC `token_hash`, `expires_at` nullable = no expiry, `revoked_at`).
+- **Platform**: `TokenHasher`/`TokenGenerator` promoted from identity.domain to platform
+  (documents needs hashing; pure technical utils like the rate limiter).
+- **documents**: share-link lifecycle — `POST /api/v1/documents/{id}/share-links`
+  (pins the current version; raw token returned exactly once in
+  `${frontendBaseUrl}/verify/{raw}`), owner-scoped list (never returns tokens),
+  `POST /api/v1/share-links/{id}/revoke` (immediate; double revoke 409). Public API
+  `ShareLinkAccess.resolve/presignPinnedPdf` (null/404 for unknown, revoked, expired,
+  tombstoned). Audits SHARE_LINK_CREATED/REVOKED.
+- **publicpages (new module)**: read-only composition layer on top of documents/requests/
+  profiles/verification — hosting the page inside `verification` created dependency
+  cycles (domain modules write signals INTO verification while the page reads FROM them);
+  ModularityTests caught it and MODULES.md documents the new module. Owns
+  `GET /api/v1/verification-pages/{token}`
+  (header, recipient, recommender labeled stated-by-recommender, badge list from the
+  catalog texts, trust summary counts per category — VERIFIED only, never a single
+  number, version info incl. supersededByNewerVersion, timeline from entity timestamps,
+  disclaimer + privacy notice) and `GET .../download-url` (presigned PDF). permitAll,
+  per-IP limiter 300/15min, 404 for any invalid token (no state oracle). View audit
+  sampled via `verifolio.public-page.view-audit-sample-rate` (local 1.0); downloads
+  always fully audited (PUBLIC_VERIFICATION_PAGE_DOWNLOAD).
+  `VerificationSignals` gained `listVerified`/`markRevoked` (audits
+  VERIFICATION_SIGNAL_UPDATED); `TrustSummary`/`BadgeCatalog` live at the verification
+  package root as public display API. PUBLIC_VERIFICATION_ENABLED signal per link (entity
+  SHARE_LINK): VERIFIED at creation, REVOKED at revocation.
+- **Test infrastructure**: the per-IP magic-link limit became configurable
+  (`verifolio.auth.magic-link-ip-limit`, default 100) — the grown suite shares one
+  context and one client IP and had started tripping the hardcoded limit.
+- **requests**: `RequestPublicView` read model (recommender snapshot fields, purpose,
+  timestamps, latestResponseId) — no emails, no letter content.
+
+### Deferred items
+
+- **Expired-link signal sweep** — access stops at expiry (resolve check), but the
+  PUBLIC_VERIFICATION_ENABLED row flips only on revocation; background sweep with the
+  workflows item.
+- **Verification certificate PDF, scan/signature download sections, NAME_MATCH,
+  retraction/tombstone page states** — with their features.
+- **View sampling is in-process randomness** — per-cell aggregation post-MVP.

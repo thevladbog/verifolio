@@ -2,7 +2,7 @@ package com.verifolio.identity.api
 
 import com.verifolio.identity.AuthenticatedUser
 import com.verifolio.identity.application.SessionService
-import com.verifolio.identity.domain.TokenHasher
+import com.verifolio.platform.TokenHasher
 import com.verifolio.identity.application.MagicLinkService
 import com.verifolio.platform.VerifolioProperties
 import com.verifolio.platform.web.ApiError

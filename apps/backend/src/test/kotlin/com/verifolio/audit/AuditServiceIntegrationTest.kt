@@ -14,18 +14,20 @@ class AuditServiceIntegrationTest : IntegrationTest() {
 
     @Test
     fun `records an append-only audit event`() {
+        // Unique entity id: other suites in the shared context also emit LOGIN_SUCCEEDED.
+        val entityId = java.util.UUID.randomUUID().toString()
         auditService.record(
             actorType = "USER",
             actorId = "user-1",
             action = "LOGIN_SUCCEEDED",
             entityType = "SESSION",
-            entityId = "session-1",
+            entityId = entityId,
             metadata = mapOf("region" to "local"),
             ipHash = "aa11",
             userAgentHash = "bb22",
         )
         val row = dsl.selectFrom(AUDIT_EVENT)
-            .where(AUDIT_EVENT.ACTION.eq("LOGIN_SUCCEEDED"))
+            .where(AUDIT_EVENT.ACTION.eq("LOGIN_SUCCEEDED").and(AUDIT_EVENT.ENTITY_ID.eq(entityId)))
             .fetchOne()
         assertThat(row).isNotNull
         assertThat(row!!.actorType).isEqualTo("USER")

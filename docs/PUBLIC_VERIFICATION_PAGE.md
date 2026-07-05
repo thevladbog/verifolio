@@ -41,7 +41,12 @@ There is no single "verification status" or score. Trust is presented as a signa
 
 ### Recommender
 
-- name, title, organization, relationship to recipient — all labeled "stated by recommender" (self-declared);
+- every field carries an explicit provenance label matching how the data actually enters
+  the system: the recommender never submits their own name, so **name (and title/
+  organization when shown) is labeled "provided by requester"** (it comes from the
+  requester's contact entry), while **relationship is labeled "confirmed by recommender"**
+  (the recommender explicitly confirms it at submission); self-declared values must never
+  be presented as verified;
 - email/domain verification signals.
 
 ### Trust Summary

@@ -1,4 +1,4 @@
-package com.verifolio.identity.domain
+package com.verifolio.platform
 
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec

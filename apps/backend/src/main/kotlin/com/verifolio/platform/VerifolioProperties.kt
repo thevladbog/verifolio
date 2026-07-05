@@ -12,6 +12,7 @@ data class VerifolioProperties(
     val requests: Requests = Requests(),
     val storage: Storage = Storage(),
     val verification: Verification = Verification(),
+    val publicPage: PublicPage = PublicPage(),
 ) {
     init {
         require(region == "local" || auth.tokenPepper != "local-dev-pepper-change-me") {
@@ -26,6 +27,8 @@ data class VerifolioProperties(
         val frontendBaseUrl: String,
         val cookieSecure: Boolean = true,
         val recommenderSessionTtl: Duration = Duration.ofHours(1),
+        /** Per-IP magic-link request window; raised in integration tests (shared 127.0.0.1). */
+        val magicLinkIpLimit: Int = 100,
         val emailConfirmationTtl: Duration = Duration.ofMinutes(10),
         val emailConfirmationLimit: Int = 3,
         val emailConfirmationWindow: Duration = Duration.ofMinutes(15),
@@ -69,4 +72,15 @@ data class VerifolioProperties(
             "mail.ru", "yandex.ru", "icloud.com", "proton.me", "protonmail.com",
         ),
     )
+
+    data class PublicPage(
+        /** 0.0–1.0 share of public page views written to the audit log (views are sampled; downloads always audited). */
+        val viewAuditSampleRate: Double = 1.0,
+    ) {
+        init {
+            require(viewAuditSampleRate in 0.0..1.0) {
+                "verifolio.public-page.view-audit-sample-rate must be within 0.0..1.0"
+            }
+        }
+    }
 }
