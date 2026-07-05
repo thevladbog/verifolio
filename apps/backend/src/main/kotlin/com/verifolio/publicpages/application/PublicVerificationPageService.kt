@@ -28,11 +28,13 @@ import java.util.UUID
 private const val DISCLAIMER =
     "Verifolio verifies identity signals, recommender confirmation methods, and document integrity. " +
         "It does not independently guarantee the truth of every statement inside the document. " +
-        "Recommender name, title, organization, and relationship are stated by the recommender."
+        "The recommender's name was provided by the requester; the relationship was confirmed " +
+        "by the recommender at submission."
 
 private const val PRIVACY_NOTICE =
-    "Verifolio records anonymous, aggregated telemetry about page views and downloads " +
-        "(hashed network metadata) for security and audit purposes."
+    "Verifolio records page views and downloads for security and audit purposes, including " +
+        "keyed hashes of your IP address and browser identifier. These hashes are treated as " +
+        "personal data and are retained under Verifolio's audit retention policy."
 
 @Service
 internal class PublicVerificationPageService(
@@ -62,7 +64,11 @@ internal class PublicVerificationPageService(
                 lastVerifiedAt = signals.mapNotNull { it.verifiedAt }.maxOrNull()?.toString(),
             ),
             recipient = RecipientDto(
-                name = profileService.displayName(view.ownerProfileId) ?: "Verifolio user",
+                // Lock-time snapshot from the pinned version content; the profile lookup
+                // covers only pre-snapshot rows.
+                name = view.recipientName
+                    ?: profileService.displayName(view.ownerProfileId)
+                    ?: "Verifolio user",
             ),
             recommender = requestInfo?.let {
                 RecommenderDto(name = it.recommenderName, relationshipType = it.relationshipType)
@@ -93,9 +99,10 @@ internal class PublicVerificationPageService(
     @Transactional
     fun downloadUrl(rawToken: String, ipHash: String?, userAgentHash: String?): PublicDownloadLinkResponse {
         val view = shareLinkAccess.resolve(rawToken) ?: throw pageNotFound()
-        val link = shareLinkAccess.presignPinnedPdf(rawToken)
+        val pinned = shareLinkAccess.presignPinnedPdf(rawToken)
 
-        // Downloads are always fully audited (docs/PUBLIC_VERIFICATION_PAGE.md).
+        // Downloads are always fully audited (docs/PUBLIC_VERIFICATION_PAGE.md):
+        // the page-level event plus the file-level grant, matching the authenticated path.
         audit.record(
             actorType = "PUBLIC_VIEWER",
             actorId = null,
@@ -106,7 +113,21 @@ internal class PublicVerificationPageService(
             ipHash = ipHash,
             userAgentHash = userAgentHash,
         )
-        return PublicDownloadLinkResponse(url = link.url, expiresAt = link.expiresAt.toString())
+        audit.record(
+            actorType = "PUBLIC_VIEWER",
+            actorId = null,
+            action = "FILE_DOWNLOAD_GRANTED",
+            entityType = "FILE_OBJECT",
+            entityId = pinned.fileId.toString(),
+            metadata = mapOf(
+                "shareLinkId" to view.shareLinkId.toString(),
+                "documentId" to view.documentId.toString(),
+                "purpose" to "GENERATED_PDF",
+            ),
+            ipHash = ipHash,
+            userAgentHash = userAgentHash,
+        )
+        return PublicDownloadLinkResponse(url = pinned.download.url, expiresAt = pinned.download.expiresAt.toString())
     }
 
     // ---- helpers ----

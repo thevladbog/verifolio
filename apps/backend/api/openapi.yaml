@@ -939,7 +939,7 @@ paths:
     get:
       tags:
       - public-verification-controller
-      operationId: page
+      operationId: publicVerificationPage
       parameters:
       - name: token
         in: path
@@ -969,7 +969,7 @@ paths:
     get:
       tags:
       - public-verification-controller
-      operationId: downloadUrl
+      operationId: publicVerificationDownloadUrl
       parameters:
       - name: token
         in: path
@@ -1207,7 +1207,7 @@ paths:
     get:
       tags:
       - document-controller
-      operationId: downloadUrl_1
+      operationId: downloadUrl
       parameters:
       - name: id
         in: path
@@ -1663,12 +1663,14 @@ components:
       properties:
         name:
           type: string
+        nameSource:
+          type: string
         relationshipType:
           type:
           - string
           - "null"
-        statedByRecommender:
-          type: boolean
+        relationshipSource:
+          type: string
     TimelineEntryDto:
       type: object
       properties:

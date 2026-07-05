@@ -5,6 +5,7 @@ import com.verifolio.platform.SlidingWindowRateLimiter
 import com.verifolio.platform.TokenHasher
 import com.verifolio.platform.web.ApiError
 import com.verifolio.publicpages.application.PublicVerificationPageService
+import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -25,6 +26,7 @@ internal class PublicVerificationController(
     @Qualifier("verificationPageIpLimiter") private val ipLimiter: SlidingWindowRateLimiter,
 ) {
 
+    @Operation(operationId = "publicVerificationPage")
     @ApiResponses(
         ApiResponse(responseCode = "200"),
         ApiResponse(responseCode = "404", description = "Unknown, revoked, or expired link", content = [Content(schema = Schema(implementation = ApiError::class))]),
@@ -36,6 +38,9 @@ internal class PublicVerificationController(
         return pageService.page(token, ipHash(request), userAgentHash(request))
     }
 
+    // Explicit operationId: without it springdoc renames the pre-existing document
+    // download operation to downloadUrl_1, breaking generated clients.
+    @Operation(operationId = "publicVerificationDownloadUrl")
     @ApiResponses(
         ApiResponse(responseCode = "200", description = "Short-lived presigned link to the pinned PDF"),
         ApiResponse(responseCode = "404", description = "Unknown, revoked, or expired link", content = [Content(schema = Schema(implementation = ApiError::class))]),

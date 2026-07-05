@@ -76,5 +76,11 @@ data class VerifolioProperties(
     data class PublicPage(
         /** 0.0–1.0 share of public page views written to the audit log (views are sampled; downloads always audited). */
         val viewAuditSampleRate: Double = 1.0,
-    )
+    ) {
+        init {
+            require(viewAuditSampleRate in 0.0..1.0) {
+                "verifolio.public-page.view-audit-sample-rate must be within 0.0..1.0"
+            }
+        }
+    }
 }

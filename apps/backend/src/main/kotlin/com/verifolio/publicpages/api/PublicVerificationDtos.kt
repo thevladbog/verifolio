@@ -10,8 +10,11 @@ data class RecipientDto(val name: String)
 
 data class RecommenderDto(
     val name: String,
+    /** The recommender never submits a name; it comes from the requester's contact entry. */
+    val nameSource: String = "provided-by-requester",
     val relationshipType: String?,
-    val statedByRecommender: Boolean = true,
+    /** The relationship value is confirmed by the recommender at submission. */
+    val relationshipSource: String = "confirmed-by-recommender",
 )
 
 data class BadgeDto(

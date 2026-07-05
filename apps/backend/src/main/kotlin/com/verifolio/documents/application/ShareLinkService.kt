@@ -1,13 +1,13 @@
 package com.verifolio.documents.application
 
 import com.verifolio.audit.AuditService
+import com.verifolio.documents.PinnedPdf
 import com.verifolio.documents.ShareLinkAccess
 import com.verifolio.documents.SharedVersionView
 import com.verifolio.documents.api.CreateShareLinkRequest
 import com.verifolio.documents.api.ShareLinkCreatedResponse
 import com.verifolio.documents.api.ShareLinkListResponse
 import com.verifolio.documents.api.ShareLinkResponse
-import com.verifolio.files.DownloadLink
 import com.verifolio.files.FileStore
 import com.verifolio.identity.AuthenticatedUser
 import com.verifolio.jooq.tables.records.ShareLinkRecord
@@ -36,6 +36,7 @@ internal class ShareLinkService(
     private val audit: AuditService,
     private val hasher: TokenHasher,
     private val props: VerifolioProperties,
+    private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : ShareLinkAccess {
 
     @Transactional
@@ -169,7 +170,7 @@ internal class ShareLinkService(
     }
 
     @Transactional(readOnly = true)
-    override fun presignPinnedPdf(rawToken: String): DownloadLink {
+    override fun presignPinnedPdf(rawToken: String): PinnedPdf {
         val view = resolve(rawToken)
             ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Verification page not found")
         val dv = DOCUMENT_VERSION
@@ -177,7 +178,7 @@ internal class ShareLinkService(
             .where(dv.ID.eq(view.versionId))
             .fetchOne(dv.PDF_FILE_ID)
             ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Verification page not found")
-        return fileStore.presignedDownloadUrl(pdfFileId)
+        return PinnedPdf(download = fileStore.presignedDownloadUrl(pdfFileId), fileId = pdfFileId)
     }
 
     // ---- helpers ----
@@ -190,12 +191,16 @@ internal class ShareLinkService(
         if (version.status == "TOMBSTONED") return null
 
         val currentNumber = doc.currentVersionId?.let { versionNumberOf(it) } ?: version.versionNumber!!
+        val recipientName = version.contentJson?.data()?.let { json ->
+            runCatching { objectMapper.readTree(json).get("recipientName")?.asText() }.getOrNull()
+        }
 
         return SharedVersionView(
             shareLinkId = link.id!!,
             documentId = doc.id!!,
             documentType = doc.type!!,
             ownerProfileId = doc.ownerProfileId!!,
+            recipientName = recipientName?.takeIf { it.isNotBlank() && it != "null" },
             requestId = doc.requestId,
             versionId = version.id!!,
             versionNumber = version.versionNumber!!,

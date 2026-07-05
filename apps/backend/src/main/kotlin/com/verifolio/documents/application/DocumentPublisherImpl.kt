@@ -68,6 +68,9 @@ internal class DocumentPublisherImpl(
                 "letterText" to cmd.approvedLetterText,
                 "answers" to objectMapper.readTree(cmd.answersJson),
                 "recommenderName" to cmd.recommenderName,
+                // Snapshot: the public page must show who the document was for at lock
+                // time, immune to later profile renames.
+                "recipientName" to cmd.recipientName,
                 "purpose" to cmd.purpose,
             ),
         )

@@ -219,8 +219,9 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
         @Suppress("UNCHECKED_CAST")
         val recommender = body["recommender"] as Map<String, Any>
         assertThat(recommender["name"]).isEqualTo("Rec Ommender")
+        assertThat(recommender["nameSource"]).isEqualTo("provided-by-requester")
         assertThat(recommender["relationshipType"]).isEqualTo("MANAGER")
-        assertThat(recommender["statedByRecommender"]).isEqualTo(true)
+        assertThat(recommender["relationshipSource"]).isEqualTo("confirmed-by-recommender")
 
         @Suppress("UNCHECKED_CAST")
         val badges = body["badges"] as List<Map<String, Any>>
