@@ -210,6 +210,84 @@
     "allDocuments": "All documents",
     "noDocuments": "No documents yet."
   },
+  "invitation": {
+    "title": "{requester} asks you for a professional reference",
+    "intro": "Template: {template}. Responding takes about 10–15 minutes; you can save a draft and return.",
+    "invalidTitle": "This invitation link is invalid or has expired",
+    "invalidBody": "The link may have been used, revoked, or the request may have expired or been withdrawn. If you expected an active request, ask the requester to send a new invitation.",
+    "confirmHint": "First, confirm you control {email} — we'll email a 6-digit code. Opening this link alone confirms nothing.",
+    "sendCode": "Email me a confirmation code",
+    "codeSent": "We sent a 6-digit code to {email}. It is valid for 10 minutes.",
+    "codeLabel": "Confirmation code",
+    "resend": "Resend code",
+    "footer": "Don't want to respond?",
+    "declineLink": "Decline this request"
+  },
+  "oneClick": {
+    "decline": {
+      "title": "Decline this reference request",
+      "body": "The request will be closed, reminders will stop immediately, and your personal data will be scheduled for erasure.",
+      "confirm": "Decline request",
+      "done": "The request is declined. Reminders have stopped and your data is scheduled for erasure. You can close this page."
+    },
+    "report-abuse": {
+      "title": "Report this request as unwanted",
+      "body": "The request will be closed and reminders will stop immediately. We record abuse reports to protect recipients.",
+      "confirm": "Report and stop emails",
+      "done": "Thank you. The request is closed and you will not receive further emails about it."
+    },
+    "stop-reminders": {
+      "title": "Stop reminder emails",
+      "body": "We'll stop reminding you about this request. The invitation itself stays valid until it expires.",
+      "confirm": "Stop reminders",
+      "done": "Reminders are stopped. You can still respond any time before the request expires."
+    }
+  },
+  "consent": {
+    "title": "Before you start: data processing consent",
+    "processingText": "To collect your response, Verifolio will process your name, email, and the content you submit, storing them in this deployment's region. Your response is shared with the requester and, only with your explicit per-file permission, on the public verification page. You can withdraw consent later; withdrawal stops future processing.",
+    "textRef": "Consent text {id} · version {version}",
+    "crossBorderQuestion": "I am located in a different jurisdiction than this service's region",
+    "crossBorderText": "I consent to the cross-border transfer of my data to the region where this service stores it.",
+    "accept": "I agree — start",
+    "decline": "Decline",
+    "declineHint": "Declining closes the request, stops all reminders, and schedules your data for erasure. No answers are collected before you agree."
+  },
+  "respond": {
+    "title": "Reference for {requester}",
+    "questionsTitle": "Guided questions",
+    "saving": "Saving…",
+    "letterTitle": "Your letter",
+    "letterHint": "This exact text becomes the locked document after the requester accepts it — review it carefully.",
+    "confirmTitle": "Confirm and submit",
+    "recipientConfirm": "I confirm this reference is for {requester}.",
+    "relationshipConfirm": "I confirm the professional relationship I described is accurate.",
+    "submit": "Submit response",
+    "requiredHint": "Answer the required questions (*) to submit.",
+    "expiredTitle": "Your session has expired",
+    "expiredBody": "For security, response sessions are short. Open the invitation link from your email again and confirm your email — your saved draft will be restored.",
+    "declinedBody": "You declined this request. Reminders have stopped and your personal data is scheduled for erasure. You can close this page.",
+    "submittedBody": "Your response is submitted. The requester will review it; the final document is locked only after their acceptance. Thank you!",
+    "footer": "Secure response flow by"
+  },
+  "uploads": {
+    "title": "Attachments (optional)",
+    "hint": "Attach a scanned or signed copy. A detached signature must reference the uploaded file it signs — signatures cover your uploaded file, not the generated document.",
+    "kindLabel": "Attachment type",
+    "targetLabel": "File the signature covers",
+    "targetRequired": "Upload the signed file first, then select it as the signature's target.",
+    "kinds": {
+      "SCAN": "Scanned copy",
+      "SIGNED_PDF": "Signed PDF",
+      "DETACHED_SIGNATURE": "Detached signature",
+      "ATTACHMENT": "Attachment"
+    },
+    "shareToggle": "This file may be shown publicly on the verification page",
+    "shareConsent": "Optional. This records your explicit public-sharing consent for this file only; you can withdraw it later.",
+    "choose": "Choose file…",
+    "uploading": "Uploading…",
+    "public": "public"
+  },
   "errors": {
     "RATE_LIMITED": "Too many attempts. Please try again later.",
     "CONSENT_REQUIRED": "This step requires your explicit confirmation.",
