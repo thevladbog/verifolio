@@ -25,7 +25,7 @@ internal class RequestPublicViewImpl(private val dsl: DSLContext) : RequestPubli
             .fetchOne(resp.SUBMITTED_AT)
 
         return RequestPublicInfo(
-            recommenderName = record.recommenderName!!,
+            recommenderName = record.recommenderName,
             relationshipType = record.recommenderRelationshipType,
             purpose = record.purpose,
             requestCreatedAt = record.createdAt!!,

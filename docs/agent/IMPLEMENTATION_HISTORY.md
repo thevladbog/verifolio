@@ -502,3 +502,65 @@ inherit context; append an entry when an iteration ships.
 - **Pre-accept upload downloads for the owner** — needs new files authorization.
 - **Per-region consent text sets** (eu-*/ru-*) — resources+config mechanism is ready;
   real regional texts land with the RU cell / region policy work.
+
+## 2026-07 — Privacy / DSR core (iteration 11)
+
+### What shipped
+
+- **Schema**: Flyway V11 adds `data_subject_request` (5 types, 5 statuses, subject =
+  exactly one of user/recommender-contact, `due_at` = created + region SLA) and
+  `dsr_verification_code` (HMAC 6-digit, TTL 10m, 5 attempts). Column additions:
+  `reference_request.recommender_pii_erased_at`, `.declined_at` (erasure-grace anchor,
+  stamped by the DECLINED transition), snapshot columns `recommender_name/email` +
+  `invitation_token.recommender_email` made nullable (erasure nulls them);
+  `document_version.retracted_at`.
+- **privacy module** (first real code): `DataSubjectRequestService` (create/list/verify/
+  execute) with a **hybrid execution model** — CONSENT_WITHDRAWAL auto-executes on
+  email verification (GDPR Art. 7(3)); DELETION-of-recommender tombstones + erases;
+  EXPORT / REGION_MIGRATION / CORRECTION / account-holder DELETION accepted but
+  `execute()` throws NOT_IMPLEMENTED (manual until iteration 12+, no HTTP execution
+  endpoint). Two channels: owner session (`POST/GET /api/v1/privacy/data-subject-requests`)
+  and account-less recommender (`POST /api/v1/privacy/recommender-requests` always 202
+  anti-enumeration + `/{id}/verify` with the emailed code). Per-email 3/15min +
+  per-IP 100/15min limiters.
+- **Recommender PII erasure** (`requests.RecommenderPiiErasure.eraseForRequest`): the
+  normative erasure matrix — nulls request snapshot + stamps erased_at, deletes
+  responses / recommender_session / email_confirmation_code rows, nulls invitation
+  token email, physically deletes unattached uploads via `files.FileUploads.
+  deleteUploadAsSystem`; leaves contact/consent/attachments/audit untouched. Idempotent.
+  `RecommenderPiiErasureTask` (RecurringTask) erases DECLINED requests past the 24h
+  grace. Audit `RECOMMENDER_PII_ERASED` (SYSTEM, counts).
+- **Retraction / consent withdrawal** (Flow 10): `requests.ConsentWithdrawal.
+  withdrawForRequest` (GRANTED→WITHDRAWN), `verification.VerificationSignals.
+  revokeAllForEntity`, `documents.DocumentRetraction.markRetracted` (sets `retracted_at`,
+  locked content untouched). Public page shows the retracted banner + REVOKED signal
+  badges (new `listForDisplay` surfaces VERIFIED+REVOKED); generated PDF stays
+  downloadable.
+- **Tombstoning** (`documents.DocumentTombstone.tombstone`): S3-delete PDF + attachments
+  via files module, then NULL content + status TOMBSTONED + tombstoned_at; sha256 /
+  version_number / locked_at retained (asserted). Public page → neutral "content
+  removed" state, download-url → 404.
+- **New public APIs added**: `files.FileUploads.deleteUploadAsSystem`,
+  `files.FileStore.deleteGeneratedAsSystem`, `verification.VerificationSignals.
+  {revokeAllForEntity,listForDisplay}`, `documents.DocumentRetraction.versionIdsForRequest`,
+  `requests.ConsentWithdrawal.{withdrawForRequest,findRequestsByRecommenderEmail}`.
+- **Frontend**: public verify page retracted/tombstoned states; profile "Data & privacy"
+  DSR submit + list; public `/data-requests` recommender email→code→type flow.
+- **Audit/OpenAPI/docs**: catalog + OpenAPI snapshot refreshed; DATA_MODEL / AUDIT_EVENTS
+  / API_GUIDELINES / SECURITY / PUBLIC_VERIFICATION_PAGE updated.
+
+### Deferred items
+
+- **DSR executors**: EXPORT, account-holder full DELETION, REGION_MIGRATION,
+  CORRECTION-as-automation — `execute()` throws NOT_IMPLEMENTED; manual until then.
+- **Admin review UI** for DSR lifecycle (IN_REVIEW/APPROVED/REJECTED transitions exist
+  in the service but have no HTTP surface) — with the admin module.
+- **SLA-breach reminder sweep** — due_at stored, no notifier yet.
+- **Step-up re-confirmation** for DSR submission — still deferred (session + audit is
+  the current bar; noted in SECURITY.md).
+- **Audit-event retention/pseudonymization window** — not yet enforced.
+- **Orphan-reconciliation sweep for erasure/tombstone S3 deletes** — the storage deletes
+  now commit before the DB row mutations (tombstone + PII erasure), so a rollback can no
+  longer orphan storage; but `deleteUploadAsSystem`/`deleteGeneratedAsSystem` still swallow
+  a failing S3 delete while flipping the row to DELETED, so a truly-failed object delete
+  can linger. Needs the same S3 lifecycle-rule sweep as the staging-key orphans above.

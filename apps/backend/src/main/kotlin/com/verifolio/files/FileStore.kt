@@ -30,4 +30,12 @@ interface FileStore {
      * responsibility; this only enforces file status.
      */
     fun presignedDownloadUrl(fileId: UUID): DownloadLink
+
+    /**
+     * Physical delete of a backend-generated file object (the generated-PDF counterpart to
+     * [FileUploads.deleteUploadAsSystem]): the S3 object is removed first, then the FileObject
+     * flips to DELETED — attributed to the SYSTEM actor. For the tombstone path. Idempotent:
+     * a missing or already-DELETED object is a no-op. Audits FILE_DELETED (SYSTEM).
+     */
+    fun deleteGeneratedAsSystem(fileId: UUID)
 }

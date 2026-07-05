@@ -3,6 +3,7 @@ package com.verifolio.publicpages.application
 import com.verifolio.audit.AuditService
 import com.verifolio.documents.ShareLinkAccess
 import com.verifolio.documents.SharedVersionView
+import com.verifolio.documents.TombstonedVersionView
 import com.verifolio.platform.ApiException
 import com.verifolio.platform.VerifolioProperties
 import com.verifolio.profiles.ProfileService
@@ -51,7 +52,12 @@ internal class PublicVerificationPageService(
 
     @Transactional(readOnly = true)
     fun page(rawToken: String, ipHash: String?, userAgentHash: String?): VerificationPageResponse {
-        val view = shareLinkAccess.resolve(rawToken) ?: throw pageNotFound()
+        val view = shareLinkAccess.resolve(rawToken)
+            // A valid token pinned to a tombstoned version renders the neutral notice shape;
+            // an unknown/revoked/expired token stays a 404 (no state oracle).
+            ?: return shareLinkAccess.resolveTombstonedNotice(rawToken)
+                ?.let { tombstonedResponse(it) }
+                ?: throw pageNotFound()
 
         val signals = collectSignals(view)
         val requestInfo = view.requestId?.let { requestPublicView.forRequest(it) }
@@ -59,6 +65,7 @@ internal class PublicVerificationPageService(
         recordSampledView(view.shareLinkId, ipHash, userAgentHash)
 
         return VerificationPageResponse(
+            status = "ACTIVE",
             header = PageHeaderDto(
                 documentType = view.documentType,
                 verificationId = view.shareLinkId.toString(),
@@ -71,8 +78,11 @@ internal class PublicVerificationPageService(
                     ?: profileService.displayName(view.ownerProfileId)
                     ?: "Verifolio user",
             ),
-            recommender = requestInfo?.let {
-                RecommenderDto(name = it.recommenderName, relationshipType = it.relationshipType)
+            // Omit the recommender block once the name snapshot has been erased (retraction /
+            // PII erasure) — otherwise the page would leak an empty name and, before this guard,
+            // threw on the erased column.
+            recommender = requestInfo?.recommenderName?.let { name ->
+                RecommenderDto(name = name, relationshipType = requestInfo.relationshipType)
             },
             badges = signals.map { signal ->
                 val text = BadgeCatalog.describe(signal.signalType)
@@ -90,6 +100,7 @@ internal class PublicVerificationPageService(
                 lockedAt = view.lockedAt.toString(),
                 status = view.versionStatus,
                 supersededByNewerVersion = view.supersededByNewerVersion,
+                retractedAt = view.retractedAt?.toString(),
             ),
             downloads = buildList {
                 add(DownloadDto(id = "generated-pdf", kind = "GENERATED_PDF", filename = null, downloadable = true))
@@ -166,12 +177,43 @@ internal class PublicVerificationPageService(
 
     // ---- helpers ----
 
+    /**
+     * Tombstoned pinned version: header only, with the TOMBSTONED status. No recipient,
+     * recommender, signals, downloads or timeline are exposed — the content was erased at the
+     * subject's request. `notice` is left null so the client renders its own localized copy
+     * (frontend `verify.removedBody`). The download-url endpoints separately 404.
+     */
+    private fun tombstonedResponse(view: TombstonedVersionView): VerificationPageResponse =
+        VerificationPageResponse(
+            status = "TOMBSTONED",
+            header = PageHeaderDto(
+                documentType = view.documentType,
+                verificationId = view.shareLinkId.toString(),
+                lastVerifiedAt = null,
+            ),
+            recipient = null,
+            recommender = null,
+            badges = emptyList(),
+            trustSummary = emptyMap(),
+            version = null,
+            downloads = emptyList(),
+            timeline = emptyList(),
+            disclaimer = null,
+            privacyNotice = null,
+            notice = null,
+        )
+
     private fun collectSignals(view: SharedVersionView): List<SignalView> {
-        val versionSignals = verificationSignals.listVerified("DOCUMENT_VERSION", view.versionId)
+        // listForDisplay surfaces VERIFIED + REVOKED so a retracted recommendation shows its
+        // signals in their REVOKED state (docs/PUBLIC_VERIFICATION_PAGE.md). Non-retracted pages
+        // are unaffected — they carry no REVOKED rows.
+        val versionSignals = verificationSignals.listForDisplay("DOCUMENT_VERSION", view.versionId)
         val responseSignals = view.requestId
             ?.let { requestPublicView.latestResponseId(it) }
-            ?.let { verificationSignals.listVerified("REFERENCE_RESPONSE", it) }
+            ?.let { verificationSignals.listForDisplay("REFERENCE_RESPONSE", it) }
             ?: emptyList()
+        // Share-link signals keep the VERIFIED-only read: an EXPIRED link stops resolving before
+        // this point, and a live link's PUBLIC_VERIFICATION_ENABLED signal is not part of retraction.
         val linkSignals = verificationSignals.listVerified("SHARE_LINK", view.shareLinkId)
         return responseSignals + versionSignals + linkSignals
     }

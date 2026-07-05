@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { DsrCard } from "@/components/privacy/dsr-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -158,6 +159,7 @@ function ProfileInner() {
           </form>
         </CardContent>
       </Card>
+      {!welcome && <DsrCard />}
     </div>
   );
 }

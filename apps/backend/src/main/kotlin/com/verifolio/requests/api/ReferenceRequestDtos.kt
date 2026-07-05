@@ -20,6 +20,8 @@ data class ReferenceRequestResponse(
     val status: String,
     /** Decline reason category (enum value); set only for DECLINED requests, and only when the recommender chose one. */
     val declinedReason: String?,
+    /** Set once the recommender's PII snapshot has been erased; UI then shows a "details removed" placeholder. */
+    val recommenderPiiErasedAt: String?,
     val expiresAt: String,
     val createdAt: String,
     val updatedAt: String?,

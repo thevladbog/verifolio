@@ -102,6 +102,11 @@ CONSENT_DECLINED
 CONSENT_WITHDRAWN
 ```
 
+`CONSENT_WITHDRAWN` (actor SYSTEM, entity `REFERENCE_REQUEST`) records the Flow-10 consent
+withdrawal: the request's GRANTED recommender consent rows are flipped to `WITHDRAWN` (never
+deleted — they evidence lawful basis). Metadata carries `requestId`, `recommenderContactId`
+and the withdrawn-row `count` only.
+
 ### Data Subject Requests
 
 ```text
@@ -109,6 +114,7 @@ DATA_SUBJECT_REQUEST_RECEIVED
 DATA_SUBJECT_REQUEST_APPROVED
 DATA_SUBJECT_REQUEST_REJECTED
 DATA_SUBJECT_REQUEST_EXECUTED
+RECOMMENDER_PII_ERASED
 ACCOUNT_DELETED
 DATA_EXPORTED
 FILE_DELETED
@@ -116,6 +122,22 @@ REGION_MIGRATION_STARTED
 REGION_MIGRATION_COMPLETED
 REGION_MIGRATION_FAILED
 ```
+
+`RECOMMENDER_PII_ERASED` (actor SYSTEM, entity `REFERENCE_REQUEST`) records operational
+erasure of a recommender's PII snapshot for one reference request (privacy erasure matrix:
+nulls the request name/email snapshot, deletes reference responses, deletes unattached
+uploads, nulls the invitation-token email, deletes recommender sessions and confirmation
+codes). Metadata is IDs/counts only: `requestId`, `responsesDeleted`, `uploadsDeleted`,
+`tokensScrubbed`, `sessionsDeleted`. Each physical upload delete additionally emits its own
+`FILE_DELETED` (actor SYSTEM) from the files module.
+
+`DATA_SUBJECT_REQUEST_RECEIVED` (actor USER for the account-holder channel, RECOMMENDER for the
+account-less recommender channel) records intake; `DATA_SUBJECT_REQUEST_EXECUTED` (actor USER or
+SYSTEM) records completion. Metadata carries `type`/`region`/`previousStatus` enums only. Hybrid
+execution: a verified `CONSENT_WITHDRAWAL` runs RECEIVED → EXECUTED in one chain, emitting
+`CONSENT_WITHDRAWN`, `VERIFICATION_SIGNAL_UPDATED` (per revoked signal), `RECOMMENDATION_RETRACTED`
+and `RECOMMENDER_PII_ERASED` along the way. The other DSR types stay RECEIVED for manual/admin
+execution in a later iteration.
 
 ### Recommender Response
 
@@ -144,6 +166,12 @@ SHARE_LINK_EXPIRED
 ```
 
 Rename note: `SHARE_LINK_CREATED` / `SHARE_LINK_REVOKED` replace the former `DOCUMENT_SHARED` / `DOCUMENT_SHARE_REVOKED` event names to align with the SHARE_LINK entity type.
+
+`DOCUMENT_VERSION_TOMBSTONED` (actor SYSTEM, entity `DOCUMENT_VERSION`) records the single
+sanctioned content-erasing mutation of a locked version: the generated PDF and attachment
+objects are physically deleted (each emitting its own `FILE_DELETED`), then `content_json`
+and `rendered_html` are nulled and the status flips to `TOMBSTONED`; `sha256_hash`,
+`version_number` and `locked_at` are retained. Metadata is IDs only: `versionId`.
 
 ### Files
 
@@ -174,6 +202,11 @@ RECOMMENDATION_RETRACTED
 PUBLIC_VERIFICATION_PAGE_VIEWED
 PUBLIC_VERIFICATION_PAGE_DOWNLOAD
 ```
+
+`RECOMMENDATION_RETRACTED` (actor SYSTEM, entity `REFERENCE_REQUEST`) records the recommender
+retracting the recommendation: `retracted_at` is stamped on the request's document versions
+(locked content is NOT modified — retraction ≠ deletion). Metadata is IDs/counts only:
+`requestId`, `count`.
 
 Public page view rules:
 

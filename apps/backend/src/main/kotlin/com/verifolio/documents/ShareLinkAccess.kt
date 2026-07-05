@@ -17,8 +17,21 @@ data class SharedVersionView(
     val lockedAt: OffsetDateTime,
     val versionStatus: String,
     val supersededByNewerVersion: Boolean,
+    /** Set when the recommender retracted; the content stays readable, the banner is shown. */
+    val retractedAt: OffsetDateTime?,
     val shareLinkCreatedAt: OffsetDateTime,
     val attachments: List<SharedAttachment>,
+)
+
+/**
+ * Minimal view for a valid token whose pinned version is TOMBSTONED — the public page
+ * renders a neutral "content removed" notice and nothing else (no signals/downloads/persons).
+ */
+data class TombstonedVersionView(
+    val shareLinkId: UUID,
+    val documentType: String,
+    val versionNumber: Int,
+    val tombstonedAt: OffsetDateTime?,
 )
 
 data class SharedAttachment(
@@ -39,6 +52,14 @@ data class SharedAttachment(
 interface ShareLinkAccess {
     /** null when the token is unknown, revoked, expired, or the pinned version is tombstoned. */
     fun resolve(rawToken: String): SharedVersionView?
+
+    /**
+     * A minimal notice view for a VALID token (not revoked, not expired) whose pinned
+     * version is TOMBSTONED; null when the token is invalid or the version is not tombstoned.
+     * Lets the public page render the "content removed" state without leaking a state oracle
+     * for unknown tokens (those still resolve to null on both methods → 404).
+     */
+    fun resolveTombstonedNotice(rawToken: String): TombstonedVersionView?
 
     /** Presigned GET for the pinned version's generated PDF. Throws NOT_FOUND when invalid. */
     fun presignPinnedPdf(rawToken: String): PinnedPdf

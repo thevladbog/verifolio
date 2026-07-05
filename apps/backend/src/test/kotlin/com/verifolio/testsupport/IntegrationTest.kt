@@ -28,6 +28,7 @@ abstract class IntegrationTest {
             registry.add("verifolio.storage.secret-key", minio::getPassword)
             // The whole suite shares one context and one client IP; production default is 100.
             registry.add("verifolio.auth.magic-link-ip-limit") { "100000" }
+            registry.add("verifolio.privacy.recommender-ip-limit") { "100000" }
             // Tests invoke RecurringTask.run() directly — the background scheduler stays off.
             registry.add("verifolio.workflows.enabled") { "false" }
         }

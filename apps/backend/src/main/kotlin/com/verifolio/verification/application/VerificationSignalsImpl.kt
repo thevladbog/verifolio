@@ -64,25 +64,45 @@ internal class VerificationSignalsImpl(
             .map { SignalView(it.signalType!!, it.status!!, it.verifiedAt) }
     }
 
+    @Transactional(readOnly = true)
+    override fun listForDisplay(entityType: String, entityId: UUID): List<SignalView> {
+        val vs = VERIFICATION_SIGNAL
+        return dsl.selectFrom(vs)
+            .where(
+                vs.ENTITY_TYPE.eq(entityType)
+                    .and(vs.ENTITY_ID.eq(entityId))
+                    .and(vs.STATUS.`in`("VERIFIED", "REVOKED")),
+            )
+            .orderBy(vs.CREATED_AT.asc())
+            .fetch()
+            .map { SignalView(it.signalType!!, it.status!!, it.verifiedAt) }
+    }
+
     @Transactional
     override fun markRevoked(entityType: String, entityId: UUID, signalType: String): Int =
         flipVerified(entityType, entityId, signalType, "REVOKED")
 
     @Transactional
+    override fun revokeAllForEntity(entityType: String, entityId: UUID): Int =
+        flipVerified(entityType, entityId, signalType = null, newStatus = "REVOKED")
+
+    @Transactional
     override fun markExpired(entityType: String, entityId: UUID, signalType: String): Int =
         flipVerified(entityType, entityId, signalType, "EXPIRED")
 
-    private fun flipVerified(entityType: String, entityId: UUID, signalType: String, newStatus: String): Int {
+    /** [signalType] null flips every VERIFIED signal on the entity regardless of type. */
+    private fun flipVerified(entityType: String, entityId: UUID, signalType: String?, newStatus: String): Int {
         val vs = VERIFICATION_SIGNAL
+        val typeCondition = if (signalType != null) vs.SIGNAL_TYPE.eq(signalType) else org.jooq.impl.DSL.noCondition()
         val flipped = dsl.update(vs)
             .set(vs.STATUS, newStatus)
             .where(
                 vs.ENTITY_TYPE.eq(entityType)
                     .and(vs.ENTITY_ID.eq(entityId))
-                    .and(vs.SIGNAL_TYPE.eq(signalType))
+                    .and(typeCondition)
                     .and(vs.STATUS.eq("VERIFIED")),
             )
-            .returning(vs.ID)
+            .returning(vs.ID, vs.SIGNAL_TYPE)
             .fetch()
         flipped.forEach { row ->
             audit.record(
@@ -92,7 +112,7 @@ internal class VerificationSignalsImpl(
                 entityType = "VERIFICATION_SIGNAL",
                 entityId = row.id.toString(),
                 metadata = mapOf(
-                    "signalType" to signalType,
+                    "signalType" to row.signalType.toString(),
                     "entityType" to entityType,
                     "entityId" to entityId.toString(),
                     "newStatus" to newStatus,

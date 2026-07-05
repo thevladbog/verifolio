@@ -145,7 +145,13 @@ internal class FileUploadsImpl(
     }
 
     @Transactional
-    override fun deleteUpload(fileId: UUID) {
+    override fun deleteUpload(fileId: UUID) = physicallyDelete(fileId, actorType = "RECOMMENDER")
+
+    @Transactional
+    override fun deleteUploadAsSystem(fileId: UUID) = physicallyDelete(fileId, actorType = "SYSTEM")
+
+    /** Storage delete then status flip; the FILE_DELETED audit is attributed to [actorType]. */
+    private fun physicallyDelete(fileId: UUID, actorType: String) {
         val fo = FILE_OBJECT
         val record = dsl.selectFrom(fo).where(fo.ID.eq(fileId)).forUpdate().fetchOne()
             ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Upload not found")
@@ -159,7 +165,7 @@ internal class FileUploadsImpl(
             .where(fo.ID.eq(fileId))
             .execute()
         audit.record(
-            actorType = "RECOMMENDER", actorId = null, action = "FILE_DELETED",
+            actorType = actorType, actorId = null, action = "FILE_DELETED",
             entityType = "FILE_OBJECT", entityId = fileId.toString(),
             metadata = mapOf("purpose" to record.purpose!!),
         )

@@ -42,11 +42,16 @@ class SecurityConfig(
                     "/api/v1/auth/magic-links",
                     "/api/v1/auth/sessions",
                     "/api/v1/invitations/**",
+                    // Public, code-verified recommender DSR channel (anti-enumeration + emailed
+                    // code is the auth). The account-holder /api/v1/privacy/** endpoints keep CSRF.
+                    "/api/v1/privacy/recommender-requests/**",
                 )
             }
             .authorizeHttpRequests {
                 it.requestMatchers("/api/v1/auth/magic-links", "/api/v1/auth/sessions").permitAll()
                 it.requestMatchers("/api/v1/invitations/**").permitAll()
+                // Public recommender DSR channel; the rest of /api/v1/privacy/** is authenticated.
+                it.requestMatchers("/api/v1/privacy/recommender-requests/**").permitAll()
                 // Public verification pages: tokenized read-only access (docs/PUBLIC_VERIFICATION_PAGE.md).
                 it.requestMatchers("/api/v1/verification-pages/**").permitAll()
                 // Consent policy texts: public static documents (docs/REGION_POLICIES.md).

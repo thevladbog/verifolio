@@ -43,7 +43,14 @@ Requirements:
 - login attempt tracking;
 - audit events.
 
-Magic link tokens and invitation tokens must be stored hashed, not plaintext.
+Magic link tokens and invitation tokens must be stored hashed, not plaintext. Recommender
+DSR verification codes follow the same rule (TokenHasher HMAC, never plaintext).
+
+Follow-up (deferred): step-up re-authentication for account-holder DSR submission. The MVP
+bar is the authenticated session plus the full audit trail (`DATA_SUBJECT_REQUEST_RECEIVED`);
+a step-up challenge before destructive DSRs (DELETION/EXPORT) ships with the admin/review
+iteration. The account-less recommender DSR channel is already verified by an emailed 6-digit
+code and answers `202` on intake regardless of match (anti-enumeration).
 
 ## Admin Access
 

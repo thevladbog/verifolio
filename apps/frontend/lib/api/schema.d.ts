@@ -212,6 +212,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/privacy/recommender-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["intake"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/privacy/recommender-requests/{id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/privacy/data-subject-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list"];
+        put?: never;
+        post: operations["submit_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invitations/{token}/stop-reminders": {
         parameters: {
             query?: never;
@@ -695,6 +743,7 @@ export interface components {
             purpose?: string | null;
             status?: string;
             declinedReason?: string | null;
+            recommenderPiiErasedAt?: string | null;
             expiresAt?: string;
             createdAt?: string;
             updatedAt?: string | null;
@@ -745,6 +794,38 @@ export interface components {
             crossBorderAccepted?: boolean | null;
             /** @enum {string|null} */
             reasonCategory?: "DONT_KNOW_REQUESTER" | "TOO_BUSY" | "NOT_COMFORTABLE" | "OTHER" | null;
+        };
+        RecommenderDataRequestRequest: {
+            /** Format: email */
+            email: string | null;
+            referenceRequestEmailHint?: string | null;
+        };
+        RecommenderDsrVerifyRequest: {
+            code: string | null;
+            /** @enum {string|null} */
+            type: "DELETION" | "EXPORT" | "REGION_MIGRATION" | "CONSENT_WITHDRAWAL" | "CORRECTION" | null;
+            referenceRequestId?: string | null;
+        };
+        RecommenderDsrVerifyResponse: {
+            status?: string;
+            executed?: boolean;
+            dueAt?: string | null;
+        };
+        CreateDataSubjectRequestRequest: {
+            /** @enum {string|null} */
+            type: "DELETION" | "EXPORT" | "REGION_MIGRATION" | "CONSENT_WITHDRAWAL" | "CORRECTION" | null;
+            comment?: string | null;
+        };
+        DataSubjectRequestResponse: {
+            id?: string;
+            type?: string;
+            status?: string;
+            subjectEmail?: string;
+            dueAt?: string;
+            verifiedAt?: string | null;
+            resolutionNotes?: string | null;
+            createdAt?: string;
+            updatedAt?: string | null;
         };
         DeclineRequest: {
             /** @enum {string|null} */
@@ -814,18 +895,20 @@ export interface components {
             at?: string;
         };
         VerificationPageResponse: {
+            status?: string;
             header?: components["schemas"]["PageHeaderDto"];
-            recipient?: components["schemas"]["RecipientDto"];
+            recipient?: components["schemas"]["RecipientDto"] | null;
             recommender?: components["schemas"]["RecommenderDto"] | null;
             badges?: components["schemas"]["BadgeDto"][];
             trustSummary?: {
                 [key: string]: number;
             };
-            version?: components["schemas"]["VersionDto"];
+            version?: components["schemas"]["VersionDto"] | null;
             downloads?: components["schemas"]["DownloadDto"][];
             timeline?: components["schemas"]["TimelineEntryDto"][];
-            disclaimer?: string;
-            privacyNotice?: string;
+            disclaimer?: string | null;
+            privacyNotice?: string | null;
+            notice?: string | null;
         };
         VersionDto: {
             /** Format: int32 */
@@ -833,6 +916,7 @@ export interface components {
             lockedAt?: string;
             status?: string;
             supersededByNewerVersion?: boolean;
+            retractedAt?: string | null;
         };
         PublicDownloadLinkResponse: {
             url?: string;
@@ -912,6 +996,10 @@ export interface components {
             };
             consents?: components["schemas"]["ConsentTextsDto"];
             draft?: components["schemas"]["DraftDto"] | null;
+        };
+        DataSubjectRequestListResponse: {
+            items?: components["schemas"]["DataSubjectRequestResponse"][];
+            nextCursor?: string | null;
         };
         InvitationPreviewResponse: {
             requesterName?: string;
@@ -1932,6 +2020,190 @@ export interface operations {
                 };
             };
             /** @description Consent gate already passed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    intake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecommenderDataRequestRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted (no match/enumeration signal is leaked) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    verify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecommenderDsrVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Code accepted; consent withdrawal executed or request recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["RecommenderDsrVerifyResponse"];
+                };
+            };
+            /** @description Invalid or expired code */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Request not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Request already verified or terminal */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: {
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DataSubjectRequestListResponse"];
+                };
+            };
+            /** @description Invalid cursor */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    submit_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDataSubjectRequestRequest"];
+            };
+        };
+        responses: {
+            /** @description Request received (RECEIVED) */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DataSubjectRequestResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Missing CSRF token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Type not applicable to the account-holder channel (e.g. consent withdrawal) */
             409: {
                 headers: {
                     [name: string]: unknown;

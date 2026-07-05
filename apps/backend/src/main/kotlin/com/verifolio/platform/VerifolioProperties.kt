@@ -14,6 +14,7 @@ data class VerifolioProperties(
     val verification: Verification = Verification(),
     val publicPage: PublicPage = PublicPage(),
     val workflows: Workflows = Workflows(),
+    val privacy: Privacy = Privacy(),
 ) {
     init {
         require(region == "local" || auth.tokenPepper != "local-dev-pepper-change-me") {
@@ -103,4 +104,18 @@ data class VerifolioProperties(
             }
         }
     }
+
+    /** Data-subject-request handling (docs/PRIVACY_AND_DATA_CLASSIFICATION.md §246-291). */
+    data class Privacy(
+        /** DSR response deadline per cell; local default is the GDPR 30-day window. */
+        val sla: Duration = Duration.ofDays(30),
+        /** Abuse-investigation window before declined requests' recommender PII is erased (Flow 9). */
+        val declineErasureGrace: Duration = Duration.ofHours(24),
+        /** Per-email verification-code window for the recommender DSR channel. */
+        val codeLimit: Int = 3,
+        val codeLimitWindow: Duration = Duration.ofMinutes(15),
+        /** Per-IP window for the public recommender DSR intake; raised in integration tests. */
+        val recommenderIpLimit: Int = 100,
+        val recommenderIpWindow: Duration = Duration.ofMinutes(15),
+    )
 }

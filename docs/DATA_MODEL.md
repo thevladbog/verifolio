@@ -159,10 +159,17 @@ ReferenceRequest
 - purpose
 - status
 - declined_reason
+- declined_at
+- recommender_pii_erased_at
 - expires_at
 - created_at
 - updated_at
 ```
+
+`declined_at` (Flyway V11, nullable) is the terminal-transition timestamp stamped by the
+DECLINED transition. The decline-grace erasure sweep (`RecommenderPiiErasureTask`, privacy
+module) measures the abuse-investigation window from this column before erasing the
+recommender PII of a declined request.
 
 `declined_reason` (Flyway V10, nullable) is the optional decline reason category chosen by
 the recommender — enum values `DONT_KNOW_REQUESTER | TOO_BUSY | NOT_COMFORTABLE | OTHER`
@@ -175,6 +182,14 @@ of the contact taken at request creation. The requester's verbal-consent attesta
 invitation is always sent to the snapshotted address — editing the contact after creation
 must not redirect an already-attested request. A contact referenced by reference requests
 cannot be hard-deleted (`ON DELETE RESTRICT`; the API returns 409 `CONTACT_IN_USE`).
+
+`recommender_name` and `recommender_email` are nullable (Flyway V11) because recommender
+PII erasure nulls them: `recommender_pii_erased_at` (Flyway V11, nullable) is stamped when
+the recommender's PII snapshot for the request has been erased (privacy erasure matrix,
+`PRIVACY_AND_DATA_CLASSIFICATION.md`). Once set, the two snapshot columns are null and the
+owner UI shows a "recommender details removed" placeholder; the erasure is idempotent
+(a second erase of an already-erased request is a no-op). The `recommender_contact_id`
+link, `declined_reason`, hashes, and status are preserved.
 
 Statuses (canonical state machine):
 

@@ -4,8 +4,12 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 data class RequestPublicInfo(
-    /** Snapshot taken at request creation — labeled "stated by recommender" on display. */
-    val recommenderName: String,
+    /**
+     * Snapshot taken at request creation — labeled "stated by recommender" on display.
+     * Null once the recommender's PII has been erased (e.g. after a retraction), so the
+     * public page must omit the recommender block rather than expose an empty name.
+     */
+    val recommenderName: String?,
     val relationshipType: String?,
     val purpose: String?,
     val requestCreatedAt: OffsetDateTime,

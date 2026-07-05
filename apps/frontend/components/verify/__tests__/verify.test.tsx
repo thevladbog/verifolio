@@ -18,6 +18,7 @@ vi.mock("@/lib/api/client", () => ({
 import { api } from "@/lib/api/client";
 import { publicBadgeVariant } from "../badge-variant";
 import { DownloadsPanel } from "../downloads-panel";
+import { VerifyContent } from "../verify-content";
 
 const mockGet = vi.mocked(api.GET);
 
@@ -90,5 +91,76 @@ describe("DownloadsPanel", () => {
       "noopener",
     );
     expect(document.body.innerHTML).not.toContain("presigned-public");
+  });
+});
+
+describe("VerifyContent", () => {
+  it("renders the tombstoned state with only the notice — no signals or downloads", () => {
+    renderWithProviders(
+      <VerifyContent
+        token="tok"
+        page={{
+          status: "TOMBSTONED",
+          notice: "Removed at the data subject's request.",
+          recipient: null,
+          recommender: null,
+          version: null,
+          badges: [],
+          downloads: [
+            { id: "gen", kind: "GENERATED_PDF", filename: null, downloadable: true },
+          ],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText("Removed at the data subject's request."),
+    ).toBeInTheDocument();
+    // No signals section, no downloads, no version/recipient blocks.
+    expect(screen.queryByText("Verification badges")).not.toBeInTheDocument();
+    expect(screen.queryByText("Files")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Download" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the retracted banner and still shows revoked signals + the PDF download", () => {
+    renderWithProviders(
+      <VerifyContent
+        token="tok"
+        page={{
+          status: "ACTIVE",
+          header: { verificationId: "V-1", documentType: "Reference letter" },
+          recipient: { name: "Recipient A" },
+          version: {
+            versionNumber: 1,
+            lockedAt: "2026-01-01T00:00:00Z",
+            retractedAt: "2026-06-01T00:00:00Z",
+          },
+          badges: [
+            {
+              signalType: "PUBLIC_VERIFICATION_ENABLED",
+              title: "Public verification",
+              status: "REVOKED",
+              date: "2026-06-01",
+            },
+          ],
+          downloads: [
+            { id: "gen", kind: "GENERATED_PDF", filename: null, downloadable: true },
+          ],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText(/Recommendation retracted by the recommender/),
+    ).toBeInTheDocument();
+    // The revoked signal renders with the failed variant badge.
+    const badge = screen.getByText("Public verification").closest("[data-trust-badge]");
+    expect(badge).toHaveAttribute("data-trust-badge", "failed");
+    // The generated PDF is still downloadable.
+    expect(
+      screen.getByRole("button", { name: "Download" }),
+    ).toBeInTheDocument();
   });
 });
