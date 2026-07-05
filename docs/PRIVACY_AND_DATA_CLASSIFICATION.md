@@ -292,6 +292,33 @@ subject retains in-app access to those; the package proves integrity via the ver
 - Audited as `DATA_EXPORTED` (actor ADMIN/SYSTEM, entity DATA_SUBJECT_REQUEST, metadata `fileId` +
   `subjectType` only — no email or content), then DSR → EXECUTED.
 
+### Account-holder DELETION execution (GDPR Art. 17)
+
+Executing an account-holder DELETION DSR (`type == DELETION && user_id != null`) runs the erasure
+steps in a fixed order (the per-table actions are normative in `DATA_MODEL.md` §Account-holder
+deletion erasure matrix):
+
+1. `documents.OwnerErasure.tombstoneForOwner(profileId)` — tombstone every non-tombstoned version
+   of the subject's owned documents via the sanctioned `DocumentTombstone` path (NULL content +
+   linked files S3-deleted; `sha256_hash`/`version_number`/`locked_at` retained). Returns the
+   tombstoned version ids (count → `versionsTombstoned`).
+2. `profiles.ProfileErasure.eraseForUser(userId)` — anonymize `person_profile` PII (row retained
+   for FK integrity; `display_name` → "Deleted user", `legal_name` → null).
+3. `contacts.ContactErasure.eraseForOwner(profileId)` — anonymize every owned `recommender_contact`
+   (rows retained; count → `contactsErased`).
+4. `identity.AccountErasure.eraseForUser(userId)` — tombstone `user_account` (`status` DELETED,
+   `deleted_at` set, email anonymized) and drop live-credential rows (`user_session`,
+   `magic_link_token`).
+5. `audit.AuditPseudonymizer.pseudonymizeActor(userId)` — LAST, after the account is tombstoned:
+   null `audit_event.actor_id` on the subject's rows (rows retained; count →
+   `auditRowsPseudonymized`).
+
+`consent_record` rows (subject = user) are RETAINED as lawful-basis evidence; `reference_request`
+rows the subject created are left (requester PII lives in the now-anonymized profile). The
+`ACCOUNT_DELETED` audit is written with the acting ADMIN/SYSTEM actor (never the deleted user, so it
+is not caught by step 5), metadata = ids + the three counts only, then DSR → EXECUTED. Idempotent:
+each underlying port no-ops / returns zero on a re-run.
+
 ## Deletion & Erasure Model
 
 Rules:

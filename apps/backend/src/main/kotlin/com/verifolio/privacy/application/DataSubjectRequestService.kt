@@ -48,6 +48,7 @@ internal class DataSubjectRequestService(
     private val executor: ConsentWithdrawalExecutor,
     private val recommenderPiiErasure: RecommenderPiiErasure,
     private val exportExecutor: ExportExecutor,
+    private val accountDeletionExecutor: AccountDeletionExecutor,
     private val documentRetraction: DocumentRetraction,
     private val documentTombstone: DocumentTombstone,
     private val verificationSignals: VerificationSignals,
@@ -238,24 +239,24 @@ internal class DataSubjectRequestService(
                 executor.execute(refs)
             }
             DsrType.DELETION -> {
-                // Only recommender-subject, request-scoped deletion executes here; whole-account
-                // holder deletion is deferred to the admin/automation iteration.
-                if (record.recommenderContactId == null) {
-                    throw ApiException(
-                        HttpStatus.CONFLICT, "EXECUTION_NOT_AUTOMATED",
-                        "Account-holder deletion execution is not automated yet; manual execution required",
-                    )
-                }
-                scopeForRecommender(record).forEach { ref ->
-                    val versionIds = documentRetraction.versionIdsForRequest(ref.requestId)
-                    // Revoke the version + response verification signals BEFORE erasure (mirror the
-                    // consent-withdrawal path) so tombstoned content keeps no lingering active badge.
-                    versionIds.forEach { verificationSignals.revokeAllForEntity("DOCUMENT_VERSION", it) }
-                    requestPublicView.latestResponseId(ref.requestId)?.let { responseId ->
-                        verificationSignals.revokeAllForEntity("REFERENCE_RESPONSE", responseId)
+                // Account-holder deletion (user-scoped) runs the full erasure executor; a
+                // recommender-subject, request-scoped deletion keeps its existing tombstone +
+                // PII-erasure path. Both then fall through to the EXECUTED transition below.
+                if (record.userId != null) {
+                    accountDeletionExecutor.execute(record, adminActorId)
+                } else {
+                    scopeForRecommender(record).forEach { ref ->
+                        val versionIds = documentRetraction.versionIdsForRequest(ref.requestId)
+                        // Revoke the version + response verification signals BEFORE erasure (mirror
+                        // the consent-withdrawal path) so tombstoned content keeps no lingering
+                        // active badge.
+                        versionIds.forEach { verificationSignals.revokeAllForEntity("DOCUMENT_VERSION", it) }
+                        requestPublicView.latestResponseId(ref.requestId)?.let { responseId ->
+                            verificationSignals.revokeAllForEntity("REFERENCE_RESPONSE", responseId)
+                        }
+                        versionIds.forEach { documentTombstone.tombstone(it) }
+                        recommenderPiiErasure.eraseForRequest(ref.requestId)
                     }
-                    versionIds.forEach { documentTombstone.tombstone(it) }
-                    recommenderPiiErasure.eraseForRequest(ref.requestId)
                 }
             }
             DsrType.EXPORT -> exportExecutor.execute(record, adminActorId)
