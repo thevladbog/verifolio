@@ -248,7 +248,19 @@ export default function NewRequestPage() {
               </p>
             )}
           </Card>
-          {attestationText.data ? (
+          {attestationText.isError ? (
+            <div className="flex flex-col items-start gap-2 rounded-card border border-danger/40 p-4 text-sm text-danger">
+              {t("builder.attestationError")}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => attestationText.refetch()}
+              >
+                {t("common.retry")}
+              </Button>
+            </div>
+          ) : attestationText.data ? (
             <>
               <label className="flex flex-col gap-2 rounded-card border border-border-light bg-paper/60 p-4">
                 <span className="text-sm font-semibold text-ink">

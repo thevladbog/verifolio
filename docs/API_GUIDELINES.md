@@ -22,9 +22,11 @@ Examples:
 /api/v1/profile
 /api/v1/reference-requests
 /api/v1/reference-requests/{id}
-/api/v1/reference-requests/{id}/response  (read-only; owner reviews the latest submitted
-                                           response — upload metadata only, no pre-accept
-                                           file downloads; 404 until a submission exists)
+/api/v1/reference-requests/{id}/response  (read-only; owner reads the latest submitted
+                                           response: letter text, parsed answers,
+                                           confirmations, and READY upload metadata —
+                                           no pre-accept file downloads; 404 until a
+                                           submission exists)
 /api/v1/documents
 /api/v1/documents/{id}
 /api/v1/documents/{id}/versions

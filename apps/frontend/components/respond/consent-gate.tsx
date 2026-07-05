@@ -57,7 +57,12 @@ export function ConsentGate({
     <Card className="w-full max-w-2xl">
       <CardHeader>
         <CardTitle>
-          {processingText.data?.title ?? <Skeleton className="h-6 w-64" />}
+          {processingText.data?.title ??
+            (processingText.isError ? (
+              <span className="text-danger">{t("consent.loadError")}</span>
+            ) : (
+              <Skeleton className="h-6 w-64" />
+            ))}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -68,6 +73,18 @@ export function ConsentGate({
                 {paragraph}
               </p>
             ))
+          ) : processingText.isError ? (
+            <div className="flex flex-col items-start gap-2 text-danger">
+              <p>{t("consent.loadError")}</p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => processingText.refetch()}
+              >
+                {t("common.retry")}
+              </Button>
+            </div>
           ) : (
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-full" />
@@ -109,6 +126,18 @@ export function ConsentGate({
                     </span>
                   ),
                 )}
+              </span>
+            ) : crossBorderText.isError ? (
+              <span className="flex flex-col items-start gap-2 text-danger">
+                {t("consent.loadError")}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => crossBorderText.refetch()}
+                >
+                  {t("common.retry")}
+                </Button>
               </span>
             ) : (
               <Skeleton className="h-4 w-full" />

@@ -69,6 +69,7 @@ export default function RequestDetailPage() {
         }),
       ),
     enabled: inReview,
+    retry: false,
   });
 
   const invalidate = () => {
@@ -256,6 +257,19 @@ export default function RequestDetailPage() {
             <p className="text-sm text-slate-text">{t("review.hint")}</p>
 
             {response.isLoading && <Skeleton className="h-40" />}
+            {response.isError && (
+              <div className="flex flex-col items-start gap-2 rounded-card border border-danger/40 p-4 text-sm text-danger">
+                {t("review.loadError")}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => response.refetch()}
+                >
+                  {t("common.retry")}
+                </Button>
+              </div>
+            )}
             {response.data && (
               <>
                 {response.data.approvedLetterText && (

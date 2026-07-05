@@ -14,7 +14,8 @@
     "copied": "Copied",
     "saved": "Saved",
     "download": "Download",
-    "region": "Region: {region}"
+    "region": "Region: {region}",
+    "retry": "Retry"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -139,7 +140,8 @@
     "recommenderTitle": "Who will you ask?",
     "recommenderHint": "Pick from your contacts or add a new one.",
     "confirmTitle": "Review and confirm",
-    "create": "Create request"
+    "create": "Create request",
+    "attestationError": "Could not load the attestation text. Please retry."
   },
   "detail": {
     "aboutTitle": "About this request",
@@ -169,7 +171,8 @@
     "letterTitle": "Submitted letter",
     "answersTitle": "Answers",
     "uploadsTitle": "Attachments",
-    "sharedPublicly": "may be shared publicly"
+    "sharedPublicly": "may be shared publicly",
+    "loadError": "Could not load the submitted response. Please retry."
   },
   "documents": {
     "title": "Documents",
@@ -280,7 +283,8 @@
     "crossBorderQuestion": "I am located in a different jurisdiction than this service's region",
     "accept": "I agree — start",
     "decline": "Decline",
-    "declineHint": "Declining closes the request, stops all reminders, and schedules your data for erasure. No answers are collected before you agree."
+    "declineHint": "Declining closes the request, stops all reminders, and schedules your data for erasure. No answers are collected before you agree.",
+    "loadError": "Could not load the consent text. Please retry."
   },
   "respond": {
     "title": "Reference for {requester}",
