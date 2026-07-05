@@ -1,0 +1,338 @@
+{
+  "common": {
+    "appName": "Verifolio",
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "close": "Close",
+    "confirm": "Confirm",
+    "continue": "Continue",
+    "back": "Back",
+    "loadMore": "Load more",
+    "copy": "Copy",
+    "copied": "Copied",
+    "saved": "Saved",
+    "download": "Download",
+    "region": "Region: {region}"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "requests": "Requests",
+    "contacts": "Contacts",
+    "documents": "Documents",
+    "profile": "Profile",
+    "logout": "Sign out"
+  },
+  "landing": {
+    "headline": "Professional references and documents, verified.",
+    "subline": "Collect, verify, sign, and share professional references for work, immigration, visas, education, and clients.",
+    "cta": "Sign in",
+    "chooseRegion": "Choose your data region",
+    "regionNote": "Your data stays in the region you choose."
+  },
+  "login": {
+    "title": "Sign in to Verifolio",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "submit": "Send sign-in link",
+    "sent": "If this email has an account, a sign-in link is on its way. The link is valid for 15 minutes.",
+    "invalidEmail": "Enter a valid email address"
+  },
+  "callback": {
+    "verifying": "Signing you in…",
+    "invalidTitle": "This sign-in link is invalid or has expired",
+    "invalidBody": "Sign-in links are single-use and expire after 15 minutes. Request a new one below."
+  },
+  "contacts": {
+    "title": "Recommenders",
+    "subtitle": "Contacts are stored with their consent — anyone can ask for removal.",
+    "add": "Add contact",
+    "addTitle": "Add contact",
+    "editTitle": "Edit contact",
+    "name": "Name",
+    "nameRequired": "Enter the contact's name",
+    "company": "Company",
+    "jobTitle": "Title",
+    "relationship": "Relationship",
+    "verbalConsentHint": "you'll need their verbal consent",
+    "relationshipTypes": {
+      "MANAGER": "Manager",
+      "COLLEAGUE": "Colleague",
+      "DIRECT_REPORT": "Direct report",
+      "CLIENT": "Client",
+      "PROFESSOR": "Professor",
+      "MENTOR": "Mentor",
+      "PERSONAL": "Personal",
+      "OTHER": "Other"
+    },
+    "deleteTitle": "Delete contact?",
+    "deleteBody": "{name} will be removed permanently. Contacts referenced by a reference request cannot be deleted."
+  },
+  "profile": {
+    "title": "Profile",
+    "sectionTitle": "Your details",
+    "displayName": "Display name",
+    "displayNameRequired": "Enter a display name",
+    "legalName": "Legal name",
+    "legalNameHint": "Optional. Used to match your name on formal documents.",
+    "locale": "Language",
+    "locales": {
+      "en": "English",
+      "ru": "Русский"
+    },
+    "welcomeTitle": "Welcome to Verifolio",
+    "welcomeHint": "Tell us how to display your name on requests and documents. You can change this later in Profile."
+  },
+  "requests": {
+    "title": "Requests",
+    "new": "New request",
+    "empty": "No requests yet. Create your first one — it usually takes 2–3 days to collect a confirmed reference.",
+    "unknownRecommender": "Recommender not set",
+    "noPurpose": "No purpose specified",
+    "expires": "expires {date}",
+    "filters": {
+      "all": "All",
+      "needsReview": "Needs review",
+      "inProgress": "In progress",
+      "sent": "Sent",
+      "completed": "Completed",
+      "declined": "Declined"
+    },
+    "statuses": {
+      "CREATED": "Draft",
+      "SENT": "Sent",
+      "OPENED": "Opened",
+      "IN_PROGRESS": "In progress",
+      "SUBMITTED": "Submitted",
+      "NEEDS_REVIEW": "Needs review",
+      "CORRECTION_REQUESTED": "Correction requested",
+      "COMPLETED": "Completed",
+      "DECLINED": "Declined",
+      "EXPIRED": "Expired",
+      "CANCELLED": "Cancelled"
+    },
+    "notFoundTitle": "Request not found",
+    "notFoundBody": "This request does not exist or you do not have access to it."
+  },
+  "builder": {
+    "title": "New reference request",
+    "steps": {
+      "template": "Template",
+      "context": "Context",
+      "recommender": "Recommender",
+      "confirm": "Confirm"
+    },
+    "templateTitle": "Where do we start?",
+    "templateHint": "The template asks the right questions for your goal.",
+    "contextTitle": "What is this reference about?",
+    "contextHint": "Context helps the recommender write a relevant letter.",
+    "purpose": "Purpose and context",
+    "purposePlaceholder": "e.g. International hiring — role, company, period…",
+    "purposeVisibility": "Only the recommender sees this — it helps them write an appropriate letter.",
+    "recommenderTitle": "Who will you ask?",
+    "recommenderHint": "Pick from your contacts or add a new one.",
+    "confirmTitle": "Review and confirm",
+    "attestation": "I confirm the recommender gave me verbal consent to receive this request.",
+    "attestationHint": "This attestation is recorded. The invitation cannot be created without it.",
+    "create": "Create request"
+  },
+  "detail": {
+    "aboutTitle": "About this request",
+    "expiresAt": "Expires",
+    "send": "Send invitation",
+    "cancel": "Cancel request",
+    "terminal": {
+      "DECLINED": "The recommender declined this request. Reminders have stopped and their data is scheduled for erasure.",
+      "EXPIRED": "This request expired. The invitation link no longer works.",
+      "CANCELLED": "You cancelled this request. The invitation link no longer works."
+    }
+  },
+  "review": {
+    "title": "Response received — review it",
+    "hint": "The recommender submitted their response. Accept it to generate and lock the document, or ask for a correction. The full letter becomes available in the locked document after acceptance.",
+    "accept": "Accept and lock",
+    "requestCorrection": "Request correction",
+    "correctionTitle": "Request a correction",
+    "correctionHint": "The recommender will get a new secure link. Your note is sent in the email and is not stored.",
+    "correctionPlaceholder": "What should be corrected? (optional)",
+    "generating": "Response accepted — preparing the document",
+    "generatingHint": "Generating the PDF, calculating the hash, and locking the version. This usually takes less than a minute.",
+    "generated": "Document version locked",
+    "generatedHint": "Verification signals are recorded. You can now share the document with a secure link.",
+    "openDocument": "Open document"
+  },
+  "documents": {
+    "title": "Documents",
+    "subtitle": "Locked, verifiable versions of your references.",
+    "empty": "No documents yet. Accept a submitted reference to generate your first locked document.",
+    "lockedVersion": "v{version} · locked",
+    "versionsTitle": "Versions",
+    "current": "current",
+    "lockedAt": "locked {date}",
+    "sha256": "SHA-256 content hash",
+    "downloadPdf": "Download PDF",
+    "types": {
+      "REFERENCE_LETTER": "Reference letter",
+      "EMPLOYMENT_PROOF": "Employment proof",
+      "IMMIGRATION_REFERENCE": "Immigration reference",
+      "VISA_SUPPORT_LETTER": "Visa support letter",
+      "ACADEMIC_RECOMMENDATION": "Academic recommendation",
+      "CLIENT_TESTIMONIAL": "Client testimonial",
+      "CHARACTER_REFERENCE": "Character reference",
+      "CUSTOM": "Document"
+    },
+    "notFoundTitle": "Document not found",
+    "notFoundBody": "This document does not exist or you do not have access to it."
+  },
+  "share": {
+    "open": "Share",
+    "title": "Share document",
+    "subtitle": "A third party will see the document, trust summary, and verification timeline — nothing else from your folio.",
+    "expiry": "Link validity",
+    "expiryOptions": {
+      "days7": "7 days",
+      "days30": "30 days",
+      "never": "No expiry"
+    },
+    "audienceNote": "Every open is recorded. You can revoke the link at any time.",
+    "create": "Create link",
+    "created": "Link created",
+    "oneTimeNotice": "You won't see this link again — copy it now.",
+    "activeTitle": "Share links for this document",
+    "none": "No share links yet. The public verification page is reachable only through a link you create.",
+    "until": "until {date}",
+    "noExpiry": "no expiry",
+    "createdAt": "created {date}",
+    "revokedAt": "revoked {date} · access stopped immediately",
+    "revoke": "Revoke",
+    "revoked": "Revoked",
+    "footer": "Creating and revoking links is recorded in the audit log."
+  },
+  "dashboard": {
+    "welcome": "Welcome!",
+    "emptyHint": "Collect your first verified document — it usually takes 2–3 days.",
+    "step1Title": "1. Add a recommender",
+    "step1Hint": "You'll need their verbal consent to send a request.",
+    "step2Title": "2. Send a request",
+    "step2Hint": "Pick a template — it asks the right questions.",
+    "step3Title": "3. Share the locked document",
+    "step3Hint": "After review, the version is locked and verifiable by link.",
+    "pendingTitle": "Pending requests ({count})",
+    "allRequests": "All requests",
+    "noPending": "Nothing pending.",
+    "documentsTitle": "Documents ({count})",
+    "allDocuments": "All documents",
+    "noDocuments": "No documents yet."
+  },
+  "invitation": {
+    "title": "{requester} asks you for a professional reference",
+    "intro": "Template: {template}. Responding takes about 10–15 minutes; you can save a draft and return.",
+    "invalidTitle": "This invitation link is invalid or has expired",
+    "invalidBody": "The link may have been used, revoked, or the request may have expired or been withdrawn. If you expected an active request, ask the requester to send a new invitation.",
+    "confirmHint": "First, confirm you control {email} — we'll email a 6-digit code. Opening this link alone confirms nothing.",
+    "sendCode": "Email me a confirmation code",
+    "codeSent": "We sent a 6-digit code to {email}. It is valid for 10 minutes.",
+    "codeLabel": "Confirmation code",
+    "resend": "Resend code",
+    "footer": "Don't want to respond?",
+    "declineLink": "Decline this request"
+  },
+  "oneClick": {
+    "decline": {
+      "title": "Decline this reference request",
+      "body": "The request will be closed, reminders will stop immediately, and your personal data will be scheduled for erasure.",
+      "confirm": "Decline request",
+      "done": "The request is declined. Reminders have stopped and your data is scheduled for erasure. You can close this page."
+    },
+    "report-abuse": {
+      "title": "Report this request as unwanted",
+      "body": "The request will be closed and reminders will stop immediately. We record abuse reports to protect recipients.",
+      "confirm": "Report and stop emails",
+      "done": "Thank you. The request is closed and you will not receive further emails about it."
+    },
+    "stop-reminders": {
+      "title": "Stop reminder emails",
+      "body": "We'll stop reminding you about this request. The invitation itself stays valid until it expires.",
+      "confirm": "Stop reminders",
+      "done": "Reminders are stopped. You can still respond any time before the request expires."
+    }
+  },
+  "consent": {
+    "title": "Before you start: data processing consent",
+    "processingText": "To collect your response, Verifolio will process your name, email, and the content you submit, storing them in this deployment's region. Your response is shared with the requester and, only with your explicit per-file permission, on the public verification page. You can withdraw consent later; withdrawal stops future processing.",
+    "textRef": "Consent text {id} · version {version}",
+    "crossBorderQuestion": "I am located in a different jurisdiction than this service's region",
+    "crossBorderText": "I consent to the cross-border transfer of my data to the region where this service stores it.",
+    "accept": "I agree — start",
+    "decline": "Decline",
+    "declineHint": "Declining closes the request, stops all reminders, and schedules your data for erasure. No answers are collected before you agree."
+  },
+  "respond": {
+    "title": "Reference for {requester}",
+    "questionsTitle": "Guided questions",
+    "saving": "Saving…",
+    "letterTitle": "Your letter",
+    "letterHint": "This exact text becomes the locked document after the requester accepts it — review it carefully.",
+    "confirmTitle": "Confirm and submit",
+    "recipientConfirm": "I confirm this reference is for {requester}.",
+    "relationshipConfirm": "I confirm the professional relationship I described is accurate.",
+    "submit": "Submit response",
+    "requiredHint": "Answer the required questions (*) to submit.",
+    "expiredTitle": "Your session has expired",
+    "expiredBody": "For security, response sessions are short. Open the invitation link from your email again and confirm your email — your saved draft will be restored.",
+    "declinedBody": "You declined this request. Reminders have stopped and your personal data is scheduled for erasure. You can close this page.",
+    "submittedBody": "Your response is submitted. The requester will review it; the final document is locked only after their acceptance. Thank you!",
+    "footer": "Secure response flow by"
+  },
+  "uploads": {
+    "title": "Attachments (optional)",
+    "hint": "Attach a scanned or signed copy. A detached signature must reference the uploaded file it signs — signatures cover your uploaded file, not the generated document.",
+    "kindLabel": "Attachment type",
+    "targetLabel": "File the signature covers",
+    "targetRequired": "Upload the signed file first, then select it as the signature's target.",
+    "kinds": {
+      "SCAN": "Scanned copy",
+      "SIGNED_PDF": "Signed PDF",
+      "DETACHED_SIGNATURE": "Detached signature",
+      "ATTACHMENT": "Attachment"
+    },
+    "shareToggle": "This file may be shown publicly on the verification page",
+    "shareConsent": "Optional. This records your explicit public-sharing consent for this file only; you can withdraw it later.",
+    "choose": "Choose file…",
+    "uploading": "Uploading…",
+    "public": "public"
+  },
+  "verify": {
+    "title": "Verified document",
+    "recipient": "Recipient",
+    "recommender": "Recommender",
+    "statedByRecommender": "stated by recommender",
+    "versionLine": "Version {version}, locked {date}. Locked versions cannot be changed.",
+    "superseded": "A newer version of this document exists.",
+    "badgesTitle": "Verification badges",
+    "trustTitle": "Trust summary",
+    "confirmedCount": "{count} confirmed",
+    "downloadsTitle": "Files",
+    "generatedPdf": "Verified document (PDF)",
+    "unnamedAttachment": "Attachment",
+    "notShared": "not shared publicly",
+    "timelineTitle": "Verification timeline",
+    "invalidTitle": "This verification link is invalid or no longer active",
+    "invalidBody": "The link may have expired, been revoked by the document owner, or never existed. Ask the person who shared it for a new link."
+  },
+  "errors": {
+    "RATE_LIMITED": "Too many attempts. Please try again later.",
+    "CONSENT_REQUIRED": "This step requires your explicit confirmation.",
+    "CODE_INVALID": "That code is not valid. Check the code and try again.",
+    "CONFIRMATION_REQUIRED": "Please confirm the required checkboxes before submitting.",
+    "CONTACT_IN_USE": "This contact is referenced by a reference request and cannot be deleted.",
+    "INVALID_REQUEST_STATE": "This action is not available in the request's current state.",
+    "VALIDATION_ERROR": "Some fields are invalid. Please review and try again.",
+    "NOT_FOUND": "Not found. It may have been removed or the link may have expired.",
+    "FORBIDDEN": "You don't have access to this.",
+    "UNAUTHORIZED": "Your session has ended. Please sign in again.",
+    "PROFILE_ERROR": "Your profile could not be updated.",
+    "UNKNOWN": "Something went wrong ({code}). Please try again."
+  }
+}

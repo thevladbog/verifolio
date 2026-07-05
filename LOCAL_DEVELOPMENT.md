@@ -1,6 +1,6 @@
 # Local Development
 
-> Status: backend commands under `apps/backend` are real and functional. Frontend (`apps/web`) commands remain target-state (not yet bootstrapped).
+> Status: backend commands under `apps/backend` and frontend commands under `apps/frontend` are real and functional.
 
 ## Goal
 
@@ -53,8 +53,10 @@ Example:
 APP_REGION=local
 DATABASE_URL=jdbc:postgresql://localhost:5432/verifolio
 MINIO_ENDPOINT=http://localhost:9000
-MINIO_ACCESS_KEY=minio
-MINIO_SECRET_KEY=minio123
+# Must match docker-compose.yml (MINIO_ROOT_USER / MINIO_ROOT_PASSWORD); the backend
+# reads these as --verifolio.storage.access-key / --verifolio.storage.secret-key.
+MINIO_ACCESS_KEY=verifolio
+MINIO_SECRET_KEY=verifolio-local
 TEMPORAL_ADDRESS=localhost:7233
 MAIL_HOST=localhost
 MAIL_PORT=1025
@@ -77,13 +79,18 @@ cd apps/backend
 ./gradlew bootRun
 ```
 
-Frontend (target state — not yet bootstrapped):
+Frontend (Next.js on port 3000; Node 22 — see `apps/frontend/.nvmrc`; the mandated
+`apps/frontend/.npmrc` pins the standard npm registry):
 
 ```bash
-cd apps/web
-npm install
+cd apps/frontend
+npm ci
 npm run dev
 ```
+
+The Next server proxies `/api/*` to `BACKEND_INTERNAL_URL` (default
+`http://localhost:8080`) so session cookies stay same-origin. Alternatively run the
+packaged frontend via `docker compose up -d frontend`.
 
 ## Migrations
 
@@ -108,9 +115,26 @@ cd apps/backend
 
 ## Tests
 
+Backend:
+
 ```bash
 cd apps/backend
 ./gradlew test
+```
+
+Frontend unit tests:
+
+```bash
+cd apps/frontend
+npm run test -- --run
+```
+
+Frontend E2E (requires postgres/minio/mailpit from compose and the backend on :8080;
+Playwright builds and starts the frontend itself):
+
+```bash
+cd apps/frontend
+npx playwright test
 ```
 
 ## MinIO Setup
