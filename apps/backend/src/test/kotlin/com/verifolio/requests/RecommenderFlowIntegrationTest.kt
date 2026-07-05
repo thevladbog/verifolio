@@ -1057,6 +1057,63 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
     }
 
     @Test
+    fun `accepted uploads become attachments with scan and signature signals`() {
+        val (rawToken, requestId) = sendInvitation("attach_requester@example.com", "attach_rec@corp.example.com")
+        val cookie = driveToInProgress(rawToken, "attach_rec@corp.example.com")
+
+        // Scan (shared) + detached signature covering it.
+        val scan = createUploadViaApi(cookie, "SCAN", sharedPublicly = true)
+        val scanId = scan.body!!["uploadId"] as String
+        putToPresignedUrl(scan.body!!["uploadUrl"] as String, pdfBytes, "application/pdf")
+        confirmUploadViaApi(cookie, scanId)
+
+        val der = byteArrayOf(0x30, 0x82.toByte(), 1, 2, 3)
+        val sig = createUploadViaApi(
+            cookie, "DETACHED_SIGNATURE", filename = "sig.p7s",
+            mimeType = "application/pkcs7-signature", sizeBytes = der.size.toLong(), targetUploadId = scanId,
+        )
+        putToPresignedUrl(sig.body!!["uploadUrl"] as String, der, "application/pkcs7-signature")
+        confirmUploadViaApi(cookie, sig.body!!["uploadId"] as String)
+
+        // Submit + accept.
+        val recXsrf = recommenderXsrf(cookie)
+        rest.exchange(
+            "/api/v1/recommender/responses", HttpMethod.POST,
+            HttpEntity(
+                mapOf("approvedLetterText" to "Letter with evidence.", "recipientConfirmed" to true, "relationshipConfirmed" to true),
+                authHeaders(cookie, recXsrf),
+            ),
+            Map::class.java,
+        )
+        val (reqCookie, reqXsrf) = requesterSession("attach_requester@example.com")
+        val accept = rest.exchange(
+            "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(reqCookie, reqXsrf)), Map::class.java,
+        )
+        assertThat(accept.statusCode).isEqualTo(HttpStatus.OK)
+        val documentId = accept.body!!["documentId"] as String
+
+        // Two attachments on the locked version.
+        val dv = com.verifolio.jooq.tables.references.DOCUMENT_VERSION
+        val da = com.verifolio.jooq.tables.references.DOCUMENT_ATTACHMENT
+        val versionId = dsl.select(dv.ID).from(dv)
+            .where(dv.DOCUMENT_ID.eq(UUID.fromString(documentId))).fetchOne(dv.ID)!!
+        val attachmentTypes = dsl.select(da.TYPE).from(da)
+            .where(da.DOCUMENT_VERSION_ID.eq(versionId)).fetch(da.TYPE)
+        assertThat(attachmentTypes).containsExactlyInAnyOrder("SCAN", "DETACHED_SIGNATURE")
+
+        // Signals with target evidence.
+        val vs = com.verifolio.jooq.tables.references.VERIFICATION_SIGNAL
+        val signals = dsl.selectFrom(vs)
+            .where(vs.ENTITY_TYPE.eq("DOCUMENT_VERSION").and(vs.ENTITY_ID.eq(versionId)))
+            .fetch()
+        assertThat(signals.map { it.signalType }).contains("SCAN_ATTACHED", "SIGNATURE_ATTACHED")
+        val sigSignal = signals.first { it.signalType == "SIGNATURE_ATTACHED" }
+        assertThat(sigSignal.evidenceJson!!.data()).contains("targetFileId")
+        assertThat(sigSignal.evidenceJson!!.data()).doesNotContain("unknown")
+    }
+
+    @Test
     fun `documents list and detail are owner scoped`() {
         val (rawToken, requestId) = sendInvitation("doclist_requester@example.com", "doclist_rec@corp.example.com")
         driveToNeedsReview(rawToken, "doclist_rec@corp.example.com")
