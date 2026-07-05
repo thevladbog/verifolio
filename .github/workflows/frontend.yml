@@ -1,0 +1,68 @@
+name: frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/frontend/**"
+      - "apps/backend/api/openapi.yaml"
+      - ".github/workflows/frontend.yml"
+  pull_request:
+    paths:
+      - "apps/frontend/**"
+      - "apps/backend/api/openapi.yaml"
+      - ".github/workflows/frontend.yml"
+
+defaults:
+  run:
+    working-directory: apps/frontend
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - name: OpenAPI client drift check
+        run: npm run check:api
+      - run: npm run test -- --run
+      - run: npm run build
+
+  e2e:
+    # Non-blocking while the compose-backed flow stabilizes; promote once green.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+      - name: Start infrastructure
+        working-directory: .
+        run: docker compose up -d postgres minio mailpit
+      - name: Start backend
+        working-directory: apps/backend
+        run: |
+          ./gradlew bootRun --args='--spring.profiles.active=local' &
+          timeout 300 bash -c 'until curl -sf http://localhost:8080/v3/api-docs > /dev/null; do sleep 3; done'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: apps/frontend/test-results

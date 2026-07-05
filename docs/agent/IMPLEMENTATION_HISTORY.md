@@ -401,3 +401,69 @@ inherit context; append an entry when an iteration ships.
   extension logic itself is not implemented.
 - **Staging-key S3 orphans** — still need an S3 lifecycle rule (DB-less objects are
   invisible to the cleanup task).
+
+## 2026-07 — Frontend MVP (iteration 9)
+
+### What shipped
+
+- **`apps/frontend`**: Next.js 16 (App Router) + React 19 + TS strict + Tailwind v4;
+  Node 22; the mandated `.npmrc` (`registry=https://registry.npmjs.org/`). Same-origin
+  `/api/*` rewrite to `BACKEND_INTERNAL_URL` (SameSite=Strict cookies never cross
+  origins); `proxy.ts` (Next 16 rename of middleware) does a UX-only session-cookie
+  check for app routes.
+- **API layer**: `openapi-typescript` types generated from the committed snapshot
+  (`npm run gen:api`; CI `check:api` fails on drift) + `openapi-fetch` client with an
+  X-XSRF-TOKEN middleware; `errorMessage` maps backend ApiError codes (verified against
+  ApiException call sites) to i18n; TanStack Query provider handles 401→/login and
+  toasts.
+- **Design**: the claude.ai design project («Дизайн портала Verifolio») is committed
+  at `docs/design/Verifolio Design.dc.html`; UI font Manrope; top-navbar shell per
+  canvas (DESIGN_SYSTEM.md's dark sidebar superseded); design tokens as Tailwind
+  `@theme`. Screens beyond the MVP API (custom templates, decline reason, GDPR
+  self-service, public folio, doc-check by ID, notifications, admin, HTML emails,
+  themed dark mode) are explicitly out — see the spec's deferred list.
+- **Screens**: landing + magic-link login + `/auth/callback`; dashboard (client-side
+  composition — no aggregate endpoint); contacts CRUD; 4-step request builder with the
+  blocking verbal-consent attestation; request detail (timeline, send/cancel,
+  NEEDS_REVIEW accept → generating state → document link, correction dialog);
+  documents + versions + presigned downloads fetched on click; share links with
+  one-time raw URL and revoke; recommender flow (invitation open → email code →
+  consent gate with zero inputs pre-accept → dynamic question form from the template
+  schema → 2s-debounced autosave → uploads via constrained presigned PUT with
+  per-file public-sharing consent and signature-target rule → gated submit);
+  one-click decline/report-abuse/stop-reminders (explicit confirm click — mail
+  scanners must not trigger POSTs); SSR `/verify/[token]` with counts-only trust
+  summary and "stated by recommender" labels.
+- **i18n**: next-intl, `en`/`ru` full dictionaries, cookie-based locale (no URL
+  prefix), profile.preferredLocale syncs the UI locale.
+- **Tests**: 52 unit tests (Vitest+RTL, API mocked at the module boundary); 2
+  Playwright E2E green against the real stack — the full canonical USER_FLOWS
+  sequence (login→…→share→revoke→invalid) and the one-click actions.
+- **CI/packaging**: `.github/workflows/frontend.yml` (lint, check:api, unit, build;
+  E2E job non-blocking `continue-on-error` until proven on CI); multi-stage
+  Dockerfile (standalone, non-root); compose `frontend` service.
+
+### Conventions established
+
+| Convention | Detail |
+|---|---|
+| API access | Only via the generated `api` client (`lib/api/client.ts`); regenerate with `gen:api` in the same PR as any OpenAPI change |
+| Presigned URLs | Fetched on user action, `window.open` immediately, never rendered into HTML or stored |
+| Trust display | `BadgeStatus` component; per-trust-type tones; counts per category; never a numeric score |
+| Strings | next-intl keys in `messages/{en,ru}.json`; consent copy keyed by backend `textId` |
+| Unit tests | Mock `@/lib/api/client` module; `renderWithProviders` (`lib/test/render.tsx`) |
+| E2E | Playwright against compose infra + `bootRun`; emails/codes pulled from the Mailpit API; production `next start` (dev-mode long flows are flaky) |
+
+### Deferred items
+
+- **Design-fidelity pass (plan Task 12)** — claude_design MCP requires interactive
+  consent (`/design-login`); reconcile every screen against the committed canvas.
+- **Response review API gap** — the requester cannot read the submitted letter before
+  accepting (no endpoint exposes response content pre-accept); the review card
+  explains this. Needs a backend read model for real Flow-4 review.
+- **Per-cell consent texts** — the API returns only versioned text refs; the frontend
+  ships placeholder-cell copy keyed by textId. Real texts land with region policy
+  config.
+- **CI E2E promotion** — flip the e2e job to blocking once green on GitHub runners.
+- **Onboarding profile step (design 8a)** — callback goes straight to the dashboard.
+- **Landing** — minimal hero per approved open question; full marketing page later.

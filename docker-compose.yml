@@ -33,6 +33,14 @@ services:
       POSTGRES_SEEDS: postgres
     ports: ["7233:7233"]
 
+  frontend:
+    build: apps/frontend
+    environment:
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://host.docker.internal:8080}
+      NEXT_PUBLIC_REGION: local
+    ports: ["3000:3000"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
   temporal-ui:
     image: temporalio/ui:latest
     depends_on: [temporal]

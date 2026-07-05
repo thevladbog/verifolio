@@ -148,17 +148,19 @@ Local services:
 
 ## Frontend
 
-Decided (see ADR 0006, `docs/adr/0006-frontend-stack.md`):
+Decided (see ADR 0006, `docs/adr/0006-frontend-stack.md`); **delivered (2026-07, `apps/frontend`)**:
 
-- Next.js;
+- Next.js (App Router);
 - React;
 - TypeScript;
-- Tailwind CSS;
-- Radix UI / shadcn-style primitives;
+- Tailwind CSS (v4 `@theme` tokens from `docs/DESIGN_SYSTEM.md`);
+- Radix UI / shadcn-style primitives (vendored);
 - React Hook Form;
 - Zod;
 - TanStack Query;
-- generated OpenAPI client.
+- generated OpenAPI client (`openapi-typescript` + `openapi-fetch` from `apps/backend/api/openapi.yaml`);
+- next-intl (en/ru);
+- Vitest + React Testing Library (unit), Playwright (E2E).
 
 The frontend is deployed per regional cell; public verification pages are rendered within the cell.
 
