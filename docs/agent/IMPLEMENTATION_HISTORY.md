@@ -659,3 +659,8 @@ inherit context; append an entry when an iteration ships.
 - **Per-role field restrictions ("support without content access")** — with user mgmt.
 - **ADMIN_LOGIN_FAILED emission**, admin-session TTL config (hardcoded 8h), RFC-strict
   otpauth label encoding — minor follow-ups flagged in review.
+- **Login-timing admin-enumeration** on `POST /admin/auth/magic-links` (synchronous
+  `mail.send` for real admins vs no-op otherwise leaks existence despite the identical
+  202 + rate limits) — the same synchronous-mail anti-enum tradeoff as the user
+  magic-link and the recommender DSR channel; the uniform fix is the tracked
+  outbox/AFTER-COMMIT async-dispatch item (deferred since iteration 1).
