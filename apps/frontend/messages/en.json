@@ -77,6 +77,57 @@
     "locale": "Language",
     "locales": { "en": "English", "ru": "Русский" }
   },
+  "requests": {
+    "title": "Requests",
+    "new": "New request",
+    "empty": "No requests yet. Create your first one — it usually takes 2–3 days to collect a confirmed reference.",
+    "unknownRecommender": "Recommender not set",
+    "noPurpose": "No purpose specified",
+    "expires": "expires {date}",
+    "filters": {
+      "all": "All",
+      "needsReview": "Needs review",
+      "inProgress": "In progress",
+      "sent": "Sent",
+      "completed": "Completed",
+      "declined": "Declined"
+    },
+    "statuses": {
+      "CREATED": "Draft",
+      "SENT": "Sent",
+      "OPENED": "Opened",
+      "IN_PROGRESS": "In progress",
+      "SUBMITTED": "Submitted",
+      "NEEDS_REVIEW": "Needs review",
+      "CORRECTION_REQUESTED": "Correction requested",
+      "COMPLETED": "Completed",
+      "DECLINED": "Declined",
+      "EXPIRED": "Expired",
+      "CANCELLED": "Cancelled"
+    }
+  },
+  "builder": {
+    "title": "New reference request",
+    "steps": {
+      "template": "Template",
+      "context": "Context",
+      "recommender": "Recommender",
+      "confirm": "Confirm"
+    },
+    "templateTitle": "Where do we start?",
+    "templateHint": "The template asks the right questions for your goal.",
+    "contextTitle": "What is this reference about?",
+    "contextHint": "Context helps the recommender write a relevant letter.",
+    "purpose": "Purpose and context",
+    "purposePlaceholder": "e.g. International hiring — role, company, period…",
+    "purposeVisibility": "Only the recommender sees this — it helps them write an appropriate letter.",
+    "recommenderTitle": "Who will you ask?",
+    "recommenderHint": "Pick from your contacts or add a new one.",
+    "confirmTitle": "Review and confirm",
+    "attestation": "I confirm the recommender gave me verbal consent to receive this request.",
+    "attestationHint": "This attestation is recorded. The invitation cannot be created without it.",
+    "create": "Create request"
+  },
   "errors": {
     "RATE_LIMITED": "Too many attempts. Please try again later.",
     "CONSENT_REQUIRED": "This step requires your explicit confirmation.",
