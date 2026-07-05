@@ -702,6 +702,134 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/privacy/recommender-requests:
+    post:
+      tags:
+      - recommender-dsr-controller
+      operationId: intake
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecommenderDataRequestRequest"
+        required: true
+      responses:
+        "202":
+          description: Accepted (no match/enumeration signal is leaked)
+        "400":
+          description: Validation failed
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/privacy/recommender-requests/{id}/verify:
+    post:
+      tags:
+      - recommender-dsr-controller
+      operationId: verify
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecommenderDsrVerifyRequest"
+        required: true
+      responses:
+        "200":
+          description: Code accepted; consent withdrawal executed or request recorded
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RecommenderDsrVerifyResponse"
+        "400":
+          description: Invalid or expired code
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Request not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Request already verified or terminal
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/privacy/data-subject-requests:
+    get:
+      tags:
+      - data-subject-request-controller
+      operationId: list
+      parameters:
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DataSubjectRequestListResponse"
+        "400":
+          description: Invalid cursor
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      tags:
+      - data-subject-request-controller
+      operationId: submit_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDataSubjectRequestRequest"
+        required: true
+      responses:
+        "201":
+          description: Request received (RECEIVED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DataSubjectRequestResponse"
+        "400":
+          description: Validation failed
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/invitations/{token}/stop-reminders:
     post:
       tags:
@@ -1755,6 +1883,10 @@ components:
           type:
           - string
           - "null"
+        recommenderPiiErasedAt:
+          type:
+          - string
+          - "null"
         expiresAt:
           type: string
         createdAt:
@@ -1901,6 +2033,109 @@ components:
           - OTHER
       required:
       - accepted
+    RecommenderDataRequestRequest:
+      type: object
+      properties:
+        email:
+          type:
+          - string
+          - "null"
+          format: email
+          maxLength: 320
+          minLength: 0
+        referenceRequestEmailHint:
+          type:
+          - string
+          - "null"
+          maxLength: 320
+          minLength: 0
+      required:
+      - email
+    RecommenderDsrVerifyRequest:
+      type: object
+      properties:
+        code:
+          type:
+          - string
+          - "null"
+          minLength: 1
+          pattern: "\\d{6}"
+        type:
+          type:
+          - string
+          - "null"
+          enum:
+          - DELETION
+          - EXPORT
+          - REGION_MIGRATION
+          - CONSENT_WITHDRAWAL
+          - CORRECTION
+        referenceRequestId:
+          type:
+          - string
+          - "null"
+      required:
+      - code
+      - type
+    RecommenderDsrVerifyResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        executed:
+          type: boolean
+        dueAt:
+          type:
+          - string
+          - "null"
+    CreateDataSubjectRequestRequest:
+      type: object
+      properties:
+        type:
+          type:
+          - string
+          - "null"
+          enum:
+          - DELETION
+          - EXPORT
+          - REGION_MIGRATION
+          - CONSENT_WITHDRAWAL
+          - CORRECTION
+        comment:
+          type:
+          - string
+          - "null"
+          maxLength: 2000
+          minLength: 0
+      required:
+      - type
+    DataSubjectRequestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        subjectEmail:
+          type: string
+        dueAt:
+          type: string
+        verifiedAt:
+          type:
+          - string
+          - "null"
+        resolutionNotes:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+        updatedAt:
+          type:
+          - string
+          - "null"
     DeclineRequest:
       type: object
       properties:
@@ -2051,10 +2286,14 @@ components:
     VerificationPageResponse:
       type: object
       properties:
+        status:
+          type: string
         header:
           $ref: "#/components/schemas/PageHeaderDto"
         recipient:
-          $ref: "#/components/schemas/RecipientDto"
+          oneOf:
+          - $ref: "#/components/schemas/RecipientDto"
+          - type: "null"
         recommender:
           oneOf:
           - $ref: "#/components/schemas/RecommenderDto"
@@ -2069,7 +2308,9 @@ components:
             type: integer
             format: int32
         version:
-          $ref: "#/components/schemas/VersionDto"
+          oneOf:
+          - $ref: "#/components/schemas/VersionDto"
+          - type: "null"
         downloads:
           type: array
           items:
@@ -2079,9 +2320,17 @@ components:
           items:
             $ref: "#/components/schemas/TimelineEntryDto"
         disclaimer:
-          type: string
+          type:
+          - string
+          - "null"
         privacyNotice:
-          type: string
+          type:
+          - string
+          - "null"
+        notice:
+          type:
+          - string
+          - "null"
     VersionDto:
       type: object
       properties:
@@ -2094,6 +2343,10 @@ components:
           type: string
         supersededByNewerVersion:
           type: boolean
+        retractedAt:
+          type:
+          - string
+          - "null"
     PublicDownloadLinkResponse:
       type: object
       properties:
@@ -2248,6 +2501,17 @@ components:
           oneOf:
           - $ref: "#/components/schemas/DraftDto"
           - type: "null"
+    DataSubjectRequestListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataSubjectRequestResponse"
+        nextCursor:
+          type:
+          - string
+          - "null"
     InvitationPreviewResponse:
       type: object
       properties:
