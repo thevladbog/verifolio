@@ -12,6 +12,7 @@ data class VerifolioProperties(
     val requests: Requests = Requests(),
     val storage: Storage = Storage(),
     val verification: Verification = Verification(),
+    val publicPage: PublicPage = PublicPage(),
 ) {
     init {
         require(region == "local" || auth.tokenPepper != "local-dev-pepper-change-me") {
@@ -68,5 +69,10 @@ data class VerifolioProperties(
             "gmail.com", "googlemail.com", "yahoo.com", "hotmail.com", "outlook.com",
             "mail.ru", "yandex.ru", "icloud.com", "proton.me", "protonmail.com",
         ),
+    )
+
+    data class PublicPage(
+        /** 0.0–1.0 share of public page views written to the audit log (views are sampled; downloads always audited). */
+        val viewAuditSampleRate: Double = 1.0,
     )
 }

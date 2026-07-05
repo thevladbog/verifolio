@@ -62,6 +62,8 @@ verifolio:
     secret-key: minioadmin # DEV ONLY
     presigned-ttl: 5m
     path-style: true # required for MinIO; disable for AWS-style virtual-host buckets
+  public-page:
+    view-audit-sample-rate: 1.0 # production cells tune this down; downloads are always fully audited
   verification:
     free-email-domains: # deny-list for CORPORATE_DOMAIN_CONFIRMED (docs/VERIFICATION_SIGNALS.md)
       - gmail.com
