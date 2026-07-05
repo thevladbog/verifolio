@@ -146,11 +146,18 @@ internal class AdminMfa(
             .and(ADMIN_MFA_PENDING.EXPIRES_AT.gt(OffsetDateTime.now()))
             .fetchOne() ?: throw codeInvalid()
 
+    /**
+     * Single-use guard: marks the pending consumed only if it was still unconsumed. Two concurrent
+     * valid submissions race here — exactly one updates a row; the loser sees 0 rows affected and is
+     * rejected with CODE_INVALID, so it can never proceed to mint a session. Callers MUST invoke this
+     * before the session is minted.
+     */
     private fun consume(pendingId: java.util.UUID, now: OffsetDateTime) {
-        dsl.update(ADMIN_MFA_PENDING)
+        val updated = dsl.update(ADMIN_MFA_PENDING)
             .set(ADMIN_MFA_PENDING.CONSUMED_AT, now)
             .where(ADMIN_MFA_PENDING.ID.eq(pendingId).and(ADMIN_MFA_PENDING.CONSUMED_AT.isNull))
             .execute()
+        if (updated == 0) throw codeInvalid()
     }
 
     private fun codeInvalid() =

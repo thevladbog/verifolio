@@ -1,6 +1,8 @@
 package com.verifolio.admin.application
 
 import org.springframework.stereotype.Service
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 import java.time.Instant
 import javax.crypto.Mac
@@ -27,14 +29,20 @@ class AdminTotpService {
     }
 
     /**
-     * `otpauth://totp/Verifolio%20(<region>):<email>?secret=<base32>&issuer=Verifolio` (spec).
-     * Only the space is percent-encoded, matching the normative example; region/email are
-     * expected to be simple label components.
+     * `otpauth://totp/<label>?secret=<base32>&issuer=Verifolio` (spec). The label is the otpauth
+     * `issuer:account` form — each component (`Verifolio (<region>)` and `<email>`) is percent-encoded
+     * and joined by a literal `:`, and the `secret`/`issuer` query values are percent-encoded — so
+     * reserved characters in a region or email (`@`, spaces, parens, `&`, `?`, …) can't break the URI or
+     * an authenticator's enrollment parse.
      */
     fun otpauthUri(email: String, secretBase32: String, region: String): String {
-        val label = "Verifolio ($region):$email".replace(" ", "%20")
-        return "otpauth://totp/$label?secret=$secretBase32&issuer=Verifolio"
+        val label = "${encode("Verifolio ($region)")}:${encode(email)}"
+        return "otpauth://totp/$label?secret=${encode(secretBase32)}&issuer=${encode(ISSUER)}"
     }
+
+    /** URLEncoder for a URI component: UTF-8, but emit `%20` for space (URLEncoder's `+` is only valid in a form body). */
+    private fun encode(value: String): String =
+        URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20")
 
     /** True iff [code] matches the TOTP for [secretBase32] at now, now-30s, or now+30s (±1 step). */
     fun verify(secretBase32: String, code: String): Boolean {
@@ -70,6 +78,7 @@ class AdminTotpService {
         val SIX_DIGITS = Regex("\\d{6}")
         val SKEW_STEPS = listOf(0L, -30L, 30L)
         const val STEP_SECONDS = 30L
+        const val ISSUER = "Verifolio"
     }
 }
 

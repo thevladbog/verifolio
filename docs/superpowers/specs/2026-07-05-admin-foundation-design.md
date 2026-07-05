@@ -50,16 +50,20 @@ link can never yield a user session and vice versa.
 
 ### TOTP specifics
 
-- RFC 6238 TOTP (30s step, 6 digits, SHA-1 — authenticator-app standard) via
-  **`com.eatthepath:java-otp`** (minimal, no transitive bloat). Base32 secret via
-  commons-codec (already on the classpath transitively; add explicitly if not).
-- `otpauthUri` = `otpauth://totp/Verifolio%20({region}):{email}?secret={base32}&issuer=Verifolio`.
+- RFC 6238 TOTP (30s step, 6 digits, SHA-1 — authenticator-app standard) implemented
+  **JDK-only** (`javax.crypto.Mac` + an inline RFC 4648 Base32 in `AdminTotpService`) —
+  **no third-party dependency** (no `java-otp`, no commons-codec), keeping the module
+  deployable into restricted regional networks. Secrets are 20 random bytes, Base32
+  (upper-case, unpadded).
+- `otpauthUri` = `otpauth://totp/{issuer}:{account}?secret={base32}&issuer=Verifolio`, where the
+  label components (`Verifolio ({region})` and the email) and the query values are percent-encoded
+  per the otpauth spec, so reserved characters can't break enrollment.
 - **Secret at rest is encrypted** (not plaintext — a plaintext MFA seed in the app DB
-  would defeat MFA): AES-256-GCM via `AdminTotpCipher` (javax.crypto, per-cell key
-  `verifolio.admin.totp-secret-key`, base64 32 bytes; random 12-byte IV per secret stored
-  alongside the ciphertext). No new crypto dependency. `local` default key ships for dev;
-  real cells set their own (validated non-default when region != local, mirroring the
-  pepper rule).
+  would defeat MFA): AES-256-GCM via `AdminTotpCipher` (javax.crypto). The AES-256 key is the
+  **SHA-256 digest of the per-cell `verifolio.admin.totp-secret-key`** (an ops-provided secret
+  string, not a base64 key blob); a random 12-byte IV per secret is stored alongside the
+  ciphertext. No new crypto dependency. `local` default key ships for dev; real cells set their
+  own (validated non-default when region != local, mirroring the pepper rule).
 - Verification allows ±1 step clock skew.
 
 ## RBAC — three fixed roles, code-defined permissions
@@ -236,8 +240,8 @@ API client instance targeting `/api/v1/admin/*` with the admin session cookie + 
   cross-region admin identity.
 - Flyway V14 only; V1–V13 untouched. OpenAPI + frontend client regenerated (run
   `npm run gen:api` after the snapshot refresh — the recurring CI gotcha).
-- New deps: backend `com.eatthepath:java-otp` (+ commons-codec if not already present);
-  frontend `react-qr-code`. Both are minimal, widely used, MIT.
+- New deps: backend **none** (TOTP + Base32 are JDK-only, see §TOTP specifics);
+  frontend `react-qr-code` (minimal, widely used, MIT).
 
 ## Open questions (resolved; none block the plan)
 
