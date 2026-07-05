@@ -39,6 +39,11 @@ Examples:
                                          consentType → 404; reads are not audited)
 /api/v1/contacts
 /api/v1/contacts/{id}
+/api/v1/organizations                   (read-only; ?query= name/domain prefix, keyset
+                                         cursor page 50; authenticated; not audited)
+/api/v1/organizations/{id}              (read-only; OrganizationView or 404)
+/api/v1/organizations/lookup            (read-only; ?domain= → VERIFIED owner's
+                                         OrganizationView, suffix-aware longest-match, or 404)
 /api/v1/verification-signals            (read-only)
 /api/v1/documents/{id}/verification-signals (read-only)
 /api/v1/share-links
