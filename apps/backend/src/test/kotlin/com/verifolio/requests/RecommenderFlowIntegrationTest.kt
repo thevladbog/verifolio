@@ -918,6 +918,12 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
             "CORPORATE_DOMAIN_CONFIRMED", "VERSION_LOCKED", "DOCUMENT_HASH_LOCKED",
         )
 
+        // Non-seeded corporate domain → evidence stays recommender-stated (unchanged behaviour).
+        val corpEvidence = corporateDomainEvidence(requestId)
+        assertThat(corpEvidence["emailDomain"]).isEqualTo("corp.example.com")
+        assertThat(corpEvidence["organizationNameSource"]).isEqualTo("recommender-stated")
+        assertThat(corpEvidence).doesNotContainKeys("organizationId", "organizationName")
+
         assertThat(auditActions()).contains(
             "REFERENCE_RESPONSE_ACCEPTED", "DOCUMENT_CREATED", "DOCUMENT_VERSION_CREATED",
             "DOCUMENT_PDF_GENERATED", "DOCUMENT_VERSION_LOCKED", "FILE_UPLOADED",
@@ -962,6 +968,47 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
             .fetch(vs.SIGNAL_TYPE)
         assertThat(signalTypes).doesNotContain("CORPORATE_DOMAIN_CONFIRMED")
         assertThat(signalTypes).contains("EMAIL_CONFIRMED")
+    }
+
+    @Test
+    fun `verified-org domain snapshots the organization name into the corporate signal`() {
+        val (rawToken, requestId) = sendInvitation("sap_requester@example.com", "hiring.mgr@sap.com")
+        driveToNeedsReview(rawToken, "hiring.mgr@sap.com")
+        val (cookie, xsrfToken) = requesterSession("sap_requester@example.com")
+
+        val response = rest.exchange(
+            "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+
+        // The SAP seed (V13) owns sap.com → evidence carries the verified-record provenance,
+        // with the org id + name snapshotted at acceptance (immune to later registry edits).
+        val evidence = corporateDomainEvidence(requestId)
+        assertThat(evidence["emailDomain"]).isEqualTo("sap.com")
+        assertThat(evidence["organizationNameSource"]).isEqualTo("verified-record")
+        assertThat(evidence["organizationId"]).isEqualTo("a0000000-0000-4000-8000-000000000001")
+        assertThat(evidence["organizationName"]).isEqualTo("SAP SE")
+    }
+
+    /** Reads the CORPORATE_DOMAIN_CONFIRMED signal evidence for a request's response. */
+    private fun corporateDomainEvidence(requestId: String): Map<String, String> {
+        val vs = com.verifolio.jooq.tables.references.VERIFICATION_SIGNAL
+        val rr = com.verifolio.jooq.tables.references.REFERENCE_RESPONSE
+        val json = dsl.select(vs.EVIDENCE_JSON).from(vs)
+            .where(
+                vs.SIGNAL_TYPE.eq("CORPORATE_DOMAIN_CONFIRMED")
+                    .and(vs.ENTITY_TYPE.eq("REFERENCE_RESPONSE"))
+                    .and(
+                        vs.ENTITY_ID.`in`(
+                            dsl.select(rr.ID).from(rr).where(rr.REQUEST_ID.eq(UUID.fromString(requestId))),
+                        ),
+                    ),
+            )
+            .fetchOne(vs.EVIDENCE_JSON)!!.data()
+        return com.fasterxml.jackson.databind.ObjectMapper()
+            .readValue(json, object : com.fasterxml.jackson.core.type.TypeReference<Map<String, String>>() {})
     }
 
     @Test

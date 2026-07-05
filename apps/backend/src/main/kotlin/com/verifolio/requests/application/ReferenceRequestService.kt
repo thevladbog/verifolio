@@ -10,6 +10,7 @@ import com.verifolio.jooq.tables.references.CONSENT_RECORD
 import com.verifolio.jooq.tables.references.REFERENCE_REQUEST
 import com.verifolio.jooq.tables.references.REFERENCE_RESPONSE
 import com.verifolio.notifications.MailPort
+import com.verifolio.organizations.OrganizationLookup
 import com.verifolio.platform.ApiException
 import com.verifolio.platform.SlidingWindowRateLimiter
 import com.verifolio.platform.VerifolioProperties
@@ -49,6 +50,7 @@ internal class ReferenceRequestService(
     @Qualifier("referenceRequestSendLimiter") private val sendLimiter: SlidingWindowRateLimiter,
     private val documentPublisher: DocumentPublisher,
     private val verificationSignals: VerificationSignals,
+    private val organizationLookup: OrganizationLookup,
 ) {
 
     @Transactional
@@ -479,9 +481,21 @@ internal class ReferenceRequestService(
             mapOf("emailDomain" to emailDomain, "requestId" to requestId, "responseId" to responseId.toString()),
         )
         if (!isFreeEmailDomain(emailDomain)) {
+            // Snapshot the verified-org name into the evidence at acceptance (the gating
+            // moment) so a later registry change can never mutate a locked attestation.
+            val orgMatch = organizationLookup.findVerifiedByDomain(emailDomain)
+            val evidence = buildMap {
+                put("emailDomain", emailDomain)
+                if (orgMatch != null) {
+                    put("organizationNameSource", "verified-record")
+                    put("organizationId", orgMatch.organizationId.toString())
+                    put("organizationName", orgMatch.name)
+                } else {
+                    put("organizationNameSource", "recommender-stated")
+                }
+            }
             verificationSignals.createVerified(
-                "REFERENCE_RESPONSE", responseId, "CORPORATE_DOMAIN_CONFIRMED",
-                mapOf("emailDomain" to emailDomain, "organizationNameSource" to "recommender-stated"),
+                "REFERENCE_RESPONSE", responseId, "CORPORATE_DOMAIN_CONFIRMED", evidence,
             )
         }
         verificationSignals.createVerified(
