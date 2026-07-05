@@ -10,6 +10,7 @@ import com.verifolio.requests.RequestPublicView
 import com.verifolio.verification.SignalView
 import com.verifolio.verification.VerificationSignals
 import com.verifolio.publicpages.api.BadgeDto
+import com.verifolio.publicpages.api.DownloadDto
 import com.verifolio.publicpages.api.PageHeaderDto
 import com.verifolio.publicpages.api.PublicDownloadLinkResponse
 import com.verifolio.publicpages.api.RecipientDto
@@ -90,6 +91,12 @@ internal class PublicVerificationPageService(
                 status = view.versionStatus,
                 supersededByNewerVersion = view.supersededByNewerVersion,
             ),
+            downloads = buildList {
+                add(DownloadDto(id = "generated-pdf", kind = "GENERATED_PDF", filename = null, downloadable = true))
+                view.attachments.forEach {
+                    add(DownloadDto(it.attachmentId.toString(), it.kind, it.filename, it.publiclyDownloadable))
+                }
+            },
             timeline = timeline(view, requestInfo?.requestCreatedAt, requestInfo?.responseSubmittedAt),
             disclaimer = DISCLAIMER,
             privacyNotice = PRIVACY_NOTICE,
@@ -126,6 +133,33 @@ internal class PublicVerificationPageService(
             ),
             ipHash = ipHash,
             userAgentHash = userAgentHash,
+        )
+        return PublicDownloadLinkResponse(url = pinned.download.url, expiresAt = pinned.download.expiresAt.toString())
+    }
+
+    @Transactional
+    fun attachmentDownloadUrl(
+        rawToken: String,
+        attachmentId: UUID,
+        ipHash: String?,
+        userAgentHash: String?,
+    ): PublicDownloadLinkResponse {
+        val view = shareLinkAccess.resolve(rawToken) ?: throw pageNotFound()
+        val pinned = shareLinkAccess.presignAttachment(rawToken, attachmentId)
+
+        audit.record(
+            actorType = "PUBLIC_VIEWER", actorId = null,
+            action = "PUBLIC_VERIFICATION_PAGE_DOWNLOAD",
+            entityType = "SHARE_LINK", entityId = view.shareLinkId.toString(),
+            metadata = mapOf("documentId" to view.documentId.toString(), "attachmentId" to attachmentId.toString()),
+            ipHash = ipHash, userAgentHash = userAgentHash,
+        )
+        audit.record(
+            actorType = "PUBLIC_VIEWER", actorId = null,
+            action = "FILE_DOWNLOAD_GRANTED",
+            entityType = "FILE_OBJECT", entityId = pinned.fileId.toString(),
+            metadata = mapOf("shareLinkId" to view.shareLinkId.toString(), "attachmentId" to attachmentId.toString()),
+            ipHash = ipHash, userAgentHash = userAgentHash,
         )
         return PublicDownloadLinkResponse(url = pinned.download.url, expiresAt = pinned.download.expiresAt.toString())
     }

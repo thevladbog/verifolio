@@ -1,9 +1,11 @@
 package com.verifolio.documents.application
 
 import com.verifolio.audit.AuditService
+import com.verifolio.documents.AttachmentSpec
 import com.verifolio.documents.DocumentPublisher
 import com.verifolio.documents.PublishDocumentCommand
 import com.verifolio.documents.PublishedVersion
+import com.verifolio.jooq.tables.references.DOCUMENT_ATTACHMENT
 import com.verifolio.documents.domain.CanonicalJson
 import com.verifolio.documents.domain.HtmlRenderer
 import com.verifolio.files.FileStore
@@ -145,5 +147,17 @@ internal class DocumentPublisherImpl(
             pdfFileId = stored.fileId,
             pdfSha256 = stored.sha256,
         )
+    }
+
+    @Transactional
+    override fun attachFiles(versionId: UUID, attachments: List<com.verifolio.documents.AttachmentSpec>) {
+        val da = DOCUMENT_ATTACHMENT
+        attachments.forEach { spec ->
+            dsl.insertInto(da)
+                .set(da.DOCUMENT_VERSION_ID, versionId)
+                .set(da.FILE_OBJECT_ID, spec.fileObjectId)
+                .set(da.TYPE, spec.type)
+                .execute()
+        }
     }
 }

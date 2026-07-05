@@ -42,6 +42,7 @@ data class VerifolioProperties(
         val requesterAttestation: ConsentText = ConsentText(textId = "local-requester-attestation", version = 1),
         val processing: ConsentText = ConsentText(textId = "local-processing", version = 1),
         val crossBorderTransfer: ConsentText = ConsentText(textId = "local-cross-border", version = 1),
+        val publicSharing: ConsentText = ConsentText(textId = "local-public-sharing", version = 1),
     )
 
     /** Versioned consent text identifier per region policy (docs/REGION_POLICIES.md). */
@@ -64,6 +65,8 @@ data class VerifolioProperties(
         val secretKey: String = "minioadmin",
         val presignedTtl: Duration = Duration.ofMinutes(5),
         val pathStyle: Boolean = true,
+        val maxUploadBytes: Long = 15L * 1024 * 1024,
+        val uploadUrlTtl: Duration = Duration.ofMinutes(10),
     )
 
     data class Verification(

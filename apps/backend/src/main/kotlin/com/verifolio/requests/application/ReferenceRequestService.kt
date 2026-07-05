@@ -314,6 +314,7 @@ internal class ReferenceRequestService(
             ),
         )
 
+        attachUploads(id, published)
         createAcceptanceSignals(record, response.id!!, response.submittedAt!!, published)
 
         // CAS: forUpdate above serializes concurrent accepts; the guard keeps the invariant.
@@ -404,6 +405,44 @@ internal class ReferenceRequestService(
         )
 
         return updated.toResponse()
+    }
+
+    /** READY uploads become attachments of the locked version, with scan/signature signals. */
+    private fun attachUploads(requestId: UUID, published: com.verifolio.documents.PublishedVersion) {
+        val ru = com.verifolio.jooq.tables.references.RESPONSE_UPLOAD
+        val fo = com.verifolio.jooq.tables.references.FILE_OBJECT
+        val uploads = dsl.select(ru.asterisk(), fo.STATUS)
+            .from(ru)
+            .join(fo).on(fo.ID.eq(ru.FILE_OBJECT_ID))
+            .where(ru.REQUEST_ID.eq(requestId).and(fo.STATUS.eq("READY")))
+            .fetch()
+            .map { it.into(ru) }
+        if (uploads.isEmpty()) return
+
+        documentPublisher.attachFiles(
+            published.versionId,
+            uploads.map { com.verifolio.documents.AttachmentSpec(it.fileObjectId!!, it.kind!!) },
+        )
+
+        uploads.firstOrNull { it.kind in listOf("SCAN", "SIGNED_PDF") }?.let { scan ->
+            verificationSignals.createVerified(
+                "DOCUMENT_VERSION", published.versionId, "SCAN_ATTACHED",
+                mapOf("fileId" to scan.fileObjectId.toString()),
+            )
+        }
+        uploads.filter { it.kind == "DETACHED_SIGNATURE" }.forEach { sig ->
+            val targetFileId = sig.targetUploadId
+                ?.let { targetId -> uploads.firstOrNull { it.id == targetId }?.fileObjectId }
+            verificationSignals.createVerified(
+                "DOCUMENT_VERSION", published.versionId, "SIGNATURE_ATTACHED",
+                mapOf(
+                    "signatureFileId" to sig.fileObjectId.toString(),
+                    // The signature covers the uploaded scan, never the generated PDF.
+                    "targetFileId" to (targetFileId?.toString() ?: "unknown"),
+                    "format" to "CMS/CAdES (detached)",
+                ),
+            )
+        }
     }
 
     private fun createAcceptanceSignals(

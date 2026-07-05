@@ -25,6 +25,8 @@ data class PublishedVersion(
     val pdfSha256: String,
 )
 
+data class AttachmentSpec(val fileObjectId: UUID, val type: String)
+
 /**
  * Public API of the documents module.
  * Versions are created already LOCKED; there is no update path to a locked version
@@ -32,4 +34,7 @@ data class PublishedVersion(
  */
 interface DocumentPublisher {
     fun publishLockedVersion(cmd: PublishDocumentCommand): PublishedVersion
+
+    /** Links READY evidence files to a version. Attachment rows are append-only. */
+    fun attachFiles(versionId: UUID, attachments: List<AttachmentSpec>)
 }

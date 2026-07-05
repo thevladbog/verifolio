@@ -7,14 +7,22 @@ import com.verifolio.identity.RecommenderActor
 import com.verifolio.identity.RecommenderGrant
 import com.verifolio.identity.RecommenderSessions
 import com.verifolio.jooq.tables.records.ReferenceRequestRecord
+import com.verifolio.files.FileUploads
 import com.verifolio.jooq.tables.references.CONSENT_RECORD
 import com.verifolio.jooq.tables.references.REFERENCE_REQUEST
 import com.verifolio.jooq.tables.references.REFERENCE_RESPONSE
+import com.verifolio.jooq.tables.references.RESPONSE_UPLOAD
 import com.verifolio.notifications.MailPort
 import com.verifolio.platform.ApiException
 import com.verifolio.platform.VerifolioProperties
 import com.verifolio.profiles.ProfileService
+import com.verifolio.requests.api.ConfirmUploadResponse
 import com.verifolio.requests.api.ConsentDecisionRequest
+import com.verifolio.requests.api.CreateUploadRequest
+import com.verifolio.requests.api.UploadCreatedResponse
+import com.verifolio.requests.api.UploadKind
+import com.verifolio.requests.api.UploadListResponse
+import com.verifolio.requests.api.UploadResponse
 import com.verifolio.requests.api.ConsentTextRef
 import com.verifolio.requests.api.ConsentTextsDto
 import com.verifolio.requests.api.DraftDto
@@ -49,6 +57,7 @@ internal class RecommenderFlowService(
     private val props: VerifolioProperties,
     private val objectMapper: ObjectMapper,
     @Qualifier("emailConfirmationLimiter") private val codeLimiter: SlidingWindowRateLimiter,
+    private val fileUploads: FileUploads,
 ) {
 
     @Transactional
@@ -385,6 +394,185 @@ internal class RecommenderFlowService(
 
         recommenderSessions.revokeForRequest(actor.requestId)
         return ReferenceRequestStatus.NEEDS_REVIEW
+    }
+
+    // ---- uploads (RECOMMENDER_EXPERIENCE.md Optional Uploads) ----
+
+    @Transactional
+    fun createUpload(actor: RecommenderActor, req: CreateUploadRequest): UploadCreatedResponse {
+        val record = loadActiveRequest(actor.requestId)
+        ensureResponseCycle(record)
+
+        // Serialize the cap check: concurrent creates for the same request queue on the
+        // request row lock, so the count-then-insert below cannot exceed the cap.
+        dsl.selectFrom(REFERENCE_REQUEST)
+            .where(REFERENCE_REQUEST.ID.eq(actor.requestId))
+            .forUpdate()
+            .fetchOne()
+
+        val ru = RESPONSE_UPLOAD
+        val count = dsl.fetchCount(dsl.selectFrom(ru).where(ru.REQUEST_ID.eq(actor.requestId)))
+        if (count >= 10) {
+            throw ApiException(HttpStatus.CONFLICT, "INVALID_REQUEST_STATE", "Upload limit reached for this request")
+        }
+
+        if (req.kind != UploadKind.DETACHED_SIGNATURE && req.targetUploadId != null) {
+            throw ApiException(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "targetUploadId is only valid for detached signatures",
+            )
+        }
+        if (req.kind == UploadKind.DETACHED_SIGNATURE) {
+            // A signature covers a specific uploaded file, never the generated PDF.
+            val target = req.targetUploadId?.let { loadUpload(actor, it) }
+                ?: throw ApiException(HttpStatus.CONFLICT, "INVALID_REQUEST_STATE", "A detached signature requires targetUploadId")
+            val targetStatus = fileStatus(target.fileObjectId!!)
+            if (target.kind !in listOf("SCAN", "SIGNED_PDF") || targetStatus != "READY") {
+                throw ApiException(
+                    HttpStatus.CONFLICT,
+                    "INVALID_REQUEST_STATE",
+                    "The signature target must be a confirmed scan or signed PDF",
+                )
+            }
+        }
+
+        val purpose = when (req.kind!!) {
+            UploadKind.SCAN, UploadKind.SIGNED_PDF -> "SCAN"
+            UploadKind.DETACHED_SIGNATURE -> "DETACHED_SIGNATURE"
+            UploadKind.ATTACHMENT -> "ATTACHMENT"
+        }
+        val requested = fileUploads.requestUpload(
+            purpose = purpose,
+            filename = req.filename!!,
+            declaredMime = req.mimeType!!,
+            declaredSizeBytes = req.sizeBytes!!,
+            actorId = null,
+        )
+
+        val inserted = dsl.insertInto(ru)
+            .set(ru.REQUEST_ID, actor.requestId)
+            .set(ru.FILE_OBJECT_ID, requested.fileId)
+            .set(ru.KIND, req.kind.name)
+            .set(ru.TARGET_UPLOAD_ID, req.targetUploadId)
+            .set(ru.SHARED_PUBLICLY, req.sharedPublicly)
+            .returning(ru.ID)
+            .fetchOne()!!.id!!
+
+        return UploadCreatedResponse(
+            uploadId = inserted.toString(),
+            fileId = requested.fileId.toString(),
+            uploadUrl = requested.uploadUrl,
+            expiresAt = requested.expiresAt.toString(),
+        )
+    }
+
+    @Transactional
+    fun confirmUpload(actor: RecommenderActor, uploadId: UUID): ConfirmUploadResponse {
+        val record = loadActiveRequest(actor.requestId)
+        // Same gate as create/delete: evidence must not change outside a response cycle
+        // (e.g. a confirm racing the submission into NEEDS_REVIEW).
+        ensureResponseCycle(record)
+        val upload = loadUpload(actor, uploadId)
+
+        val outcome = fileUploads.confirmUpload(upload.fileObjectId!!)
+
+        // The per-upload sharing decision is always recorded — accept AND decline
+        // (AGENTS.md consent rule); GRANTED gates public downloads.
+        if (outcome.status == "READY" && upload.consentRecordId == null) {
+            val granted = upload.sharedPublicly == true
+            val now = OffsetDateTime.now()
+            val cr = CONSENT_RECORD
+            var insert = dsl.insertInto(cr)
+                .set(cr.SUBJECT_TYPE, "RECOMMENDER")
+                .set(cr.RECOMMENDER_CONTACT_ID, record.recommenderContactId)
+                .set(cr.REFERENCE_REQUEST_ID, actor.requestId)
+                .set(cr.CONSENT_TYPE, "RECOMMENDER_PUBLIC_SHARING_CONSENT")
+                .set(cr.POLICY_TEXT_VERSION, props.consents.publicSharing.versionedId)
+                .set(cr.REGION, props.region)
+                .set(cr.STATUS, if (granted) "GRANTED" else "DECLINED")
+            insert = if (granted) insert.set(cr.GRANTED_AT, now) else insert.set(cr.DECLINED_AT, now)
+            val consentId = insert.returning(cr.ID).fetchOne()!!.id!!
+
+            dsl.update(RESPONSE_UPLOAD)
+                .set(RESPONSE_UPLOAD.CONSENT_RECORD_ID, consentId)
+                .where(RESPONSE_UPLOAD.ID.eq(uploadId))
+                .execute()
+            audit.record(
+                actorType = "RECOMMENDER",
+                actorId = null,
+                action = if (granted) "CONSENT_GRANTED" else "CONSENT_DECLINED",
+                entityType = "CONSENT_RECORD",
+                entityId = consentId.toString(),
+                metadata = mapOf(
+                    "consentType" to "RECOMMENDER_PUBLIC_SHARING_CONSENT",
+                    "policyTextVersion" to props.consents.publicSharing.versionedId,
+                    "region" to props.region,
+                    "uploadId" to uploadId.toString(),
+                ),
+            )
+        }
+
+        return ConfirmUploadResponse(status = outcome.status, sha256 = outcome.sha256, reason = outcome.reason)
+    }
+
+    @Transactional(readOnly = true)
+    fun listUploads(actor: RecommenderActor): UploadListResponse {
+        loadActiveRequest(actor.requestId)
+        val ru = RESPONSE_UPLOAD
+        val fo = com.verifolio.jooq.tables.references.FILE_OBJECT
+        val items = dsl.select(ru.asterisk(), fo.STATUS, fo.ORIGINAL_FILENAME)
+            .from(ru)
+            .join(fo).on(fo.ID.eq(ru.FILE_OBJECT_ID))
+            .where(ru.REQUEST_ID.eq(actor.requestId))
+            .orderBy(ru.CREATED_AT.asc())
+            .fetch()
+            .map { row ->
+                UploadResponse(
+                    uploadId = row.get(ru.ID)!!.toString(),
+                    kind = row.get(ru.KIND)!!,
+                    filename = row.get(fo.ORIGINAL_FILENAME)!!,
+                    status = row.get(fo.STATUS)!!,
+                    sharedPublicly = row.get(ru.SHARED_PUBLICLY)!!,
+                    targetUploadId = row.get(ru.TARGET_UPLOAD_ID)?.toString(),
+                )
+            }
+        return UploadListResponse(items)
+    }
+
+    @Transactional
+    fun deleteUpload(actor: RecommenderActor, uploadId: UUID) {
+        val record = loadActiveRequest(actor.requestId)
+        ensureResponseCycle(record)
+        val upload = loadUpload(actor, uploadId)
+
+        val ru = RESPONSE_UPLOAD
+        val hasDependentSignature = dsl.fetchExists(
+            dsl.selectFrom(ru).where(ru.TARGET_UPLOAD_ID.eq(uploadId)),
+        )
+        if (hasDependentSignature) {
+            throw ApiException(
+                HttpStatus.CONFLICT,
+                "INVALID_REQUEST_STATE",
+                "A detached signature references this upload; delete the signature first",
+            )
+        }
+
+        dsl.deleteFrom(ru).where(ru.ID.eq(uploadId)).execute()
+        fileUploads.deleteUpload(upload.fileObjectId!!)
+    }
+
+    private fun loadUpload(actor: RecommenderActor, uploadId: UUID): com.verifolio.jooq.tables.records.ResponseUploadRecord {
+        val ru = RESPONSE_UPLOAD
+        return dsl.selectFrom(ru)
+            .where(ru.ID.eq(uploadId).and(ru.REQUEST_ID.eq(actor.requestId)))
+            .fetchOne()
+            ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Upload not found")
+    }
+
+    private fun fileStatus(fileObjectId: UUID): String? {
+        val fo = com.verifolio.jooq.tables.references.FILE_OBJECT
+        return dsl.select(fo.STATUS).from(fo).where(fo.ID.eq(fileObjectId)).fetchOne(fo.STATUS)
     }
 
     private fun insertRecommenderConsent(

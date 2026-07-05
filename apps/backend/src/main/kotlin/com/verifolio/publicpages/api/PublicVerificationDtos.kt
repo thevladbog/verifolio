@@ -34,6 +34,14 @@ data class VersionDto(
 
 data class TimelineEntryDto(val event: String, val at: String)
 
+data class DownloadDto(
+    /** "generated-pdf" or the attachment id. */
+    val id: String,
+    val kind: String,
+    val filename: String?,
+    val downloadable: Boolean,
+)
+
 data class VerificationPageResponse(
     val header: PageHeaderDto,
     val recipient: RecipientDto,
@@ -41,6 +49,7 @@ data class VerificationPageResponse(
     val badges: List<BadgeDto>,
     val trustSummary: Map<String, Int>,
     val version: VersionDto,
+    val downloads: List<DownloadDto>,
     val timeline: List<TimelineEntryDto>,
     val disclaimer: String,
     val privacyNotice: String,

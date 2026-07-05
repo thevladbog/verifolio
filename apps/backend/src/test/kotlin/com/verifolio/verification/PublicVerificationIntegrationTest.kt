@@ -68,7 +68,12 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
      * Full API journey: requester creates+sends, recommender confirms+consents+submits,
      * requester accepts. Returns (requesterCookie, documentId).
      */
-    private fun completeDocument(requesterEmail: String, recommenderEmail: String): Pair<String, String> {
+    private fun completeDocument(
+        requesterEmail: String,
+        recommenderEmail: String,
+        /** null = no upload; true/false = upload a scan with the given sharing toggle. */
+        uploadScanShared: Boolean? = null,
+    ): Pair<String, String> {
         val cookie = login(requesterEmail)
         val xsrfToken = xsrf(cookie)
 
@@ -127,6 +132,39 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
             "/api/v1/recommender/consent", HttpMethod.POST,
             HttpEntity(mapOf("accepted" to true), authHeaders(recCookie, recXsrf)), Map::class.java,
         )
+
+        if (uploadScanShared != null) {
+            val scanBytes = "%PDF-1.7 uploaded evidence scan".toByteArray(Charsets.US_ASCII)
+            val created = rest.exchange(
+                "/api/v1/recommender/uploads", HttpMethod.POST,
+                HttpEntity(
+                    mapOf(
+                        "kind" to "SCAN", "filename" to "letterhead-scan.pdf",
+                        "mimeType" to "application/pdf", "sizeBytes" to scanBytes.size,
+                        "sharedPublicly" to uploadScanShared,
+                    ),
+                    authHeaders(recCookie, recXsrf),
+                ),
+                Map::class.java,
+            )
+            assertThat(created.statusCode).isEqualTo(HttpStatus.CREATED)
+            val put = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(10)).build()
+                .send(
+                    java.net.http.HttpRequest.newBuilder(java.net.URI(created.body!!["uploadUrl"] as String))
+                        .timeout(java.time.Duration.ofSeconds(30))
+                        .header("Content-Type", "application/pdf")
+                        .PUT(java.net.http.HttpRequest.BodyPublishers.ofByteArray(scanBytes))
+                        .build(),
+                    java.net.http.HttpResponse.BodyHandlers.discarding(),
+                ).statusCode()
+            assertThat(put).isEqualTo(200)
+            rest.exchange(
+                "/api/v1/recommender/uploads/${created.body!!["uploadId"]}/confirm", HttpMethod.POST,
+                HttpEntity<Void>(authHeaders(recCookie, recXsrf)), Map::class.java,
+            )
+        }
+
         rest.exchange(
             "/api/v1/recommender/responses", HttpMethod.POST,
             HttpEntity(
@@ -160,6 +198,9 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
 
     private fun rawTokenFrom(created: Map<*, *>): String =
         (created["url"] as String).substringAfterLast("/verify/")
+
+    private fun auditActions(): List<String?> =
+        dsl.select(AUDIT_EVENT.ACTION).from(AUDIT_EVENT).fetch(AUDIT_EVENT.ACTION)
 
     private fun page(rawToken: String) = rest.exchange(
         "/api/v1/verification-pages/$rawToken", HttpMethod.GET,
@@ -360,6 +401,69 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
 
         val actions = dsl.select(AUDIT_EVENT.ACTION).from(AUDIT_EVENT).fetch(AUDIT_EVENT.ACTION)
         assertThat(actions).contains("PUBLIC_VERIFICATION_PAGE_DOWNLOAD")
+    }
+
+    @Test
+    fun `consented attachment is publicly listed and downloadable`() {
+        val (cookie, documentId) = completeDocument("attdl_owner@example.com", "attdl_rec@corp.example.com", uploadScanShared = true)
+        val rawToken = rawTokenFrom(createLink(cookie, documentId))
+
+        val pageResponse = page(rawToken)
+        @Suppress("UNCHECKED_CAST")
+        val downloads = pageResponse.body!!["downloads"] as List<Map<String, Any>>
+        assertThat(downloads.first()["id"]).isEqualTo("generated-pdf")
+        val scanDownload = downloads.first { it["kind"] == "SCAN" }
+        assertThat(scanDownload["downloadable"]).isEqualTo(true)
+        assertThat(scanDownload["filename"]).isEqualTo("letterhead-scan.pdf")
+
+        // Badges include the scan signal.
+        @Suppress("UNCHECKED_CAST")
+        val badges = pageResponse.body!!["badges"] as List<Map<String, Any>>
+        assertThat(badges.map { it["signalType"] }).contains("SCAN_ATTACHED")
+
+        val attachmentId = scanDownload["id"] as String
+        val link = rest.exchange(
+            "/api/v1/verification-pages/$rawToken/attachments/$attachmentId/download-url", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders()),
+            Map::class.java,
+        )
+        assertThat(link.statusCode).isEqualTo(HttpStatus.OK)
+        val bytes = java.net.URI(link.body!!["url"] as String).toURL().readBytes()
+        assertThat(String(bytes.copyOfRange(0, 5), Charsets.US_ASCII)).isEqualTo("%PDF-")
+        assertThat(auditActions()).contains("PUBLIC_VERIFICATION_PAGE_DOWNLOAD", "FILE_DOWNLOAD_GRANTED")
+    }
+
+    @Test
+    fun `unconsented attachment is listed without filename and not downloadable`() {
+        val (cookie, documentId) = completeDocument("attnodl_owner@example.com", "attnodl_rec@corp.example.com", uploadScanShared = false)
+        val rawToken = rawTokenFrom(createLink(cookie, documentId))
+
+        val pageResponse = page(rawToken)
+        @Suppress("UNCHECKED_CAST")
+        val downloads = pageResponse.body!!["downloads"] as List<Map<String, Any>>
+        val scanDownload = downloads.first { it["kind"] == "SCAN" }
+        assertThat(scanDownload["downloadable"]).isEqualTo(false)
+        assertThat(scanDownload["filename"]).isNull()
+
+        val link = rest.exchange(
+            "/api/v1/verification-pages/$rawToken/attachments/${scanDownload["id"]}/download-url", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders()),
+            Map::class.java,
+        )
+        assertThat(link.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+
+        // The negative sharing decision is recorded too (AGENTS.md: accept or decline
+        // is always recorded).
+        val cr = com.verifolio.jooq.tables.references.CONSENT_RECORD
+        val ru = com.verifolio.jooq.tables.references.RESPONSE_UPLOAD
+        val declined = dsl.select(cr.STATUS).from(cr)
+            .join(ru).on(ru.CONSENT_RECORD_ID.eq(cr.ID))
+            .where(cr.CONSENT_TYPE.eq("RECOMMENDER_PUBLIC_SHARING_CONSENT"))
+            .orderBy(cr.ID.desc())
+            .limit(5)
+            .fetch(cr.STATUS)
+        assertThat(declined).contains("DECLINED")
+        assertThat(auditActions()).contains("CONSENT_DECLINED")
     }
 
     @Test

@@ -50,6 +50,9 @@ verifolio:
     cross-border-transfer:
       text-id: local-cross-border
       version: 1
+    public-sharing:
+      text-id: local-public-sharing # per-upload sharing consent (docs/RECOMMENDER_EXPERIENCE.md)
+      version: 1
   requests:
     expiry: 21d
     send-limit-per-recommender: 5 # global anti-spam limit across all requesters (docs/RECOMMENDER_EXPERIENCE.md)
@@ -62,6 +65,8 @@ verifolio:
     secret-key: minioadmin # DEV ONLY
     presigned-ttl: 5m
     path-style: true # required for MinIO; disable for AWS-style virtual-host buckets
+    max-upload-bytes: 15728640 # 15 MB per recommender upload
+    upload-url-ttl: 10m
   public-page:
     view-audit-sample-rate: 1.0 # production cells tune this down; downloads are always fully audited
   verification:

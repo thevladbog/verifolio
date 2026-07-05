@@ -586,6 +586,181 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
     }
 
+    // ---- uploads ----
+
+    private val pdfBytes = "%PDF-1.7 test scan content for verification".toByteArray(Charsets.US_ASCII)
+
+    /** Drives to IN_PROGRESS (past the consent gate) and returns the recommender cookie. */
+    private fun driveToInProgress(rawToken: String, recommenderEmail: String): String {
+        openInvitation(rawToken)
+        val cookie = confirmEmail(rawToken, recommenderEmail)
+        acceptConsent(cookie)
+        return cookie
+    }
+
+    private fun createUploadViaApi(
+        cookie: String,
+        kind: String,
+        filename: String = "scan.pdf",
+        mimeType: String = "application/pdf",
+        sizeBytes: Long = pdfBytes.size.toLong(),
+        sharedPublicly: Boolean = false,
+        targetUploadId: String? = null,
+    ): org.springframework.http.ResponseEntity<Map<*, *>> {
+        val xsrfToken = recommenderXsrf(cookie)
+        val body = mutableMapOf<String, Any>(
+            "kind" to kind, "filename" to filename, "mimeType" to mimeType,
+            "sizeBytes" to sizeBytes, "sharedPublicly" to sharedPublicly,
+        )
+        targetUploadId?.let { body["targetUploadId"] = it }
+        return rest.exchange(
+            "/api/v1/recommender/uploads", HttpMethod.POST,
+            HttpEntity(body, authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+    }
+
+    /** PUTs bytes to the presigned URL exactly as a browser would. */
+    private fun putToPresignedUrl(url: String, bytes: ByteArray, contentType: String): Int {
+        val client = java.net.http.HttpClient.newBuilder()
+            .connectTimeout(java.time.Duration.ofSeconds(10))
+            .build()
+        val request = java.net.http.HttpRequest.newBuilder(java.net.URI(url))
+            .timeout(java.time.Duration.ofSeconds(30))
+            .header("Content-Type", contentType)
+            .PUT(java.net.http.HttpRequest.BodyPublishers.ofByteArray(bytes))
+            .build()
+        return client.send(request, java.net.http.HttpResponse.BodyHandlers.discarding()).statusCode()
+    }
+
+    private fun confirmUploadViaApi(cookie: String, uploadId: String): Map<*, *> {
+        val xsrfToken = recommenderXsrf(cookie)
+        val response = rest.exchange(
+            "/api/v1/recommender/uploads/$uploadId/confirm", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        return response.body!!
+    }
+
+    @Test
+    fun `upload lifecycle - presigned put, confirm READY, consent recorded for shared upload`() {
+        val (rawToken, requestId) = sendInvitation("upl_requester@example.com", "upl_rec@corp.example.com")
+        val cookie = driveToInProgress(rawToken, "upl_rec@corp.example.com")
+
+        val created = createUploadViaApi(cookie, "SCAN", sharedPublicly = true)
+        assertThat(created.statusCode).isEqualTo(HttpStatus.CREATED)
+        val uploadId = created.body!!["uploadId"] as String
+        val uploadUrl = created.body!!["uploadUrl"] as String
+
+        assertThat(putToPresignedUrl(uploadUrl, pdfBytes, "application/pdf")).isEqualTo(200)
+
+        val confirmed = confirmUploadViaApi(cookie, uploadId)
+        assertThat(confirmed["status"]).isEqualTo("READY")
+        val expectedSha = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(pdfBytes).joinToString("") { "%02x".format(it) }
+        assertThat(confirmed["sha256"]).isEqualTo(expectedSha)
+
+        // Per-upload sharing consent recorded and linked.
+        val ru = com.verifolio.jooq.tables.references.RESPONSE_UPLOAD
+        val uploadRow = dsl.selectFrom(ru).where(ru.ID.eq(UUID.fromString(uploadId))).fetchOne()!!
+        assertThat(uploadRow.consentRecordId).isNotNull()
+        val cr = com.verifolio.jooq.tables.references.CONSENT_RECORD
+        val consent = dsl.selectFrom(cr).where(cr.ID.eq(uploadRow.consentRecordId)).fetchOne()!!
+        assertThat(consent.consentType).isEqualTo("RECOMMENDER_PUBLIC_SHARING_CONSENT")
+        assertThat(consent.status).isEqualTo("GRANTED")
+        assertThat(auditActions()).contains("FILE_UPLOAD_REQUESTED", "FILE_UPLOADED", "FILE_VALIDATED")
+    }
+
+    @Test
+    fun `mismatched content is rejected`() {
+        val (rawToken, _) = sendInvitation("uplrej_requester@example.com", "uplrej_rec@corp.example.com")
+        val cookie = driveToInProgress(rawToken, "uplrej_rec@corp.example.com")
+
+        val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 1, 2, 3)
+        val created = createUploadViaApi(cookie, "SCAN", mimeType = "application/pdf", sizeBytes = png.size.toLong())
+        val uploadId = created.body!!["uploadId"] as String
+        assertThat(putToPresignedUrl(created.body!!["uploadUrl"] as String, png, "application/pdf")).isEqualTo(200)
+
+        val confirmed = confirmUploadViaApi(cookie, uploadId)
+        assertThat(confirmed["status"]).isEqualTo("REJECTED")
+        assertThat(confirmed["reason"] as String).contains("declared type")
+
+        val fo = com.verifolio.jooq.tables.references.FILE_OBJECT
+        val ru = com.verifolio.jooq.tables.references.RESPONSE_UPLOAD
+        val fileId = dsl.select(ru.FILE_OBJECT_ID).from(ru)
+            .where(ru.ID.eq(UUID.fromString(uploadId))).fetchOne(ru.FILE_OBJECT_ID)!!
+        assertThat(dsl.select(fo.STATUS).from(fo).where(fo.ID.eq(fileId)).fetchOne(fo.STATUS))
+            .isEqualTo("REJECTED")
+    }
+
+    @Test
+    fun `detached signature requires a confirmed target`() {
+        val (rawToken, _) = sendInvitation("sig_requester@example.com", "sig_rec@corp.example.com")
+        val cookie = driveToInProgress(rawToken, "sig_rec@corp.example.com")
+
+        // No target at all → 409.
+        val without = createUploadViaApi(
+            cookie, "DETACHED_SIGNATURE",
+            filename = "sig.p7s", mimeType = "application/pkcs7-signature", sizeBytes = 5,
+        )
+        assertThat(without.statusCode).isEqualTo(HttpStatus.CONFLICT)
+
+        // With a READY scan target → 201, and the signature confirms fine.
+        val scan = createUploadViaApi(cookie, "SCAN")
+        val scanId = scan.body!!["uploadId"] as String
+        putToPresignedUrl(scan.body!!["uploadUrl"] as String, pdfBytes, "application/pdf")
+        confirmUploadViaApi(cookie, scanId)
+
+        val der = byteArrayOf(0x30, 0x82.toByte(), 1, 2, 3)
+        val sig = createUploadViaApi(
+            cookie, "DETACHED_SIGNATURE",
+            filename = "sig.p7s", mimeType = "application/pkcs7-signature",
+            sizeBytes = der.size.toLong(), targetUploadId = scanId,
+        )
+        assertThat(sig.statusCode).isEqualTo(HttpStatus.CREATED)
+        putToPresignedUrl(sig.body!!["uploadUrl"] as String, der, "application/pkcs7-signature")
+        assertThat(confirmUploadViaApi(cookie, sig.body!!["uploadId"] as String)["status"]).isEqualTo("READY")
+
+        // The target now has a dependent signature → deleting it is blocked.
+        val xsrfToken = recommenderXsrf(cookie)
+        val deleteTarget = rest.exchange(
+            "/api/v1/recommender/uploads/$scanId", HttpMethod.DELETE,
+            HttpEntity<Void>(authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(deleteTarget.statusCode).isEqualTo(HttpStatus.CONFLICT)
+    }
+
+    @Test
+    fun `delete removes the upload before submission`() {
+        val (rawToken, _) = sendInvitation("upldel_requester@example.com", "upldel_rec@corp.example.com")
+        val cookie = driveToInProgress(rawToken, "upldel_rec@corp.example.com")
+
+        val created = createUploadViaApi(cookie, "ATTACHMENT")
+        val uploadId = created.body!!["uploadId"] as String
+        putToPresignedUrl(created.body!!["uploadUrl"] as String, pdfBytes, "application/pdf")
+        confirmUploadViaApi(cookie, uploadId)
+
+        val xsrfToken = recommenderXsrf(cookie)
+        val deleted = rest.exchange(
+            "/api/v1/recommender/uploads/$uploadId", HttpMethod.DELETE,
+            HttpEntity<Void>(authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(deleted.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+
+        val list = rest.exchange(
+            "/api/v1/recommender/uploads", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        @Suppress("UNCHECKED_CAST")
+        assertThat(list.body!!["items"] as List<Map<String, Any>>).isEmpty()
+        assertThat(auditActions()).contains("FILE_DELETED")
+    }
+
     // ---- recipient accept / correction (Flow 4) ----
 
     /** Drives the recommender through open→code→consent→submit; returns nothing (request is NEEDS_REVIEW). */
@@ -882,6 +1057,63 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
         )
         assertThat(submit.statusCode).isEqualTo(HttpStatus.CREATED)
         assertThat(requestStatus(requestId)).isEqualTo("NEEDS_REVIEW")
+    }
+
+    @Test
+    fun `accepted uploads become attachments with scan and signature signals`() {
+        val (rawToken, requestId) = sendInvitation("attach_requester@example.com", "attach_rec@corp.example.com")
+        val cookie = driveToInProgress(rawToken, "attach_rec@corp.example.com")
+
+        // Scan (shared) + detached signature covering it.
+        val scan = createUploadViaApi(cookie, "SCAN", sharedPublicly = true)
+        val scanId = scan.body!!["uploadId"] as String
+        putToPresignedUrl(scan.body!!["uploadUrl"] as String, pdfBytes, "application/pdf")
+        confirmUploadViaApi(cookie, scanId)
+
+        val der = byteArrayOf(0x30, 0x82.toByte(), 1, 2, 3)
+        val sig = createUploadViaApi(
+            cookie, "DETACHED_SIGNATURE", filename = "sig.p7s",
+            mimeType = "application/pkcs7-signature", sizeBytes = der.size.toLong(), targetUploadId = scanId,
+        )
+        putToPresignedUrl(sig.body!!["uploadUrl"] as String, der, "application/pkcs7-signature")
+        confirmUploadViaApi(cookie, sig.body!!["uploadId"] as String)
+
+        // Submit + accept.
+        val recXsrf = recommenderXsrf(cookie)
+        rest.exchange(
+            "/api/v1/recommender/responses", HttpMethod.POST,
+            HttpEntity(
+                mapOf("approvedLetterText" to "Letter with evidence.", "recipientConfirmed" to true, "relationshipConfirmed" to true),
+                authHeaders(cookie, recXsrf),
+            ),
+            Map::class.java,
+        )
+        val (reqCookie, reqXsrf) = requesterSession("attach_requester@example.com")
+        val accept = rest.exchange(
+            "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(reqCookie, reqXsrf)), Map::class.java,
+        )
+        assertThat(accept.statusCode).isEqualTo(HttpStatus.OK)
+        val documentId = accept.body!!["documentId"] as String
+
+        // Two attachments on the locked version.
+        val dv = com.verifolio.jooq.tables.references.DOCUMENT_VERSION
+        val da = com.verifolio.jooq.tables.references.DOCUMENT_ATTACHMENT
+        val versionId = dsl.select(dv.ID).from(dv)
+            .where(dv.DOCUMENT_ID.eq(UUID.fromString(documentId))).fetchOne(dv.ID)!!
+        val attachmentTypes = dsl.select(da.TYPE).from(da)
+            .where(da.DOCUMENT_VERSION_ID.eq(versionId)).fetch(da.TYPE)
+        assertThat(attachmentTypes).containsExactlyInAnyOrder("SCAN", "DETACHED_SIGNATURE")
+
+        // Signals with target evidence.
+        val vs = com.verifolio.jooq.tables.references.VERIFICATION_SIGNAL
+        val signals = dsl.selectFrom(vs)
+            .where(vs.ENTITY_TYPE.eq("DOCUMENT_VERSION").and(vs.ENTITY_ID.eq(versionId)))
+            .fetch()
+        assertThat(signals.map { it.signalType }).contains("SCAN_ATTACHED", "SIGNATURE_ATTACHED")
+        val sigSignal = signals.first { it.signalType == "SIGNATURE_ATTACHED" }
+        assertThat(sigSignal.evidenceJson!!.data()).contains("targetFileId")
+        assertThat(sigSignal.evidenceJson!!.data()).doesNotContain("unknown")
     }
 
     @Test
