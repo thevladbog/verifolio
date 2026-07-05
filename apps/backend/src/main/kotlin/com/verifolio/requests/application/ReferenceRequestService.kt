@@ -200,7 +200,8 @@ internal class ReferenceRequestService(
                     appendLine()
                     appendLine("Open the request: $base/invitations/$rawToken")
                     appendLine()
-                    appendLine("If you prefer not to respond, decline here: $base/invitations/$rawToken/decline")
+                    appendLine("Stop reminder emails: $base/invitations/$rawToken/stop-reminders")
+                appendLine("If you prefer not to respond, decline here: $base/invitations/$rawToken/decline")
                     appendLine("Report abuse: $base/invitations/$rawToken/report-abuse")
                 },
             )
@@ -384,6 +385,7 @@ internal class ReferenceRequestService(
                 appendLine()
                 appendLine("Open the request: $base/invitations/$rawToken")
                 appendLine()
+                appendLine("Stop reminder emails: $base/invitations/$rawToken/stop-reminders")
                 appendLine("If you prefer not to respond, decline here: $base/invitations/$rawToken/decline")
                 appendLine("Report abuse: $base/invitations/$rawToken/report-abuse")
             },
