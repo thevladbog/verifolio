@@ -21,7 +21,33 @@ import RequestDetailPage from "../requests/[id]/page";
 const mockGet = vi.mocked(api.GET);
 const mockPost = vi.mocked(api.POST);
 
-function stubRequest(status: string) {
+const SUBMITTED_RESPONSE = {
+  approvedLetterText: "Dear team,\n\nAnna is a great engineer.",
+  answers: { relationship: "Manager", strengths: "Ownership" },
+  submittedAt: "2026-07-04T10:00:00Z",
+  recipientConfirmed: true,
+  relationshipConfirmed: true,
+  uploads: [
+    {
+      id: "up-1",
+      kind: "SCAN",
+      contentType: "application/pdf",
+      sizeBytes: 123456,
+      sharedPublicly: true,
+      targetUploadId: null,
+    },
+    {
+      id: "up-2",
+      kind: "SIGNED_PDF",
+      contentType: "application/pdf",
+      sizeBytes: 2048,
+      sharedPublicly: false,
+      targetUploadId: null,
+    },
+  ],
+};
+
+function stubRequest(status: string, declinedReason: string | null = null) {
   mockGet.mockImplementation(async (path: string) => {
     if (path === "/api/v1/reference-requests/{id}")
       return ok({
@@ -30,9 +56,12 @@ function stubRequest(status: string) {
         templateId: "tpl-1",
         purpose: "Hiring",
         status,
+        declinedReason,
         expiresAt: "2026-07-30T10:00:00Z",
         createdAt: "2026-07-01T10:00:00Z",
       }) as never;
+    if (path === "/api/v1/reference-requests/{id}/response")
+      return ok(SUBMITTED_RESPONSE) as never;
     if (path === "/api/v1/contacts")
       return ok({
         items: [{ id: "c1", name: "Dmitry Orlov", email: "d@techflow.io" }],
@@ -130,6 +159,38 @@ describe("RequestDetailPage", () => {
         },
       ),
     );
+  });
+
+  it("shows the submitted letter, answers, and upload metadata in review", async () => {
+    stubRequest("NEEDS_REVIEW");
+    renderWithProviders(<RequestDetailPage />);
+
+    // Letter preview with the exact submitted text.
+    expect(
+      await screen.findByText(/Anna is a great engineer/),
+    ).toBeInTheDocument();
+
+    // Answers as a definition list.
+    expect(screen.getByText("relationship")).toBeInTheDocument();
+    expect(screen.getByText("Manager")).toBeInTheDocument();
+    expect(screen.getByText("strengths")).toBeInTheDocument();
+    expect(screen.getByText("Ownership")).toBeInTheDocument();
+
+    // Upload metadata rows: kind badge, human size, public-sharing marker.
+    expect(screen.getByText("Scanned copy")).toBeInTheDocument();
+    expect(screen.getByText("Signed PDF")).toBeInTheDocument();
+    expect(screen.getByText("121 KB")).toBeInTheDocument();
+    expect(screen.getByText("2.0 KB")).toBeInTheDocument();
+    expect(screen.getAllByText("may be shared publicly")).toHaveLength(1);
+  });
+
+  it("shows the decline reason label for DECLINED requests", async () => {
+    stubRequest("DECLINED", "TOO_BUSY");
+    renderWithProviders(<RequestDetailPage />);
+
+    expect(
+      await screen.findByText("Recommender declined: Too busy"),
+    ).toBeInTheDocument();
   });
 
   it("shows the terminal banner instead of actions for EXPIRED", async () => {

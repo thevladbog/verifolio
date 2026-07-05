@@ -23,6 +23,7 @@ import { BadgeStatus } from "@/components/verifolio/badge-status";
 import { StatusTimeline } from "@/components/requests/status-timeline";
 import { api } from "@/lib/api/client";
 import { unwrap } from "@/lib/query-provider";
+import { formatBytes } from "@/lib/utils";
 import { useContactNames, useTemplates } from "@/lib/requests/queries";
 import {
   canCancel,
@@ -55,6 +56,20 @@ export default function RequestDetailPage() {
 
   const contacts = useContactNames();
   const templates = useTemplates(locale);
+
+  // Owner reads the submitted response before accept/correction. The
+  // endpoint 404s until a submitted response exists, so only fetch in review.
+  const inReview = canReview(request.data?.status ?? "");
+  const response = useQuery({
+    queryKey: ["requests", "detail", id, "response"],
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/api/v1/reference-requests/{id}/response", {
+          params: { path: { id } },
+        }),
+      ),
+    enabled: inReview,
+  });
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["requests"] });
@@ -194,8 +209,15 @@ export default function RequestDetailPage() {
       </div>
 
       {isTerminalSideExit ? (
-        <Card className="border-warning/40 bg-warning/5 p-4 text-sm text-slate-text shadow-none">
-          {t(`detail.terminal.${status}`)}
+        <Card className="flex flex-col gap-2 border-warning/40 bg-warning/5 p-4 text-sm text-slate-text shadow-none">
+          <p>{t(`detail.terminal.${status}`)}</p>
+          {status === "DECLINED" && data.declinedReason && (
+            <p className="font-semibold text-ink">
+              {t("detail.declinedReason", {
+                reason: t(`requests.declinedReasons.${data.declinedReason}`),
+              })}
+            </p>
+          )}
         </Card>
       ) : (
         <StatusTimeline status={status} />
@@ -232,6 +254,71 @@ export default function RequestDetailPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <p className="text-sm text-slate-text">{t("review.hint")}</p>
+
+            {response.isLoading && <Skeleton className="h-40" />}
+            {response.data && (
+              <>
+                {response.data.approvedLetterText && (
+                  <div>
+                    <h3 className="mb-2 text-sm font-bold text-ink">
+                      {t("review.letterTitle")}
+                    </h3>
+                    <div className="rounded-card border border-border-light bg-paper/40 p-5 font-serif text-[15px] leading-relaxed whitespace-pre-wrap text-ink">
+                      {response.data.approvedLetterText}
+                    </div>
+                  </div>
+                )}
+                {Object.keys(response.data.answers ?? {}).length > 0 && (
+                  <div>
+                    <h3 className="mb-2 text-sm font-bold text-ink">
+                      {t("review.answersTitle")}
+                    </h3>
+                    <dl className="flex flex-col gap-2 text-sm">
+                      {Object.entries(response.data.answers ?? {}).map(
+                        ([key, value]) => (
+                          <div key={key}>
+                            <dt className="text-muted-text">{key}</dt>
+                            <dd className="text-ink">{String(value ?? "")}</dd>
+                          </div>
+                        ),
+                      )}
+                    </dl>
+                  </div>
+                )}
+                {(response.data.uploads?.length ?? 0) > 0 && (
+                  <div>
+                    <h3 className="mb-2 text-sm font-bold text-ink">
+                      {t("review.uploadsTitle")}
+                    </h3>
+                    <div className="flex flex-col gap-2">
+                      {response.data.uploads?.map((upload) => (
+                        <div
+                          key={upload.id}
+                          className="flex items-center gap-3 rounded-control border border-border-light p-3 text-sm"
+                        >
+                          <BadgeStatus
+                            variant="pending"
+                            label={t(`uploads.kinds.${upload.kind}`)}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-muted-text">
+                            {upload.contentType}
+                          </span>
+                          <span className="text-muted-text">
+                            {formatBytes(upload.sizeBytes ?? 0)}
+                          </span>
+                          {upload.sharedPublicly && (
+                            <span className="text-xs text-warning">
+                              {t("review.sharedPublicly")}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
             <div className="flex gap-3">
               <Button
                 variant="success"

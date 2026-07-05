@@ -113,7 +113,13 @@
       "CANCELLED": "Cancelled"
     },
     "notFoundTitle": "Request not found",
-    "notFoundBody": "This request does not exist or you do not have access to it."
+    "notFoundBody": "This request does not exist or you do not have access to it.",
+    "declinedReasons": {
+      "DONT_KNOW_REQUESTER": "Doesn't know the requester",
+      "TOO_BUSY": "Too busy",
+      "NOT_COMFORTABLE": "Not comfortable providing a reference",
+      "OTHER": "Other reason"
+    }
   },
   "builder": {
     "title": "New reference request",
@@ -133,8 +139,6 @@
     "recommenderTitle": "Who will you ask?",
     "recommenderHint": "Pick from your contacts or add a new one.",
     "confirmTitle": "Review and confirm",
-    "attestation": "I confirm the recommender gave me verbal consent to receive this request.",
-    "attestationHint": "This attestation is recorded. The invitation cannot be created without it.",
     "create": "Create request"
   },
   "detail": {
@@ -146,7 +150,8 @@
       "DECLINED": "The recommender declined this request. Reminders have stopped and their data is scheduled for erasure.",
       "EXPIRED": "This request expired. The invitation link no longer works.",
       "CANCELLED": "You cancelled this request. The invitation link no longer works."
-    }
+    },
+    "declinedReason": "Recommender declined: {reason}"
   },
   "review": {
     "title": "Response received — review it",
@@ -160,7 +165,11 @@
     "generatingHint": "Generating the PDF, calculating the hash, and locking the version. This usually takes less than a minute.",
     "generated": "Document version locked",
     "generatedHint": "Verification signals are recorded. You can now share the document with a secure link.",
-    "openDocument": "Open document"
+    "openDocument": "Open document",
+    "letterTitle": "Submitted letter",
+    "answersTitle": "Answers",
+    "uploadsTitle": "Attachments",
+    "sharedPublicly": "may be shared publicly"
   },
   "documents": {
     "title": "Documents",
@@ -243,7 +252,15 @@
       "title": "Decline this reference request",
       "body": "The request will be closed, reminders will stop immediately, and your personal data will be scheduled for erasure.",
       "confirm": "Decline request",
-      "done": "The request is declined. Reminders have stopped and your data is scheduled for erasure. You can close this page."
+      "done": "The request is declined. Reminders have stopped and your data is scheduled for erasure. You can close this page.",
+      "reasonLabel": "Why are you declining? (optional)",
+      "reasons": {
+        "PREFER_NOT_TO_SAY": "Prefer not to say",
+        "DONT_KNOW_REQUESTER": "I don't know the requester",
+        "TOO_BUSY": "I'm too busy right now",
+        "NOT_COMFORTABLE": "I'm not comfortable providing this reference",
+        "OTHER": "Other"
+      }
     },
     "report-abuse": {
       "title": "Report this request as unwanted",
@@ -259,11 +276,8 @@
     }
   },
   "consent": {
-    "title": "Before you start: data processing consent",
-    "processingText": "To collect your response, Verifolio will process your name, email, and the content you submit, storing them in this deployment's region. Your response is shared with the requester and, only with your explicit per-file permission, on the public verification page. You can withdraw consent later; withdrawal stops future processing.",
     "textRef": "Consent text {id} · version {version}",
     "crossBorderQuestion": "I am located in a different jurisdiction than this service's region",
-    "crossBorderText": "I consent to the cross-border transfer of my data to the region where this service stores it.",
     "accept": "I agree — start",
     "decline": "Decline",
     "declineHint": "Declining closes the request, stops all reminders, and schedules your data for erasure. No answers are collected before you agree."
@@ -297,8 +311,6 @@
       "DETACHED_SIGNATURE": "Detached signature",
       "ATTACHMENT": "Attachment"
     },
-    "shareToggle": "This file may be shown publicly on the verification page",
-    "shareConsent": "Optional. This records your explicit public-sharing consent for this file only; you can withdraw it later.",
     "choose": "Choose file…",
     "uploading": "Uploading…",
     "public": "public"

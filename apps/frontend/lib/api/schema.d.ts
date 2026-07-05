@@ -468,6 +468,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reference-requests/{id}/response": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSubmittedResponse"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recommender/request": {
         parameters: {
             query?: never;
@@ -540,6 +556,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["downloadUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/consent-texts/{consentType}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getConsentText"];
         put?: never;
         post?: never;
         delete?: never;
@@ -662,6 +694,7 @@ export interface components {
             templateId?: string;
             purpose?: string | null;
             status?: string;
+            declinedReason?: string | null;
             expiresAt?: string;
             createdAt?: string;
             updatedAt?: string | null;
@@ -710,6 +743,12 @@ export interface components {
         ConsentDecisionRequest: {
             accepted: boolean | null;
             crossBorderAccepted?: boolean | null;
+            /** @enum {string|null} */
+            reasonCategory?: "DONT_KNOW_REQUESTER" | "TOO_BUSY" | "NOT_COMFORTABLE" | "OTHER" | null;
+        };
+        DeclineRequest: {
+            /** @enum {string|null} */
+            reasonCategory?: "DONT_KNOW_REQUESTER" | "TOO_BUSY" | "NOT_COMFORTABLE" | "OTHER" | null;
         };
         ConfirmEmailRequest: {
             code: string;
@@ -824,6 +863,25 @@ export interface components {
             items?: components["schemas"]["ReferenceRequestResponse"][];
             nextCursor?: string | null;
         };
+        SubmittedResponseView: {
+            approvedLetterText?: string | null;
+            answers?: {
+                [key: string]: unknown;
+            };
+            submittedAt?: string;
+            recipientConfirmed?: boolean;
+            relationshipConfirmed?: boolean;
+            uploads?: components["schemas"]["UploadMeta"][];
+        };
+        UploadMeta: {
+            id?: string;
+            kind?: string;
+            contentType?: string;
+            /** Format: int64 */
+            sizeBytes?: number;
+            sharedPublicly?: boolean;
+            targetUploadId?: string | null;
+        };
         UploadListResponse: {
             items?: components["schemas"]["UploadResponse"][];
         };
@@ -905,6 +963,15 @@ export interface components {
         ContactListResponse: {
             items?: components["schemas"]["ContactResponse"][];
             nextCursor?: string | null;
+        };
+        ConsentTextView: {
+            consentType?: string;
+            textId?: string;
+            /** Format: int32 */
+            version?: number;
+            locale?: string;
+            title?: string;
+            body?: string;
         };
     };
     responses: never;
@@ -1989,7 +2056,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DeclineRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -2618,6 +2689,46 @@ export interface operations {
             };
         };
     };
+    getSubmittedResponse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Latest submitted response with upload metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SubmittedResponseView"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Reference request not found or no submitted response yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     requestContext: {
         parameters: {
             query?: never;
@@ -2807,6 +2918,39 @@ export interface operations {
                 };
             };
             /** @description Document or version not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getConsentText: {
+        parameters: {
+            query?: {
+                locale?: string;
+            };
+            header?: never;
+            path: {
+                consentType: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ConsentTextView"];
+                };
+            };
+            /** @description Unknown consent type */
             404: {
                 headers: {
                     [name: string]: unknown;
