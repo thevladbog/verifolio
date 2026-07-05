@@ -333,6 +333,60 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/reference-requests/{id}/request-correction:
+    post:
+      tags:
+      - reference-request-controller
+      operationId: requestCorrection
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestCorrectionRequest"
+      responses:
+        "200":
+          description: Correction requested; recommender re-invited
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ReferenceRequestResponse"
+        "400":
+          description: Validation failed
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Reference request not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Not in NEEDS_REVIEW
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/reference-requests/{id}/cancel:
     post:
       tags:
@@ -372,6 +426,49 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "409":
           description: Request is already in a terminal status
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/reference-requests/{id}/accept:
+    post:
+      tags:
+      - reference-request-controller
+      operationId: acceptResponse
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Response accepted; document generated and locked
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AcceptResponse"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Reference request not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Not in NEEDS_REVIEW or no submitted response
           content:
             '*/*':
               schema:
@@ -858,6 +955,104 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/documents:
+    get:
+      tags:
+      - document-controller
+      operationId: listDocuments
+      parameters:
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DocumentListResponse"
+        "400":
+          description: Invalid cursor
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/documents/{id}:
+    get:
+      tags:
+      - document-controller
+      operationId: getDocument
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DocumentDetailResponse"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Document not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/documents/{id}/versions/{versionNumber}/download-url:
+    get:
+      tags:
+      - document-controller
+      operationId: downloadUrl
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: versionNumber
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: Short-lived presigned download link
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DownloadLinkResponse"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Document or version not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/auth/sessions/current:
     get:
       tags:
@@ -1088,6 +1283,22 @@ components:
           type:
           - string
           - "null"
+    RequestCorrectionRequest:
+      type: object
+      properties:
+        message:
+          type:
+          - string
+          - "null"
+          maxLength: 2000
+          minLength: 0
+    AcceptResponse:
+      type: object
+      properties:
+        request:
+          $ref: "#/components/schemas/ReferenceRequestResponse"
+        documentId:
+          type: string
     SubmitResponseRequest:
       type: object
       properties:
@@ -1277,6 +1488,90 @@ components:
         recommenderEmailMasked:
           type: string
         status:
+          type: string
+    DocumentListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentResponse"
+        nextCursor:
+          type:
+          - string
+          - "null"
+    DocumentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        requestId:
+          type:
+          - string
+          - "null"
+        type:
+          type: string
+        status:
+          type: string
+        currentVersionNumber:
+          type:
+          - integer
+          - "null"
+          format: int32
+        createdAt:
+          type: string
+        updatedAt:
+          type:
+          - string
+          - "null"
+    DocumentDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        requestId:
+          type:
+          - string
+          - "null"
+        type:
+          type: string
+        status:
+          type: string
+        currentVersionNumber:
+          type:
+          - integer
+          - "null"
+          format: int32
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentVersionResponse"
+        createdAt:
+          type: string
+        updatedAt:
+          type:
+          - string
+          - "null"
+    DocumentVersionResponse:
+      type: object
+      properties:
+        versionNumber:
+          type: integer
+          format: int32
+        status:
+          type: string
+        sha256Hash:
+          type: string
+        lockedAt:
+          type: string
+        createdAt:
+          type: string
+    DownloadLinkResponse:
+      type: object
+      properties:
+        url:
+          type: string
+        expiresAt:
           type: string
     ContactListResponse:
       type: object
