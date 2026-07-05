@@ -138,8 +138,16 @@ SYSTEM, or ADMIN when triggered from the admin console) records completion. `DAT
 carries `type`/`region`/`previousStatus` enums only. Hybrid
 execution: a verified `CONSENT_WITHDRAWAL` runs RECEIVED → EXECUTED in one chain, emitting
 `CONSENT_WITHDRAWN`, `VERIFICATION_SIGNAL_UPDATED` (per revoked signal), `RECOMMENDATION_RETRACTED`
-and `RECOMMENDER_PII_ERASED` along the way. The other DSR types stay RECEIVED for manual/admin
-execution in a later iteration.
+and `RECOMMENDER_PII_ERASED` along the way.
+
+`DATA_EXPORTED` (actor ADMIN when triggered from the admin console — `actorId` = admin account id —
+else SYSTEM; entity `DATA_SUBJECT_REQUEST`) records completion of an `EXPORT` DSR: the metadata JSON
+package was assembled, stored as a `DATA_EXPORT` `FILE_OBJECT` (its own `FILE_UPLOADED` from the files
+module), and the presigned link emailed to the subject. Metadata is IDs/enums only — `fileId` and
+`subjectType` (`ACCOUNT_HOLDER`|`RECOMMENDER`); never the subject email or any package content. The
+export's `DATA_SUBJECT_REQUEST_EXECUTED` records the RECEIVED/APPROVED → EXECUTED transition. The
+remaining DSR types (`REGION_MIGRATION`, `CORRECTION`, and account-holder `DELETION` until its
+executor lands) stay RECEIVED for manual/admin execution in a later iteration.
 
 ### Admin
 

@@ -269,6 +269,29 @@ RECEIVED -> IN_REVIEW -> APPROVED -> EXECUTED
 - Every request and every status transition is audited (DATA_SUBJECT_REQUEST_RECEIVED / APPROVED / REJECTED / EXECUTED).
 - Stored as DataSubjectRequest entities (see `DATA_MODEL.md`).
 
+### EXPORT execution (GDPR Art. 15/20)
+
+Executing an EXPORT DSR assembles a JSON package of the subject's **metadata and references only** —
+it never contains reference-letter text, structured answers, or uploaded/rendered document bytes (the
+subject retains in-app access to those; the package proves integrity via the version sha256 hashes).
+
+- Account-holder package: `account` (email, region, status, createdAt), `profile` (displayName,
+  legalName, preferredLocale), `contacts` (name, email, company, relationship, createdAt),
+  `referenceRequests` (id, recommender snapshot, purpose, status, timestamps), `documents` (per
+  document: type + versions [versionNumber, sha256, status, lockedAt, retractedAt, tombstonedAt]),
+  `consents` (consentType, status, policyTextVersion, timestamps), `dataSubjectRequests` (type,
+  status, timestamps). Retained consent records are included even after other data is erased.
+- Recommender package (data subject without an account): intentionally thin — `referenceRequests`
+  (matched on the surviving snapshot email), `consents`, and `dataSubjectRequests`; the
+  account/profile/contacts/documents sections are omitted.
+- The package is stored as a `DATA_EXPORT` `FileObject` under an opaque region-scoped key (never
+  leaves its cell) and delivered as a **presigned GET link emailed to the subject**, valid for
+  `verifolio.privacy.export-link-ttl` (default 7 days). This is the single sanctioned object-storage
+  URL exposure: the subject's own data, short-lived, TTL-bounded, not a public page, and never
+  logged. `data_subject_request.export_file_id` records the artifact for audit/re-fetch.
+- Audited as `DATA_EXPORTED` (actor ADMIN/SYSTEM, entity DATA_SUBJECT_REQUEST, metadata `fileId` +
+  `subjectType` only — no email or content), then DSR → EXECUTED.
+
 ## Deletion & Erasure Model
 
 Rules:

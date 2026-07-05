@@ -1,5 +1,6 @@
 package com.verifolio.files
 
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -39,6 +40,13 @@ interface FileStore {
      * responsibility; this only enforces file status.
      */
     fun presignedDownloadUrl(fileId: UUID): DownloadLink
+
+    /**
+     * Short-lived presigned GET for a READY file with a caller-supplied [ttl]. Used for the DSR
+     * EXPORT artifact, whose link is emailed to the subject and must outlive the default 5-minute
+     * window (privacy export-link-ttl). Domain authorization is the caller's responsibility.
+     */
+    fun presignedDownloadUrl(fileId: UUID, ttl: Duration): DownloadLink
 
     /**
      * Physical delete of a backend-generated file object (the generated-PDF counterpart to

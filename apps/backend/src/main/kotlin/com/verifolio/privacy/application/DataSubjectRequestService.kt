@@ -47,6 +47,7 @@ internal class DataSubjectRequestService(
     private val consentWithdrawal: ConsentWithdrawal,
     private val executor: ConsentWithdrawalExecutor,
     private val recommenderPiiErasure: RecommenderPiiErasure,
+    private val exportExecutor: ExportExecutor,
     private val documentRetraction: DocumentRetraction,
     private val documentTombstone: DocumentTombstone,
     private val verificationSignals: VerificationSignals,
@@ -257,6 +258,7 @@ internal class DataSubjectRequestService(
                     recommenderPiiErasure.eraseForRequest(ref.requestId)
                 }
             }
+            DsrType.EXPORT -> exportExecutor.execute(record, adminActorId)
             else -> throw ApiException(
                 HttpStatus.CONFLICT, "EXECUTION_NOT_AUTOMATED",
                 "Execution for ${record.type} is not automated yet; manual execution required",

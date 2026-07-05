@@ -131,14 +131,17 @@ internal class FileStoreImpl(
     }
 
     @Transactional(readOnly = true)
-    override fun presignedDownloadUrl(fileId: UUID): DownloadLink {
+    override fun presignedDownloadUrl(fileId: UUID): DownloadLink =
+        presignedDownloadUrl(fileId, props.storage.presignedTtl)
+
+    @Transactional(readOnly = true)
+    override fun presignedDownloadUrl(fileId: UUID, ttl: java.time.Duration): DownloadLink {
         val fo = FILE_OBJECT
         val record = dsl.selectFrom(fo)
             .where(fo.ID.eq(fileId).and(fo.STATUS.eq("READY")))
             .fetchOne()
             ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "File not found")
 
-        val ttl = props.storage.presignedTtl
         val url = storage.presignGet(record.storageKey!!, record.originalFilename!!, ttl)
         return DownloadLink(url = url, expiresAt = OffsetDateTime.now().plus(ttl))
     }
