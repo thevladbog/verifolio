@@ -7,7 +7,7 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -30,12 +30,14 @@ const PUBLIC_PREFIXES = ["/verify", "/invitations", "/respond", "/login", "/auth
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const t = useTranslations();
   const router = useRouter();
-  const pathname = usePathname();
 
   const [client] = useState(() => {
     const onError = (error: unknown) => {
       if (error instanceof RequestError && error.status === 401) {
-        if (!PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
+        // Read the location at error time: this closure lives for the whole
+        // session, so a hook-captured pathname would go stale after navigation.
+        const current = window.location.pathname;
+        if (!PUBLIC_PREFIXES.some((p) => current.startsWith(p))) {
           router.replace("/login");
           return;
         }

@@ -35,6 +35,9 @@ services:
 
   frontend:
     build: apps/frontend
+    # The backend intentionally has no compose service (it runs on the host via
+    # `./gradlew bootRun`, see LOCAL_DEVELOPMENT.md) — hence the host-gateway
+    # default. Override BACKEND_INTERNAL_URL when the backend runs elsewhere.
     environment:
       BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://host.docker.internal:8080}
       NEXT_PUBLIC_REGION: local

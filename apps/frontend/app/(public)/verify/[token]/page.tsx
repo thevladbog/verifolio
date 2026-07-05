@@ -18,12 +18,17 @@ export const metadata: Metadata = {
 
 async function fetchPage(token: string): Promise<PageData | null> {
   const base = process.env.BACKEND_INTERNAL_URL ?? "http://localhost:8080";
-  const res = await fetch(
-    `${base}/api/v1/verification-pages/${encodeURIComponent(token)}`,
-    { cache: "no-store" },
-  );
-  if (!res.ok) return null;
-  return (await res.json()) as PageData;
+  try {
+    const res = await fetch(
+      `${base}/api/v1/verification-pages/${encodeURIComponent(token)}`,
+      { cache: "no-store", signal: AbortSignal.timeout(10_000) },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as PageData;
+  } catch {
+    // Hung or unreachable backend degrades to the same neutral invalid state.
+    return null;
+  }
 }
 
 export default async function VerifyPage({

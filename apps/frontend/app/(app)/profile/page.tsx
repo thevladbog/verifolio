@@ -21,10 +21,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LOCALES } from "@/i18n/locales";
 import { api } from "@/lib/api/client";
 import { unwrap } from "@/lib/query-provider";
-
-const LOCALES = ["en", "ru"] as const;
 
 function persistLocale(next: string) {
   document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=31536000; samesite=lax`;

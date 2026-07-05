@@ -190,7 +190,7 @@ api.use({
 
 ### Task 10: Public verification page (SSR)
 
-**Files:** Create `app/(public)/verify/[token]/page.tsx` (server component; `fetch(\`${BACKEND_INTERNAL_URL}/api/v1/verification-pages/${token}\`, {cache:'no-store'})`), `components/verify/{trust-summary,timeline,downloads-panel}.tsx` (downloads-panel is a client island); Tests.
+**Files:** Create `app/(public)/verify/[token]/page.tsx` (server component fetching `${BACKEND_INTERNAL_URL}/api/v1/verification-pages/{token}` with `cache: no-store`), `components/verify/{trust-summary,timeline,downloads-panel}.tsx` (downloads-panel is a client island); Tests.
 
 - [ ] **Step 1:** SSR page: header, recipient block, recommender block with "stated by recommender" label, badge list (`badge-status`), **TrustSummary as per-category counts — assert no aggregate number**, version info + `supersededByNewerVersion` notice, timeline, disclaimer + privacy notice. Backend 404 → `notFound()` → one neutral invalid/expired page.
 - [ ] **Step 2:** Downloads panel (client): generated PDF always; consented attachments by filename; unconsented listed as "attachment (not shared publicly)" without filename or button. Click → download-url endpoint → immediate `window.open`; `SHARE_LINK_EXPIRED` → refresh-page prompt.
@@ -203,7 +203,7 @@ api.use({
 
 **Files:** Create `apps/frontend/playwright.config.ts`, `e2e/canonical-flow.spec.ts`, `e2e/one-clicks.spec.ts`, `apps/frontend/Dockerfile`; Modify `docker-compose.yml` (frontend service), Create `.github/workflows/frontend.yml`; Modify `LOCAL_DEVELOPMENT.md`, `docs/TECH_STACK.md` (mark frontend delivered), `docs/agent/IMPLEMENTATION_HISTORY.md` (new iteration entry).
 
-- [ ] **Step 1:** Playwright canonical flow using Mailpit API (`GET http://localhost:8025/api/v1/messages`) to extract magic links, invitation links, and codes: login → contact → build+send → invitation → code → consent accept → answer → submit → accept → share link → public page shows badges → revoke → invalid state. Second spec: decline + stop-reminders one-clicks.
+- [ ] **Step 1:** Playwright canonical flow using the Mailpit API (`/api/v1/search` + `/api/v1/message/{id}`, see `e2e/mailpit.ts`) to extract magic links, invitation links, and codes: login → contact → build+send → invitation → code → consent accept → answer → submit → accept → share link → public page shows badges → revoke → invalid state. Second spec: decline + stop-reminders one-clicks.
 - [ ] **Step 2:** Dockerfile (node:22-alpine, standalone output, USER node, PORT 3000); compose service `frontend` with `BACKEND_INTERNAL_URL=http://backend:8080` (add a `backend` compose service if still absent — build from `apps/backend`).
 - [ ] **Step 3:** `frontend.yml`: path filter `apps/frontend/**`; job `build-test`: `npm ci && npm run lint && npm run check:api && npm run test -- --run && npm run build`; job `e2e` (non-blocking `continue-on-error: true` initially): compose up postgres/minio/mailpit/backend → `npx playwright test`.
 - [ ] **Step 4:** Full suite green locally; commit — `feat(frontend): e2e canonical flow, Docker packaging, CI workflow`

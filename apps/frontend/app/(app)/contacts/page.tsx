@@ -8,6 +8,14 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Contact,
@@ -31,6 +39,7 @@ export default function ContactsPage() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | undefined>();
+  const [deleting, setDeleting] = useState<Contact | undefined>();
 
   const list = useCursorList<Contact>(["contacts"], async (cursor) =>
     unwrap(
@@ -47,8 +56,11 @@ export default function ContactsPage() {
           params: { path: { id } },
         }),
       ),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["contacts"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      setDeleting(undefined);
+    },
+    onError: () => setDeleting(undefined),
   });
 
   const openCreate = () => {
@@ -121,7 +133,7 @@ export default function ContactsPage() {
                 variant="ghost"
                 size="icon"
                 aria-label={t("common.delete")}
-                onClick={() => remove.mutate(contact.id!)}
+                onClick={() => setDeleting(contact)}
               >
                 <Trash2 className="text-danger" />
               </Button>
@@ -160,6 +172,32 @@ export default function ContactsPage() {
         onOpenChange={setDialogOpen}
         contact={editing}
       />
+
+      <Dialog
+        open={deleting !== undefined}
+        onOpenChange={(open) => !open && setDeleting(undefined)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("contacts.deleteTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("contacts.deleteBody", { name: deleting?.name ?? "" })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleting(undefined)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              variant="danger"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate(deleting!.id!)}
+            >
+              {t("common.delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

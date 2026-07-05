@@ -65,7 +65,9 @@
       "MENTOR": "Mentor",
       "PERSONAL": "Personal",
       "OTHER": "Other"
-    }
+    },
+    "deleteTitle": "Delete contact?",
+    "deleteBody": "{name} will be removed permanently. Contacts referenced by a reference request cannot be deleted."
   },
   "profile": {
     "title": "Profile",
@@ -179,7 +181,9 @@
       "CLIENT_TESTIMONIAL": "Client testimonial",
       "CHARACTER_REFERENCE": "Character reference",
       "CUSTOM": "Document"
-    }
+    },
+    "notFoundTitle": "Document not found",
+    "notFoundBody": "This document does not exist or you do not have access to it."
   },
   "share": {
     "open": "Share",

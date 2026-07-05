@@ -70,7 +70,23 @@ export default function DocumentDetailPage() {
   });
 
   if (document.isLoading) return <Skeleton className="h-64" />;
-  if (!document.data) return null;
+  if (!document.data) {
+    return (
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>{t("documents.notFoundTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-start gap-4">
+          <p className="text-sm text-slate-text">
+            {t("documents.notFoundBody")}
+          </p>
+          <Button asChild variant="secondary">
+            <Link href="/documents">{t("nav.documents")}</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const doc = document.data;
   const typeLabel = DOCUMENT_TYPES.includes(
@@ -133,8 +149,9 @@ export default function DocumentDetailPage() {
                   ` · ${t("documents.current")}`}
               </span>
               <span className="text-xs text-muted-text">
-                {t("documents.lockedAt", {
-                  date: format.dateTime(new Date(version.lockedAt ?? ""), {
+                {version.lockedAt &&
+                  t("documents.lockedAt", {
+                  date: format.dateTime(new Date(version.lockedAt), {
                     dateStyle: "medium",
                     timeStyle: "short",
                   }),
@@ -192,8 +209,9 @@ export default function DocumentDetailPage() {
                             dateStyle: "medium",
                           }),
                         })
-                      : t("share.createdAt", {
-                          date: format.dateTime(new Date(link.createdAt ?? ""), {
+                      : link.createdAt &&
+                        t("share.createdAt", {
+                          date: format.dateTime(new Date(link.createdAt), {
                             dateStyle: "medium",
                           }),
                         })}

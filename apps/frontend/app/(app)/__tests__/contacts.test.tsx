@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -120,6 +120,12 @@ describe("ContactsPage", () => {
     await screen.findByText("Dmitry Orlov");
 
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    // Destructive action requires an explicit confirmation step.
+    expect(await screen.findByText("Delete contact?")).toBeInTheDocument();
+    expect(mockDelete).not.toHaveBeenCalled();
+
+    const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
     await waitFor(() =>
       expect(mockDelete).toHaveBeenCalledWith("/api/v1/contacts/{id}", {
         params: { path: { id: "c1" } },
