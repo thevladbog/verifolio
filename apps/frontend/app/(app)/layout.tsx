@@ -1,18 +1,17 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  FileText,
-  LayoutDashboard,
-  LogOut,
-  Send,
-  UserRound,
-  Users,
-} from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { LocaleSwitcher } from "@/components/verifolio/locale-switcher";
 import { VerifolioWordmark } from "@/components/verifolio/wordmark";
 import { api } from "@/lib/api/client";
@@ -21,12 +20,16 @@ import { useSession } from "@/lib/use-session";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { href: "/dashboard", key: "dashboard", icon: LayoutDashboard },
-  { href: "/requests", key: "requests", icon: Send },
-  { href: "/contacts", key: "contacts", icon: Users },
-  { href: "/documents", key: "documents", icon: FileText },
-  { href: "/profile", key: "profile", icon: UserRound },
+  { href: "/dashboard", key: "dashboard" },
+  { href: "/requests", key: "requests" },
+  { href: "/documents", key: "documents" },
+  { href: "/contacts", key: "contacts" },
 ] as const;
+
+function initials(email?: string): string {
+  if (!email) return "•";
+  return email.slice(0, 2).toUpperCase();
+}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations();
@@ -45,48 +48,60 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   });
 
   return (
-    <div className="flex min-h-screen flex-1">
-      <aside className="flex w-60 shrink-0 flex-col bg-ink px-4 py-6">
-        <Link href="/dashboard" className="px-2">
-          <VerifolioWordmark dark />
+    <div className="flex min-h-screen flex-1 flex-col bg-white">
+      <header className="flex h-[60px] items-center gap-6 border-b border-border-light bg-white px-8">
+        <Link href="/dashboard">
+          <VerifolioWordmark />
         </Link>
-        <nav className="mt-8 flex flex-1 flex-col gap-1">
-          {NAV.map(({ href, key, icon: Icon }) => (
+        <nav className="flex gap-1 text-sm">
+          {NAV.map(({ href, key }) => (
             <Link
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-3 rounded-control px-3 py-2 text-sm font-medium transition-colors",
+                "rounded-[9px] px-3.5 py-2 font-semibold transition-colors",
                 pathname.startsWith(href)
-                  ? "bg-white/10 text-paper"
-                  : "text-blue-gray hover:bg-white/5 hover:text-paper",
+                  ? "bg-border-soft font-bold text-ink"
+                  : "text-muted-text hover:text-ink",
               )}
             >
-              <Icon className="size-4" />
               {t(`nav.${key}`)}
             </Link>
           ))}
         </nav>
-        <div className="flex flex-col gap-3 px-2">
-          {session?.email && (
-            <p className="truncate text-xs text-blue-gray">{session.email}</p>
-          )}
-          <button
-            type="button"
-            onClick={() => logout.mutate()}
-            className="flex items-center gap-3 rounded-control px-1 py-2 text-sm font-medium text-blue-gray transition-colors hover:text-paper"
-          >
-            <LogOut className="size-4" />
-            {t("nav.logout")}
-          </button>
-        </div>
-      </aside>
-      <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-end border-b border-border-light bg-white px-8 py-3">
+        <div className="ml-auto flex items-center gap-3">
           <LocaleSwitcher />
-        </header>
-        <main className="flex-1 px-8 py-8">{children}</main>
-      </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={t("nav.profile")}
+                className="flex size-8 items-center justify-center rounded-full bg-ink text-xs font-extrabold text-paper"
+              >
+                {initials(session?.email)}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {session?.email && (
+                <p className="truncate px-2 py-1.5 text-xs text-muted-text">
+                  {session.email}
+                </p>
+              )}
+              <DropdownMenuItem onSelect={() => router.push("/profile")}>
+                <UserRound />
+                {t("nav.profile")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => logout.mutate()}>
+                <LogOut />
+                {t("nav.logout")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+      <main className="mx-auto w-full max-w-[1100px] flex-1 px-8 py-8">
+        {children}
+      </main>
     </div>
   );
 }

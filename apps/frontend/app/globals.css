@@ -27,7 +27,7 @@
   --shadow-floating: 0 16px 40px rgb(15 27 46 / 0.1);
   --shadow-document: 0 24px 60px rgb(15 27 46 / 0.12);
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
 }
 

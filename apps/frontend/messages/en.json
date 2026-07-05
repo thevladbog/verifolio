@@ -44,6 +44,39 @@
     "invalidTitle": "This sign-in link is invalid or has expired",
     "invalidBody": "Sign-in links are single-use and expire after 15 minutes. Request a new one below."
   },
+  "contacts": {
+    "title": "Recommenders",
+    "subtitle": "Contacts are stored with their consent — anyone can ask for removal.",
+    "add": "Add contact",
+    "addTitle": "Add contact",
+    "editTitle": "Edit contact",
+    "name": "Name",
+    "nameRequired": "Enter the contact's name",
+    "company": "Company",
+    "jobTitle": "Title",
+    "relationship": "Relationship",
+    "verbalConsentHint": "you'll need their verbal consent",
+    "relationshipTypes": {
+      "MANAGER": "Manager",
+      "COLLEAGUE": "Colleague",
+      "DIRECT_REPORT": "Direct report",
+      "CLIENT": "Client",
+      "PROFESSOR": "Professor",
+      "MENTOR": "Mentor",
+      "PERSONAL": "Personal",
+      "OTHER": "Other"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "sectionTitle": "Your details",
+    "displayName": "Display name",
+    "displayNameRequired": "Enter a display name",
+    "legalName": "Legal name",
+    "legalNameHint": "Optional. Used to match your name on formal documents.",
+    "locale": "Language",
+    "locales": { "en": "English", "ru": "Русский" }
+  },
   "errors": {
     "RATE_LIMITED": "Too many attempts. Please try again later.",
     "CONSENT_REQUIRED": "This step requires your explicit confirmation.",

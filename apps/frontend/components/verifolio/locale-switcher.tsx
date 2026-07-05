@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-const LOCALES = ["en", "ru"] as const;
+const LOCALES = ["ru", "en"] as const;
 
 function persistLocale(next: string) {
   document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=31536000; samesite=lax`;
@@ -21,7 +21,13 @@ function LocaleSwitcher({ className }: { className?: string }) {
   };
 
   return (
-    <div className={cn("inline-flex gap-1", className)} role="group">
+    <div
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-full bg-border-soft p-[3px] text-[11px] font-extrabold",
+        className,
+      )}
+      role="group"
+    >
       {LOCALES.map((l) => (
         <button
           key={l}
@@ -29,10 +35,10 @@ function LocaleSwitcher({ className }: { className?: string }) {
           onClick={() => switchTo(l)}
           aria-pressed={locale === l}
           className={cn(
-            "rounded-control px-2 py-1 text-xs font-medium uppercase transition-colors",
+            "rounded-full px-2.5 py-1 uppercase transition-colors",
             locale === l
-              ? "bg-blue-gray-light/50 text-ink"
-              : "text-muted-text hover:text-ink",
+              ? "bg-white text-ink shadow-[0_1px_2px_rgba(15,27,46,.12)]"
+              : "text-blue-gray hover:text-ink",
           )}
         >
           {l}
