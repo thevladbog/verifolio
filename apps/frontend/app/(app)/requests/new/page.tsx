@@ -26,7 +26,12 @@ import { Stepper } from "@/components/requests/stepper";
 import { api } from "@/lib/api/client";
 import { consentParagraphs, useConsentText } from "@/lib/hooks/use-consent-text";
 import { unwrap } from "@/lib/query-provider";
-import { useContactNames, useTemplates } from "@/lib/requests/queries";
+import {
+  emailDomain,
+  useContactNames,
+  useOrganizationLookup,
+  useTemplates,
+} from "@/lib/requests/queries";
 import { cn } from "@/lib/utils";
 
 const TEMPLATE_ICONS: Record<string, LucideIcon> = {
@@ -91,6 +96,10 @@ export default function NewRequestPage() {
   const selectedContact = contactId
     ? contacts.data?.get(contactId)
     : undefined;
+  // Subtle, non-blocking provenance hint: only fires for a real domain.
+  const recommenderOrg = useOrganizationLookup(
+    emailDomain(selectedContact?.email),
+  );
 
   return (
     <div className="flex flex-col gap-8">
@@ -216,6 +225,13 @@ export default function NewRequestPage() {
               {t("contacts.add")}
             </Button>
           </div>
+          {recommenderOrg.data?.name && (
+            <p className="text-xs text-muted-text" role="status">
+              {t("builder.recognisedOrganization", {
+                name: recommenderOrg.data.name,
+              })}
+            </p>
+          )}
         </section>
       )}
 

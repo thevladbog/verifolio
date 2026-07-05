@@ -139,6 +139,7 @@
     "purposeVisibility": "Only the recommender sees this — it helps them write an appropriate letter.",
     "recommenderTitle": "Who will you ask?",
     "recommenderHint": "Pick from your contacts or add a new one.",
+    "recognisedOrganization": "Recognised organization: {name}",
     "confirmTitle": "Review and confirm",
     "create": "Create request",
     "attestationError": "Could not load the attestation text. Please retry."
@@ -339,6 +340,7 @@
     "removedTitle": "This content has been removed",
     "removedBody": "The document was removed at the data subject's request. No verification details are available.",
     "retractedBanner": "Recommendation retracted by the recommender on {date}.",
+    "orgVerifiedRecord": "at {name} — verified organization record",
     "dataRequestsPrompt": "Are you the recommender and want to exercise your data rights?",
     "dataRequestsLink": "Manage your data"
   },
