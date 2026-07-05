@@ -401,7 +401,8 @@
       "REGION_MIGRATION": "Move my data to another region"
     },
     "verifySubmit": "Confirm",
-    "doneWithdrawal": "Consent withdrawal completed. The recommendation has been retracted and your related data erased.",
-    "doneRecorded": "Request received. We'll respond by {date}."
+    "doneWithdrawal": "Consent withdrawal completed. The recommendation has been retracted and your personal data in this recommendation erased.",
+    "doneRecorded": "Request received. We'll respond by {date}.",
+    "doneRecordedNoDate": "Your request has been recorded. We will respond within the statutory period."
   }
 }

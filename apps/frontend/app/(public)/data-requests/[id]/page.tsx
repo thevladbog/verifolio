@@ -46,6 +46,8 @@ export default function DataRequestVerifyPage() {
   const [done, setDone] = useState<VerifyResponse | null>(null);
 
   const verify = useMutation({
+    // This page renders its own inline error; suppress the global toast.
+    meta: { inlineError: true },
     mutationFn: async (): Promise<VerifyResponse> => {
       const { data, error, response } = await api.POST(
         "/api/v1/privacy/recommender-requests/{id}/verify",
@@ -79,13 +81,13 @@ export default function DataRequestVerifyPage() {
         <p className="text-sm text-slate-text">
           {done.executed
             ? t("dataRequests.doneWithdrawal")
-            : t("dataRequests.doneRecorded", {
-                date: done.dueAt
-                  ? format.dateTime(new Date(done.dueAt), {
-                      dateStyle: "long",
-                    })
-                  : "",
-              })}
+            : done.dueAt
+              ? t("dataRequests.doneRecorded", {
+                  date: format.dateTime(new Date(done.dueAt), {
+                    dateStyle: "long",
+                  }),
+                })
+              : t("dataRequests.doneRecordedNoDate")}
         </p>
       </CardContent>,
     );

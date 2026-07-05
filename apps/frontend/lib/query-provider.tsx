@@ -39,7 +39,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const [client] = useState(() => {
-    const onError = (error: unknown) => {
+    const onError = (error: unknown, suppressToast = false) => {
       if (error instanceof RequestError && error.status === 401) {
         // Read the location at error time: this closure lives for the whole
         // session, so a hook-captured pathname would go stale after navigation.
@@ -49,6 +49,8 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
           return;
         }
       }
+      // A mutation that renders its own inline error opts out of the global toast.
+      if (suppressToast) return;
       if (error instanceof RequestError) {
         toast.error(errorMessage(error.body, t));
       } else {
@@ -57,8 +59,11 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
     };
 
     return new QueryClient({
-      queryCache: new QueryCache({ onError }),
-      mutationCache: new MutationCache({ onError }),
+      queryCache: new QueryCache({ onError: (error) => onError(error) }),
+      mutationCache: new MutationCache({
+        onError: (error, _vars, _ctx, mutation) =>
+          onError(error, mutation.meta?.inlineError === true),
+      }),
       defaultOptions: {
         queries: {
           staleTime: 30_000,

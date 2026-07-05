@@ -1,4 +1,9 @@
-import { expect, type Browser, type Page } from "@playwright/test";
+import {
+  expect,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
 
 import { waitForMail } from "./mailpit";
 
@@ -39,6 +44,26 @@ export async function runCanonicalFlowToShare(
   recommenderEmail: string,
 ): Promise<CanonicalFlowResult> {
   const requester = await browser.newContext();
+  const recommender = await browser.newContext();
+  try {
+    return await runFlow(
+      requester,
+      recommender,
+      requesterEmail,
+      recommenderEmail,
+    );
+  } finally {
+    await requester.close();
+    await recommender.close();
+  }
+}
+
+async function runFlow(
+  requester: BrowserContext,
+  recommender: BrowserContext,
+  requesterEmail: string,
+  recommenderEmail: string,
+): Promise<CanonicalFlowResult> {
   const requesterPage = await requester.newPage();
   await loginViaMagicLink(requesterPage, requesterEmail);
 
@@ -72,7 +97,6 @@ export async function runCanonicalFlowToShare(
     recommenderEmail,
     /http:\/\/localhost:3000\/invitations\/[\w~.-]+/,
   );
-  const recommender = await browser.newContext();
   const recommenderPage = await recommender.newPage();
   await recommenderPage.goto(invitationLink);
   await expect(
