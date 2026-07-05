@@ -14,13 +14,13 @@ class AdminTotpCipherTest {
 
     @Test
     fun `round-trips plaintext`() {
-        val plain = "JBSWY3DPEHPK3PXP"
+        val plain = "AAAAAAAAAAAAAAAA"
         assertThat(cipher.decrypt(cipher.encrypt(plain))).isEqualTo(plain)
     }
 
     @Test
     fun `two encryptions of the same plaintext differ (fresh IV)`() {
-        val plain = "JBSWY3DPEHPK3PXP"
+        val plain = "AAAAAAAAAAAAAAAA"
         val a = cipher.encrypt(plain)
         val b = cipher.encrypt(plain)
         assertThat(a).isNotEqualTo(b)
@@ -31,7 +31,7 @@ class AdminTotpCipherTest {
 
     @Test
     fun `tampered ciphertext fails to decrypt (GCM auth tag)`() {
-        val stored = cipher.encrypt("JBSWY3DPEHPK3PXP")
+        val stored = cipher.encrypt("AAAAAAAAAAAAAAAA")
         val (ivB64, ctB64) = stored.split(":")
         val ct = Base64.getDecoder().decode(ctB64)
         ct[0] = (ct[0].toInt() xor 0x01).toByte() // flip one bit
@@ -47,7 +47,7 @@ class AdminTotpCipherTest {
 
     @Test
     fun `a different secret cannot decrypt`() {
-        val stored = cipher.encrypt("JBSWY3DPEHPK3PXP")
+        val stored = cipher.encrypt("AAAAAAAAAAAAAAAA")
         assertThatThrownBy { AdminTotpCipher("some-other-cell-secret").decrypt(stored) }
             .isInstanceOf(Exception::class.java)
     }

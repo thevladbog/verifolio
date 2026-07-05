@@ -51,11 +51,11 @@ class AdminTotpServiceTest {
 
     @Test
     fun `otpauth uri has expected shape`() {
-        val uri = service.otpauthUri("admin@example.com", "JBSWY3DPEHPK3PXP", "local")
+        val uri = service.otpauthUri("admin@example.com", "AAAAAAAAAAAAAAAA", "local")
         // Label is the otpauth `issuer:account` form, each component percent-encoded (space→%20,
         // (→%28, )→%29, @→%40), joined by a literal ':'.
         assertThat(uri).isEqualTo(
-            "otpauth://totp/Verifolio%20%28local%29:admin%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=Verifolio",
+            "otpauth://totp/Verifolio%20%28local%29:admin%40example.com?secret=AAAAAAAAAAAAAAAA&issuer=Verifolio",
         )
         // Round-trips: a valid URI whose decoded label reconstructs issuer + account.
         assertThat(java.net.URI(uri).scheme).isEqualTo("otpauth")
@@ -64,10 +64,10 @@ class AdminTotpServiceTest {
 
     @Test
     fun `otpauth uri escapes reserved characters in region and email`() {
-        val uri = service.otpauthUri("a&b?c@x.io", "JBSWY3DPEHPK3PXP", "eu west")
+        val uri = service.otpauthUri("a&b?c@x.io", "AAAAAAAAAAAAAAAA", "eu west")
         // A valid URI; reserved chars are encoded so the query stays intact and the label round-trips.
         assertThat(java.net.URI(uri).scheme).isEqualTo("otpauth")
-        assertThat(uri.substringAfter("?")).isEqualTo("secret=JBSWY3DPEHPK3PXP&issuer=Verifolio")
+        assertThat(uri.substringAfter("?")).isEqualTo("secret=AAAAAAAAAAAAAAAA&issuer=Verifolio")
         assertThat(decodeLabel(uri)).isEqualTo("Verifolio (eu west):a&b?c@x.io")
     }
 

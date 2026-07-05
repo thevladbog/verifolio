@@ -143,9 +143,7 @@ backend must be started with the matching admin email seeded via
 
 ```bash
 cd apps/backend
-./gradlew bootRun --args='--spring.profiles.active=local \
-  --verifolio.storage.access-key=<minio-user> --verifolio.storage.secret-key=<minio-pass> \
-  --verifolio.admin.bootstrap-emails=admin-e2e@verifolio.test'
+./gradlew bootRun --args="--spring.profiles.active=local --verifolio.storage.access-key=<minio-user> --verifolio.storage.secret-key=<minio-pass> --verifolio.admin.bootstrap-emails=admin-e2e@verifolio.test"
 ```
 
 The MinIO credentials must match the running MinIO container
