@@ -32,4 +32,14 @@ internal class RequestPublicViewImpl(private val dsl: DSLContext) : RequestPubli
             responseSubmittedAt = submittedAt,
         )
     }
+
+    @Transactional(readOnly = true)
+    override fun latestResponseId(requestId: UUID): UUID? {
+        val resp = REFERENCE_RESPONSE
+        return dsl.select(resp.ID).from(resp)
+            .where(resp.REQUEST_ID.eq(requestId).and(resp.SUBMITTED_AT.isNotNull))
+            .orderBy(resp.SUBMITTED_AT.desc())
+            .limit(1)
+            .fetchOne(resp.ID)
+    }
 }

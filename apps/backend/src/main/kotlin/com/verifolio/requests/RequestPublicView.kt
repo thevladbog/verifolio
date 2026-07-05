@@ -18,4 +18,7 @@ data class RequestPublicInfo(
  */
 interface RequestPublicView {
     fun forRequest(requestId: UUID): RequestPublicInfo?
+
+    /** Id of the latest submitted response — the entity response-level signals are attached to. */
+    fun latestResponseId(requestId: UUID): UUID?
 }
