@@ -59,11 +59,15 @@ jobs:
           cache-dependency-path: apps/frontend/package-lock.json
       - name: Start infrastructure
         working-directory: .
-        run: docker compose up -d postgres minio mailpit
+        run: |
+          docker compose up -d postgres minio mailpit
+          timeout 60 bash -c 'until curl -sf http://localhost:9000/minio/health/live > /dev/null; do sleep 2; done'
+          timeout 60 bash -c 'until docker compose exec -T postgres pg_isready > /dev/null 2>&1; do sleep 2; done'
       - name: Start backend
         working-directory: apps/backend
         run: |
-          ./gradlew bootRun --args='--spring.profiles.active=local' &
+          # Credentials must match the compose minio service (MINIO_ROOT_USER/PASSWORD).
+          ./gradlew bootRun --args='--spring.profiles.active=local --verifolio.storage.access-key=verifolio --verifolio.storage.secret-key=verifolio-local' &
           timeout 300 bash -c 'until curl -sf http://localhost:8080/v3/api-docs > /dev/null; do sleep 3; done'
       - run: npm ci
       - run: npx playwright install --with-deps chromium

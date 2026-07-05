@@ -53,8 +53,10 @@ Example:
 APP_REGION=local
 DATABASE_URL=jdbc:postgresql://localhost:5432/verifolio
 MINIO_ENDPOINT=http://localhost:9000
-MINIO_ACCESS_KEY=minio
-MINIO_SECRET_KEY=minio123
+# Must match docker-compose.yml (MINIO_ROOT_USER / MINIO_ROOT_PASSWORD); the backend
+# reads these as --verifolio.storage.access-key / --verifolio.storage.secret-key.
+MINIO_ACCESS_KEY=verifolio
+MINIO_SECRET_KEY=verifolio-local
 TEMPORAL_ADDRESS=localhost:7233
 MAIL_HOST=localhost
 MAIL_PORT=1025
