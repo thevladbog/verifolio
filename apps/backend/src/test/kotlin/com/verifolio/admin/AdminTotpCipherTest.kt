@@ -9,7 +9,7 @@ import java.util.Base64
 
 class AdminTotpCipherTest {
 
-    // Same 32-byte AES-256 key the local cell ships (dev-only).
+    // The dev-only secret string the local cell ships (AES-256 key = SHA-256 of it).
     private val cipher = AdminTotpCipher(VerifolioProperties.Admin.LOCAL_DEV_TOTP_SECRET_KEY)
 
     @Test
@@ -40,9 +40,15 @@ class AdminTotpCipherTest {
     }
 
     @Test
-    fun `wrong-length key is rejected`() {
-        val shortKey = Base64.getEncoder().encodeToString(ByteArray(16))
-        assertThatThrownBy { AdminTotpCipher(shortKey) }
+    fun `blank secret is rejected`() {
+        assertThatThrownBy { AdminTotpCipher("  ") }
             .isInstanceOf(IllegalArgumentException::class.java)
+    }
+
+    @Test
+    fun `a different secret cannot decrypt`() {
+        val stored = cipher.encrypt("JBSWY3DPEHPK3PXP")
+        assertThatThrownBy { AdminTotpCipher("some-other-cell-secret").decrypt(stored) }
+            .isInstanceOf(Exception::class.java)
     }
 }

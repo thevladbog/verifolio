@@ -1,5 +1,6 @@
 package com.verifolio.admin.application
 
+import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.Cipher
@@ -8,19 +9,18 @@ import javax.crypto.spec.SecretKeySpec
 
 /**
  * AES-256-GCM encryption for TOTP secrets at rest (spec §TOTP specifics). A plaintext MFA seed
- * in the app DB would defeat MFA, so secrets are always encrypted. The key is the base64-decoded
- * per-cell `verifolio.admin.totp-secret-key` (must be 32 bytes). Each encrypt uses a fresh random
- * 12-byte IV; the stored form is `base64(iv):base64(ciphertext+tag)`. 128-bit GCM auth tag makes
- * tampering detectable (decrypt throws). No new crypto dependency (javax.crypto only).
+ * in the app DB would defeat MFA, so secrets are always encrypted. The AES-256 key is derived as
+ * SHA-256 of the per-cell `verifolio.admin.totp-secret-key` (an ops-provided secret string, not a
+ * committed base64 blob — so no high-entropy literal ships in the repo). Each encrypt uses a fresh
+ * random 12-byte IV; the stored form is `base64(iv):base64(ciphertext+tag)`. 128-bit GCM auth tag
+ * makes tampering detectable (decrypt throws). No crypto dependency (javax.crypto only).
  */
-class AdminTotpCipher(keyBase64: String) {
+class AdminTotpCipher(secret: String) {
 
     private val key: SecretKeySpec = run {
-        val decoded = Base64.getDecoder().decode(keyBase64)
-        require(decoded.size == 32) {
-            "verifolio.admin.totp-secret-key must decode to exactly 32 bytes (AES-256), was ${decoded.size}"
-        }
-        SecretKeySpec(decoded, "AES")
+        require(secret.isNotBlank()) { "verifolio.admin.totp-secret-key must not be blank" }
+        val derived = MessageDigest.getInstance("SHA-256").digest(secret.toByteArray(Charsets.UTF_8))
+        SecretKeySpec(derived, "AES")
     }
 
     private val random = SecureRandom()

@@ -127,16 +127,17 @@ data class VerifolioProperties(
      * Admin foundation config (docs/superpowers/specs/2026-07-05-admin-foundation-design.md).
      * @param bootstrapEmails config-driven, idempotent SUPERADMIN bootstrap on startup;
      *   empty = no bootstrap (prod sets it per cell).
-     * @param totpSecretKey base64-encoded 32-byte AES-256-GCM key encrypting admin TOTP
-     *   secrets at rest (AdminTotpCipher). The local default ships for dev only; real cells
-     *   set their own (validated non-default when region != local, mirroring the pepper rule).
+     * @param totpSecretKey the per-cell secret that AdminTotpCipher derives its AES-256 key
+     *   from (SHA-256). An ops-provided secret string, not a committed key blob. The local
+     *   placeholder ships for dev only; real cells set their own (validated non-default when
+     *   region != local, mirroring the pepper rule).
      */
     data class Admin(
         val bootstrapEmails: List<String> = emptyList(),
         val totpSecretKey: String = LOCAL_DEV_TOTP_SECRET_KEY,
     ) {
         companion object {
-            /** DEV ONLY — base64 of a 32-byte "verifolio-local-dev-totp-key!!!!" key. */
+            /** DEV ONLY placeholder — a plainly-non-secret string; real cells must override. */
             const val LOCAL_DEV_TOTP_SECRET_KEY = "local-dev-unsafe-totp-key"
         }
     }
