@@ -12,7 +12,7 @@ export function renderWithProviders(ui: React.ReactElement) {
     },
   });
   return render(
-    <NextIntlClientProvider locale="en" messages={en}>
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
       <QueryClientProvider client={client}>{ui}</QueryClientProvider>
     </NextIntlClientProvider>,
   );
