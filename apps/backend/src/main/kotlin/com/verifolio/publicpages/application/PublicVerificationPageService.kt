@@ -38,10 +38,6 @@ private const val PRIVACY_NOTICE =
         "keyed hashes of your IP address and browser identifier. These hashes are treated as " +
         "personal data and are retained under Verifolio's audit retention policy."
 
-private const val TOMBSTONE_NOTICE =
-    "The content of this document was removed at the data subject's request. The verification " +
-        "record remains, but the document and its attachments are no longer available."
-
 @Service
 internal class PublicVerificationPageService(
     private val shareLinkAccess: ShareLinkAccess,
@@ -182,9 +178,10 @@ internal class PublicVerificationPageService(
     // ---- helpers ----
 
     /**
-     * Tombstoned pinned version: header + neutral notice only. No recipient, recommender,
-     * signals, downloads or timeline are exposed — the content was erased at the subject's
-     * request. The download-url endpoints separately 404 (the version no longer resolves).
+     * Tombstoned pinned version: header only, with the TOMBSTONED status. No recipient,
+     * recommender, signals, downloads or timeline are exposed — the content was erased at the
+     * subject's request. `notice` is left null so the client renders its own localized copy
+     * (frontend `verify.removedBody`). The download-url endpoints separately 404.
      */
     private fun tombstonedResponse(view: TombstonedVersionView): VerificationPageResponse =
         VerificationPageResponse(
@@ -203,7 +200,7 @@ internal class PublicVerificationPageService(
             timeline = emptyList(),
             disclaimer = null,
             privacyNotice = null,
-            notice = TOMBSTONE_NOTICE,
+            notice = null,
         )
 
     private fun collectSignals(view: SharedVersionView): List<SignalView> {

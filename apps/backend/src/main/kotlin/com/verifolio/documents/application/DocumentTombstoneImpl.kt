@@ -8,7 +8,6 @@ import com.verifolio.jooq.tables.references.DOCUMENT_ATTACHMENT
 import com.verifolio.jooq.tables.references.DOCUMENT_VERSION
 import org.jooq.DSLContext
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -28,10 +27,14 @@ internal class DocumentTombstoneImpl(
     private val audit: AuditService,
 ) : DocumentTombstone {
 
-    @Transactional
+    // Deliberately NOT @Transactional: each storage delete (deleteGeneratedAsSystem /
+    // deleteUploadAsSystem) runs and COMMITS in its own transaction (S3 delete then FileObject →
+    // DELETED), and only after every object is durably gone does the content-null/status-flip run.
+    // A later DB failure can therefore never roll back an already-deleted object, and no row lock is
+    // held across the S3 round-trips (PendingUploadCleanupTask precedent).
     override fun tombstone(versionId: UUID) {
         val dv = DOCUMENT_VERSION
-        val version = dsl.selectFrom(dv).where(dv.ID.eq(versionId)).forUpdate().fetchOne() ?: return
+        val version = dsl.selectFrom(dv).where(dv.ID.eq(versionId)).fetchOne() ?: return
         // Idempotent: content already gone, objects already deleted.
         if (version.status == "TOMBSTONED") return
 
@@ -45,13 +48,15 @@ internal class DocumentTombstoneImpl(
         attachmentFileIds.forEach { fileUploads.deleteUploadAsSystem(it) }
 
         // Null content, flip status — integrity anchors (sha256/version_number/locked_at) stay.
-        dsl.update(dv)
+        // Guarded on the current status so a concurrent/re-run flip lands and audits exactly once.
+        val flipped = dsl.update(dv)
             .setNull(dv.CONTENT_JSON)
             .setNull(dv.RENDERED_HTML)
             .set(dv.STATUS, "TOMBSTONED")
             .set(dv.TOMBSTONED_AT, OffsetDateTime.now())
-            .where(dv.ID.eq(versionId))
+            .where(dv.ID.eq(versionId).and(dv.STATUS.ne("TOMBSTONED")))
             .execute()
+        if (flipped == 0) return
 
         audit.record(
             actorType = "SYSTEM",

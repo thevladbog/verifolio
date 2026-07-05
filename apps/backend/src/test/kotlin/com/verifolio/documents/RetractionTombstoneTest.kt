@@ -313,7 +313,8 @@ class RetractionTombstoneTest : IntegrationTest() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
         assertThat(body["status"]).isEqualTo("TOMBSTONED")
-        assertThat(body["notice"] as String).contains("removed at the data subject's request")
+        // notice is null: the client localizes the removed-content copy (verify.removedBody).
+        assertThat(body["notice"]).isNull()
         assertThat(body["recipient"]).isNull()
         assertThat(body["recommender"]).isNull()
         assertThat(body["version"]).isNull()

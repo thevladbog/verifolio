@@ -559,3 +559,8 @@ inherit context; append an entry when an iteration ships.
 - **Step-up re-confirmation** for DSR submission — still deferred (session + audit is
   the current bar; noted in SECURITY.md).
 - **Audit-event retention/pseudonymization window** — not yet enforced.
+- **Orphan-reconciliation sweep for erasure/tombstone S3 deletes** — the storage deletes
+  now commit before the DB row mutations (tombstone + PII erasure), so a rollback can no
+  longer orphan storage; but `deleteUploadAsSystem`/`deleteGeneratedAsSystem` still swallow
+  a failing S3 delete while flipping the row to DELETED, so a truly-failed object delete
+  can linger. Needs the same S3 lifecycle-rule sweep as the staging-key orphans above.

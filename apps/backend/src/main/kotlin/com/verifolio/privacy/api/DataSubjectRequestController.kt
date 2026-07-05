@@ -30,6 +30,7 @@ internal class DataSubjectRequestController(
         ApiResponse(responseCode = "400", description = "Validation failed", content = [Content(schema = Schema(implementation = ApiError::class))]),
         ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
         ApiResponse(responseCode = "403", description = "Missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "409", description = "Type not applicable to the account-holder channel (e.g. consent withdrawal)", content = [Content(schema = Schema(implementation = ApiError::class))]),
     )
     @PostMapping
     fun submit(

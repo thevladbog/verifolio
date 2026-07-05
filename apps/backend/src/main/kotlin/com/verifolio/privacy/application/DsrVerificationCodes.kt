@@ -43,16 +43,18 @@ internal class DsrVerificationCodes(
     }
 
     /**
-     * Verifies [rawCode] against the latest unconsumed code for [dsrId]. Consumes it on success;
-     * on mismatch increments the attempt counter in a REQUIRES_NEW transaction and throws
-     * CODE_INVALID (400). Also throws CODE_INVALID when expired or attempts are exhausted.
+     * Verifies [rawCode] against the latest unconsumed code for [dsrId]. Every verify first
+     * atomically claims one of the [MAX_CODE_ATTEMPTS] attempt slots (REQUIRES_NEW, committed even
+     * when this call rolls back), so concurrent guesses can never exceed the cap — closing the
+     * former read-check-then-act race. Consumes the code on a hash match; throws CODE_INVALID (400)
+     * when expired, when the attempt cap is already reached, or on any mismatch.
      */
     @Transactional
     fun verify(dsrId: UUID, rawCode: String) {
         val dvc = DSR_VERIFICATION_CODE
         val now = OffsetDateTime.now()
-        // No FOR UPDATE: the failed-attempt increment runs REQUIRES_NEW and would deadlock
-        // against a row lock held here (ConfirmationAttemptRecorder precedent).
+        // No FOR UPDATE: the attempt claim runs REQUIRES_NEW and would deadlock against a row
+        // lock held here (ConfirmationAttemptRecorder precedent).
         val codeRow = dsl.selectFrom(dvc)
             .where(dvc.DSR_ID.eq(dsrId).and(dvc.CONSUMED_AT.isNull))
             .orderBy(dvc.CREATED_AT.desc())
@@ -60,12 +62,14 @@ internal class DsrVerificationCodes(
             .fetchOne()
             ?: throw codeInvalid()
 
-        if (!codeRow.expiresAt!!.isAfter(now) || codeRow.attempts!! >= MAX_CODE_ATTEMPTS) throw codeInvalid()
+        if (!codeRow.expiresAt!!.isAfter(now)) throw codeInvalid()
 
-        if (codeRow.codeHash != hasher.hash(rawCode)) {
-            attemptRecorder.recordFailure(codeRow.id!!)
-            throw codeInvalid()
-        }
+        // Atomically claim an attempt slot BEFORE comparing the hash. A 0-row result means the cap
+        // is already reached (or was reached by a concurrent guess), so at most MAX_CODE_ATTEMPTS
+        // verifies ever reach the comparison below.
+        if (attemptRecorder.claimAttempt(codeRow.id!!, MAX_CODE_ATTEMPTS) == 0) throw codeInvalid()
+
+        if (codeRow.codeHash != hasher.hash(rawCode)) throw codeInvalid()
 
         val consumed = dsl.update(dvc)
             .set(dvc.CONSUMED_AT, now)

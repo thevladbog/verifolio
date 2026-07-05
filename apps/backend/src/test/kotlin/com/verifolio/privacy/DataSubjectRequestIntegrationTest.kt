@@ -67,6 +67,28 @@ class DataSubjectRequestIntegrationTest : PrivacyFlowSupport() {
     }
 
     @Test
+    fun `owner CONSENT_WITHDRAWAL is rejected — consent withdrawal is a recommender-only right`() {
+        val cookie = login("dsr_cw_owner@example.com")
+        val csrf = xsrf(cookie)
+
+        val submit = rest.exchange(
+            "/api/v1/privacy/data-subject-requests", HttpMethod.POST,
+            HttpEntity(mapOf("type" to "CONSENT_WITHDRAWAL"), authHeaders(cookie, csrf)),
+            Map::class.java,
+        )
+        assertThat(submit.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(submit.body!!["code"]).isEqualTo("CONSENT_WITHDRAWAL_NOT_APPLICABLE")
+
+        // No DSR row was created.
+        assertThat(
+            dsl.fetchCount(
+                DATA_SUBJECT_REQUEST,
+                DATA_SUBJECT_REQUEST.SUBJECT_EMAIL.eq("dsr_cw_owner@example.com"),
+            ),
+        ).isZero()
+    }
+
+    @Test
     fun `listing DSRs requires authentication`() {
         // GET carries no CSRF, so an anonymous call resolves to the authenticated matcher (401).
         val response = rest.getForEntity("/api/v1/privacy/data-subject-requests", Map::class.java)

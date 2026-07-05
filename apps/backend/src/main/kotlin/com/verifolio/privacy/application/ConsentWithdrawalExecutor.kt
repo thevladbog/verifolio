@@ -6,6 +6,7 @@ import com.verifolio.requests.RecommenderRequestRef
 import com.verifolio.requests.RecommenderPiiErasure
 import com.verifolio.requests.RequestPublicView
 import com.verifolio.verification.VerificationSignals
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
@@ -29,21 +30,31 @@ internal class ConsentWithdrawalExecutor(
     private val requestPublicView: RequestPublicView,
 ) {
 
+    private val log = LoggerFactory.getLogger(ConsentWithdrawalExecutor::class.java)
+
     fun execute(refs: List<RecommenderRequestRef>) {
+        // Each reference request is processed independently: a failure on one (e.g. a transient
+        // S3 error during erasure) is logged and skipped so the remaining refs still complete —
+        // one ref must never abort the whole batch (RecommenderPiiErasureTask precedent).
         refs.forEach { ref ->
-            consentWithdrawal.withdrawForRequest(ref.requestId, ref.recommenderContactId)
+            try {
+                consentWithdrawal.withdrawForRequest(ref.requestId, ref.recommenderContactId)
 
-            documentRetraction.versionIdsForRequest(ref.requestId).forEach { versionId ->
-                verificationSignals.revokeAllForEntity("DOCUMENT_VERSION", versionId)
-            }
-            // Response-level signals (recipient/relationship/email confirmations) are revoked too
-            // so a retracted recommendation carries no lingering active badge. Read before erasure.
-            requestPublicView.latestResponseId(ref.requestId)?.let { responseId ->
-                verificationSignals.revokeAllForEntity("REFERENCE_RESPONSE", responseId)
-            }
+                documentRetraction.versionIdsForRequest(ref.requestId).forEach { versionId ->
+                    verificationSignals.revokeAllForEntity("DOCUMENT_VERSION", versionId)
+                }
+                // Response-level signals (recipient/relationship/email confirmations) are revoked
+                // too so a retracted recommendation carries no lingering active badge. Read before
+                // erasure.
+                requestPublicView.latestResponseId(ref.requestId)?.let { responseId ->
+                    verificationSignals.revokeAllForEntity("REFERENCE_RESPONSE", responseId)
+                }
 
-            documentRetraction.markRetracted(ref.requestId)
-            recommenderPiiErasure.eraseForRequest(ref.requestId)
+                documentRetraction.markRetracted(ref.requestId)
+                recommenderPiiErasure.eraseForRequest(ref.requestId)
+            } catch (e: Exception) {
+                log.warn("Consent-withdrawal execution failed for request {}; continuing", ref.requestId, e)
+            }
         }
     }
 }

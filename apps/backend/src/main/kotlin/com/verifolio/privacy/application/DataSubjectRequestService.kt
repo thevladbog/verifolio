@@ -19,6 +19,8 @@ import com.verifolio.privacy.domain.DsrType
 import com.verifolio.requests.ConsentWithdrawal
 import com.verifolio.requests.RecommenderPiiErasure
 import com.verifolio.requests.RecommenderRequestRef
+import com.verifolio.requests.RequestPublicView
+import com.verifolio.verification.VerificationSignals
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.springframework.beans.factory.annotation.Qualifier
@@ -47,6 +49,8 @@ internal class DataSubjectRequestService(
     private val recommenderPiiErasure: RecommenderPiiErasure,
     private val documentRetraction: DocumentRetraction,
     private val documentTombstone: DocumentTombstone,
+    private val verificationSignals: VerificationSignals,
+    private val requestPublicView: RequestPublicView,
     private val codes: DsrVerificationCodes,
     private val mail: MailPort,
     @Qualifier("dsrCodeLimiter") private val codeLimiter: SlidingWindowRateLimiter,
@@ -56,6 +60,15 @@ internal class DataSubjectRequestService(
 
     @Transactional
     fun create(user: AuthenticatedUser, req: CreateDataSubjectRequestRequest): DataSubjectRequestResponse {
+        // Consent withdrawal is a recommender right (GDPR Art. 7(3)); an account holder has no
+        // consent to withdraw. It is only reachable via the account-less recommender email channel,
+        // so reject it here rather than let it flip to EXECUTED with no effect.
+        if (req.type == DsrType.CONSENT_WITHDRAWAL) {
+            throw ApiException(
+                HttpStatus.CONFLICT, "CONSENT_WITHDRAWAL_NOT_APPLICABLE",
+                "Consent withdrawal is available only to recommenders via the account-less email channel",
+            )
+        }
         val now = OffsetDateTime.now()
         val dsr = DATA_SUBJECT_REQUEST
         val record = dsl.insertInto(dsr)
@@ -207,7 +220,18 @@ internal class DataSubjectRequestService(
         }
 
         when (DsrType.valueOf(record.type!!)) {
-            DsrType.CONSENT_WITHDRAWAL -> executor.execute(scopeForRecommender(record))
+            DsrType.CONSENT_WITHDRAWAL -> {
+                val refs = scopeForRecommender(record)
+                // Never mark EXECUTED when nothing was actually withdrawn (defends against a
+                // withdrawal that resolves to no in-scope recommender requests).
+                if (refs.isEmpty()) {
+                    throw ApiException(
+                        HttpStatus.CONFLICT, "NOTHING_TO_EXECUTE",
+                        "No recommender requests are in scope for this consent withdrawal",
+                    )
+                }
+                executor.execute(refs)
+            }
             DsrType.DELETION -> {
                 // Only recommender-subject, request-scoped deletion executes here; whole-account
                 // holder deletion is deferred to the admin/automation iteration.
@@ -218,8 +242,14 @@ internal class DataSubjectRequestService(
                     )
                 }
                 scopeForRecommender(record).forEach { ref ->
-                    documentRetraction.versionIdsForRequest(ref.requestId)
-                        .forEach { documentTombstone.tombstone(it) }
+                    val versionIds = documentRetraction.versionIdsForRequest(ref.requestId)
+                    // Revoke the version + response verification signals BEFORE erasure (mirror the
+                    // consent-withdrawal path) so tombstoned content keeps no lingering active badge.
+                    versionIds.forEach { verificationSignals.revokeAllForEntity("DOCUMENT_VERSION", it) }
+                    requestPublicView.latestResponseId(ref.requestId)?.let { responseId ->
+                        verificationSignals.revokeAllForEntity("REFERENCE_RESPONSE", responseId)
+                    }
+                    versionIds.forEach { documentTombstone.tombstone(it) }
                     recommenderPiiErasure.eraseForRequest(ref.requestId)
                 }
             }

@@ -1,5 +1,6 @@
 package com.verifolio.privacy.api
 
+import com.verifolio.platform.ApiException
 import com.verifolio.platform.SlidingWindowRateLimiter
 import com.verifolio.platform.web.ApiError
 import com.verifolio.privacy.application.DataSubjectRequestService
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -61,6 +63,14 @@ internal class RecommenderDsrController(
             dsrId = id,
             code = body.code!!,
             type = body.type!!,
-            referenceRequestId = body.referenceRequestId?.let { UUID.fromString(it) },
+            referenceRequestId = body.referenceRequestId?.let { parseReferenceRequestId(it) },
         )
+
+    /** A malformed (non-UUID) reference id is a client error (400), not an unhandled 500. */
+    private fun parseReferenceRequestId(value: String): UUID =
+        try {
+            UUID.fromString(value)
+        } catch (e: IllegalArgumentException) {
+            throw ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "referenceRequestId is not a valid identifier")
+        }
 }
