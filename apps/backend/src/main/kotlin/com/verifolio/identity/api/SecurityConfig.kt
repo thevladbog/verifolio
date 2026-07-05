@@ -2,8 +2,10 @@ package com.verifolio.identity.api
 
 import tools.jackson.databind.ObjectMapper
 import com.verifolio.platform.web.ApiError
+import com.verifolio.platform.web.CsrfHandlerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -18,7 +20,11 @@ class SecurityConfig(
     private val objectMapper: ObjectMapper,
 ) {
 
+    // @Order(2): the admin chain (AdminSecurityConfig @Order(1), securityMatcher /api/v1/admin/**)
+    // is consulted first for admin paths; this chain has no securityMatcher and owns all remaining
+    // requests. An admin credential can therefore never authenticate on a user endpoint here.
     @Bean
+    @Order(2)
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
         // Spring Security defers CSRF token loading by default, which means the XSRF-TOKEN
         // cookie is never written unless the token attribute is accessed.  CsrfHandlerFactory

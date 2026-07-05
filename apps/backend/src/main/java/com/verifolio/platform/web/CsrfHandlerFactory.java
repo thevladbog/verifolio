@@ -1,4 +1,4 @@
-package com.verifolio.identity.api;
+package com.verifolio.platform.web;
 
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 

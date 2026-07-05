@@ -139,6 +139,24 @@ execution: a verified `CONSENT_WITHDRAWAL` runs RECEIVED → EXECUTED in one cha
 and `RECOMMENDER_PII_ERASED` along the way. The other DSR types stay RECEIVED for manual/admin
 execution in a later iteration.
 
+### Admin
+
+```text
+ADMIN_ACCOUNT_CREATED
+ADMIN_LOGIN_SUCCEEDED
+ADMIN_LOGIN_FAILED
+ADMIN_SESSION_CREATED
+ADMIN_SESSION_REVOKED
+```
+
+`ADMIN_ACCOUNT_CREATED` (actor SYSTEM, entity `ADMIN_ACCOUNT`) records config-driven bootstrap of a
+SUPERADMIN admin account. `ADMIN_LOGIN_SUCCEEDED` + `ADMIN_SESSION_CREATED` (actor ADMIN, entity
+`ADMIN_ACCOUNT` / `ADMIN_SESSION`) are emitted together when the two-factor sequence (magic-link +
+TOTP) mints an admin session; `ADMIN_SESSION_REVOKED` (actor ADMIN, entity `ADMIN_SESSION`) records
+admin logout. Metadata is IDs/enums only (`region`, `adminId`); admin auth is isolated from user auth
+(separate cookie/session/chain). `ADMIN_LOGIN_FAILED` is reserved for future failed-factor
+recording; the always-202 magic-link request is anti-enumeration and is not itself audited per-email.
+
 ### Recommender Response
 
 ```text
