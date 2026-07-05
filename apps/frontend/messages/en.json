@@ -335,7 +335,12 @@
     "notShared": "not shared publicly",
     "timelineTitle": "Verification timeline",
     "invalidTitle": "This verification link is invalid or no longer active",
-    "invalidBody": "The link may have expired, been revoked by the document owner, or never existed. Ask the person who shared it for a new link."
+    "invalidBody": "The link may have expired, been revoked by the document owner, or never existed. Ask the person who shared it for a new link.",
+    "removedTitle": "This content has been removed",
+    "removedBody": "The document was removed at the data subject's request. No verification details are available.",
+    "retractedBanner": "Recommendation retracted by the recommender on {date}.",
+    "dataRequestsPrompt": "Are you the recommender and want to exercise your data rights?",
+    "dataRequestsLink": "Manage your data"
   },
   "errors": {
     "RATE_LIMITED": "Too many attempts. Please try again later.",
@@ -350,5 +355,53 @@
     "UNAUTHORIZED": "Your session has ended. Please sign in again.",
     "PROFILE_ERROR": "Your profile could not be updated.",
     "UNKNOWN": "Something went wrong ({code}). Please try again."
+  },
+  "privacy": {
+    "dsr": {
+      "title": "Data & privacy",
+      "typeLabel": "Request type",
+      "types": {
+        "DELETION": "Delete my data",
+        "EXPORT": "Export my data",
+        "CORRECTION": "Correct my data",
+        "REGION_MIGRATION": "Move my data to another region",
+        "CONSENT_WITHDRAWAL": "Withdraw consent"
+      },
+      "commentLabel": "Comment (optional)",
+      "recommenderNote": "Recommenders who want to withdraw consent for a reference they gave should use the email link they received, not this form.",
+      "submit": "Submit request",
+      "submitted": "Your request was received.",
+      "listTitle": "Your requests",
+      "empty": "You have no data requests yet.",
+      "dueBy": "Due by {date}",
+      "status": {
+        "RECEIVED": "Received",
+        "IN_REVIEW": "In review",
+        "APPROVED": "Approved",
+        "EXECUTED": "Completed",
+        "REJECTED": "Rejected"
+      }
+    }
+  },
+  "dataRequests": {
+    "title": "Manage your data",
+    "intro": "If you gave a professional reference through Verifolio, you can exercise your data rights here. Enter the email address the request was sent to.",
+    "emailLabel": "Email address",
+    "sendCode": "Send code",
+    "sentBody": "If we have data associated with this email, we've sent a verification code to it. Follow the link in that email to continue.",
+    "verifyTitle": "Confirm your request",
+    "verifyIntro": "Enter the code from the email and choose what you'd like to do.",
+    "codeLabel": "Verification code",
+    "typeLabel": "What would you like to do?",
+    "types": {
+      "CONSENT_WITHDRAWAL": "Withdraw my consent",
+      "DELETION": "Delete my data",
+      "CORRECTION": "Correct my data",
+      "EXPORT": "Export my data",
+      "REGION_MIGRATION": "Move my data to another region"
+    },
+    "verifySubmit": "Confirm",
+    "doneWithdrawal": "Consent withdrawal completed. The recommendation has been retracted and your related data erased.",
+    "doneRecorded": "Request received. We'll respond by {date}."
   }
 }

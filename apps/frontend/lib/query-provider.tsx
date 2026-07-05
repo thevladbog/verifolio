@@ -25,7 +25,14 @@ export class RequestError extends Error {
 }
 
 /** Route prefixes with their own session/error semantics — no login redirect. */
-const PUBLIC_PREFIXES = ["/verify", "/invitations", "/respond", "/login", "/auth"];
+const PUBLIC_PREFIXES = [
+  "/verify",
+  "/invitations",
+  "/respond",
+  "/login",
+  "/auth",
+  "/data-requests",
+];
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const t = useTranslations();
