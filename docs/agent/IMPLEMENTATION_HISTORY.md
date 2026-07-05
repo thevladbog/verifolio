@@ -664,3 +664,45 @@ inherit context; append an entry when an iteration ships.
   202 + rate limits) — the same synchronous-mail anti-enum tradeoff as the user
   magic-link and the recommender DSR channel; the uniform fix is the tracked
   outbox/AFTER-COMMIT async-dispatch item (deferred since iteration 1).
+
+## 2026-07 — DSR executors: EXPORT + account DELETION (iteration 14)
+
+### What shipped
+
+- **Schema**: Flyway V15 adds the `DATA_EXPORT` file_object purpose, `user_account.deleted_at`,
+  and `data_subject_request.export_file_id`. Config `verifolio.privacy.export-link-ttl` (7d).
+- **EXPORT executor** (privacy, synchronous): assembles a structured JSON package
+  (metadata + references, NO raw file bytes) for the subject via new subject-scoped read
+  ports — `identity.AccountExport`, `profiles.ProfileExport`, `contacts.ContactExport`,
+  `requests.RequestExport` (forRequester / forRecommenderEmail), `documents.DocumentExport`
+  — plus privacy's own consent/DSR reads; stores it as a `DATA_EXPORT` FileObject
+  (`files.FileStore.storeExport`), mints a presigned GET (export-link-ttl), emails the
+  subject the link, sets `export_file_id`, audits `DATA_EXPORTED`. Recommender subjects get
+  a thin package (requests/consents only). The emailed presigned URL is the one sanctioned
+  object-storage URL exposure (subject's own data, short-lived, never logged).
+- **Account-holder DELETION executor** (privacy, synchronous): tombstones all the subject's
+  owned document versions (`documents.OwnerErasure` → `DocumentTombstone`, retains
+  sha256/version/lockedAt), anonymizes the profile (`profiles.ProfileErasure`) and their
+  contacts (`contacts.ContactErasure`), tombstones the account (`identity.AccountErasure`:
+  status DELETED + deleted_at + email→`deleted-<id>@tombstone.invalid`, sessions + magic
+  links deleted), and pseudonymizes the subject's audit actor (`audit.AuditPseudonymizer`:
+  actor_id→null, rows retained). Consent records RETAINED (lawful-basis evidence). Audits
+  `ACCOUNT_DELETED` (counts only). Idempotent.
+- **Wiring**: `DataSubjectRequestService.execute()` — EXPORT and account-holder DELETION now
+  run to EXECUTED (were `409 EXECUTION_NOT_AUTOMATED`); the admin queue "Execute" (iteration
+  13) succeeds for them. Recommender-scoped DELETION unchanged; REGION_MIGRATION / CORRECTION
+  stay 409.
+- Module boundaries stayed one-way: privacy → identity/profiles/contacts/requests/documents/
+  files/audit/verification/workflows/platform. ModularityTests green.
+
+### Deferred items
+
+- **Audit log inside the EXPORT package** — the package covers account/profile/contacts/
+  requests/documents/consents/DSRs, not the full processing audit trail (separate
+  pseudonymization concern); Art. 15 audit access is a manual admin path for now.
+- **REGION_MIGRATION / CORRECTION executors** — REGION_MIGRATION needs a second cell;
+  CORRECTION is the existing request-correction flow. Both keep 409.
+- **Async job orchestration** for large subjects (Temporal) — executors are synchronous.
+- **Orphan-reconciliation sweep** for S3 deletes (shared with the erasure/tombstone tail).
+- **Audit-retention window enforcement** — pseudonymization happens at deletion; the bounded
+  retention/purge is still a separate tracked item.

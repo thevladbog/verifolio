@@ -25,7 +25,7 @@ import java.util.UUID
  * Task 4 admin DSR review queue: RBAC gating (L1 read-only vs L2/SUPERADMIN decide/execute),
  * audited reads (ADMIN_DSR_VIEWED), region scoping, the approve/reject/execute transitions with the
  * ADMIN actor recorded on the audit, execute-success on an automated recommender-DELETION, and the
- * 409 EXECUTION_NOT_AUTOMATED for a not-yet-automated owner EXPORT. Admins/sessions are inserted
+ * 409 EXECUTION_NOT_AUTOMATED for a not-yet-automated type (REGION_MIGRATION). Admins/sessions are inserted
  * directly (role fixtures) so each test's RBAC state is deterministic; DSRs are seeded per-test in a
  * unique region so counts/lists are isolated from other classes sharing the JVM/DB.
  */
@@ -236,10 +236,12 @@ class AdminDsrQueueIntegrationTest : IntegrationTest() {
     }
 
     @Test
-    fun `execute on an owner EXPORT returns 409 EXECUTION_NOT_AUTOMATED`() {
+    fun `execute on a not-yet-automated type returns 409 EXECUTION_NOT_AUTOMATED`() {
+        // EXPORT and account-holder DELETION are now automated (iteration 14); REGION_MIGRATION
+        // still has no executor and must return 409.
         val region = "dsrq-${UUID.randomUUID()}"
         val (l2, _) = admin("SUPPORT_L2", region)
-        val dsrId = seedDsr(region, "EXPORT")
+        val dsrId = seedDsr(region, "REGION_MIGRATION")
 
         val resp = post("/api/v1/admin/data-subject-requests/$dsrId/execute", null, l2)
         assertThat(resp.statusCode).isEqualTo(HttpStatus.CONFLICT)
