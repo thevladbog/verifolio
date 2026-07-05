@@ -12,12 +12,16 @@ import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+
+import java.util.UUID
 
 @RestController
 @RequestMapping("/api/v1/recommender")
@@ -64,6 +68,59 @@ internal class RecommenderFlowController(
         @AuthenticationPrincipal actor: RecommenderActor?,
         @Valid @RequestBody body: DraftRequest,
     ): DraftDto = flow.saveDraft(require(actor), body)
+
+    @ApiResponses(
+        ApiResponse(responseCode = "201", description = "Constrained presigned PUT URL for direct upload"),
+        ApiResponse(responseCode = "400", description = "Validation failed (type, size, MIME)", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "401", description = "No active recommender session", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "403", description = "Not a recommender session or missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "409", description = "Wrong status, upload cap, or invalid signature target", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
+    @PostMapping("/uploads")
+    fun createUpload(
+        @AuthenticationPrincipal actor: RecommenderActor?,
+        @Valid @RequestBody body: CreateUploadRequest,
+    ): ResponseEntity<UploadCreatedResponse> =
+        ResponseEntity.status(HttpStatus.CREATED).body(flow.createUpload(require(actor), body))
+
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "READY or REJECTED with the reason"),
+        ApiResponse(responseCode = "401", description = "No active recommender session", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "403", description = "Not a recommender session or missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "404", description = "Upload not found", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "409", description = "Upload is not awaiting confirmation", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
+    @PostMapping("/uploads/{id}/confirm")
+    fun confirmUpload(
+        @AuthenticationPrincipal actor: RecommenderActor?,
+        @PathVariable id: UUID,
+    ): ConfirmUploadResponse = flow.confirmUpload(require(actor), id)
+
+    @ApiResponses(
+        ApiResponse(responseCode = "200"),
+        ApiResponse(responseCode = "401", description = "No active recommender session", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "403", description = "Not a recommender session", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
+    @GetMapping("/uploads")
+    fun listUploads(
+        @AuthenticationPrincipal actor: RecommenderActor?,
+    ): UploadListResponse = flow.listUploads(require(actor))
+
+    @ApiResponses(
+        ApiResponse(responseCode = "204"),
+        ApiResponse(responseCode = "401", description = "No active recommender session", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "403", description = "Not a recommender session or missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "404", description = "Upload not found", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "409", description = "A signature references this upload", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
+    @DeleteMapping("/uploads/{id}")
+    fun deleteUpload(
+        @AuthenticationPrincipal actor: RecommenderActor?,
+        @PathVariable id: UUID,
+    ): ResponseEntity<Void> {
+        flow.deleteUpload(require(actor), id)
+        return ResponseEntity.noContent().build()
+    }
 
     @ApiResponses(
         ApiResponse(responseCode = "201"),
