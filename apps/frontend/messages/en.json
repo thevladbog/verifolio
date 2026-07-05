@@ -288,6 +288,24 @@
     "uploading": "Uploading…",
     "public": "public"
   },
+  "verify": {
+    "title": "Verified document",
+    "recipient": "Recipient",
+    "recommender": "Recommender",
+    "statedByRecommender": "stated by recommender",
+    "versionLine": "Version {version}, locked {date}. Locked versions cannot be changed.",
+    "superseded": "A newer version of this document exists.",
+    "badgesTitle": "Verification badges",
+    "trustTitle": "Trust summary",
+    "confirmedCount": "{count} confirmed",
+    "downloadsTitle": "Files",
+    "generatedPdf": "Verified document (PDF)",
+    "unnamedAttachment": "Attachment",
+    "notShared": "not shared publicly",
+    "timelineTitle": "Verification timeline",
+    "invalidTitle": "This verification link is invalid or no longer active",
+    "invalidBody": "The link may have expired, been revoked by the document owner, or never existed. Ask the person who shared it for a new link."
+  },
   "errors": {
     "RATE_LIMITED": "Too many attempts. Please try again later.",
     "CONSENT_REQUIRED": "This step requires your explicit confirmation.",
