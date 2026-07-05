@@ -1,0 +1,61 @@
+{
+  "common": {
+    "appName": "Verifolio",
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "close": "Close",
+    "confirm": "Confirm",
+    "continue": "Continue",
+    "back": "Back",
+    "loadMore": "Load more",
+    "copy": "Copy",
+    "copied": "Copied",
+    "saved": "Saved",
+    "download": "Download",
+    "region": "Region: {region}"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "requests": "Requests",
+    "contacts": "Contacts",
+    "documents": "Documents",
+    "profile": "Profile",
+    "logout": "Sign out"
+  },
+  "landing": {
+    "headline": "Professional references and documents, verified.",
+    "subline": "Collect, verify, sign, and share professional references for work, immigration, visas, education, and clients.",
+    "cta": "Sign in",
+    "chooseRegion": "Choose your data region",
+    "regionNote": "Your data stays in the region you choose."
+  },
+  "login": {
+    "title": "Sign in to Verifolio",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "submit": "Send sign-in link",
+    "sent": "If this email has an account, a sign-in link is on its way. The link is valid for 15 minutes.",
+    "invalidEmail": "Enter a valid email address"
+  },
+  "callback": {
+    "verifying": "Signing you in…",
+    "invalidTitle": "This sign-in link is invalid or has expired",
+    "invalidBody": "Sign-in links are single-use and expire after 15 minutes. Request a new one below."
+  },
+  "errors": {
+    "RATE_LIMITED": "Too many attempts. Please try again later.",
+    "CONSENT_REQUIRED": "This step requires your explicit confirmation.",
+    "CODE_INVALID": "That code is not valid. Check the code and try again.",
+    "CONFIRMATION_REQUIRED": "Please confirm the required checkboxes before submitting.",
+    "CONTACT_IN_USE": "This contact is referenced by a reference request and cannot be deleted.",
+    "INVALID_REQUEST_STATE": "This action is not available in the request's current state.",
+    "VALIDATION_ERROR": "Some fields are invalid. Please review and try again.",
+    "NOT_FOUND": "Not found. It may have been removed or the link may have expired.",
+    "FORBIDDEN": "You don't have access to this.",
+    "UNAUTHORIZED": "Your session has ended. Please sign in again.",
+    "PROFILE_ERROR": "Your profile could not be updated.",
+    "UNKNOWN": "Something went wrong ({code}). Please try again."
+  }
+}
