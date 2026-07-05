@@ -1,6 +1,6 @@
-package com.verifolio.verification.domain
+package com.verifolio.verification
 
-import com.verifolio.verification.SignalView
+
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.OffsetDateTime

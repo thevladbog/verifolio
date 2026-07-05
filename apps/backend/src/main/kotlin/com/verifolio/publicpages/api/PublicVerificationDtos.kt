@@ -1,4 +1,4 @@
-package com.verifolio.verification.api
+package com.verifolio.publicpages.api
 
 data class PageHeaderDto(
     val documentType: String,

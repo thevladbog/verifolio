@@ -1,10 +1,10 @@
-package com.verifolio.verification.api
+package com.verifolio.publicpages.api
 
 import com.verifolio.platform.ApiException
 import com.verifolio.platform.SlidingWindowRateLimiter
 import com.verifolio.platform.TokenHasher
 import com.verifolio.platform.web.ApiError
-import com.verifolio.verification.application.PublicVerificationPageService
+import com.verifolio.publicpages.application.PublicVerificationPageService
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse

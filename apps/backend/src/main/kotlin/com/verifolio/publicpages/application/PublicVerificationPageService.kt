@@ -1,4 +1,4 @@
-package com.verifolio.verification.application
+package com.verifolio.publicpages.application
 
 import com.verifolio.audit.AuditService
 import com.verifolio.documents.ShareLinkAccess
@@ -9,16 +9,16 @@ import com.verifolio.profiles.ProfileService
 import com.verifolio.requests.RequestPublicView
 import com.verifolio.verification.SignalView
 import com.verifolio.verification.VerificationSignals
-import com.verifolio.verification.api.BadgeDto
-import com.verifolio.verification.api.PageHeaderDto
-import com.verifolio.verification.api.PublicDownloadLinkResponse
-import com.verifolio.verification.api.RecipientDto
-import com.verifolio.verification.api.RecommenderDto
-import com.verifolio.verification.api.TimelineEntryDto
-import com.verifolio.verification.api.VerificationPageResponse
-import com.verifolio.verification.api.VersionDto
-import com.verifolio.verification.domain.BadgeCatalog
-import com.verifolio.verification.domain.TrustSummary
+import com.verifolio.publicpages.api.BadgeDto
+import com.verifolio.publicpages.api.PageHeaderDto
+import com.verifolio.publicpages.api.PublicDownloadLinkResponse
+import com.verifolio.publicpages.api.RecipientDto
+import com.verifolio.publicpages.api.RecommenderDto
+import com.verifolio.publicpages.api.TimelineEntryDto
+import com.verifolio.publicpages.api.VerificationPageResponse
+import com.verifolio.publicpages.api.VersionDto
+import com.verifolio.verification.BadgeCatalog
+import com.verifolio.verification.TrustSummary
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

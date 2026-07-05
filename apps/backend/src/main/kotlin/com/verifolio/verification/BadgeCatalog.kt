@@ -1,4 +1,4 @@
-package com.verifolio.verification.domain
+package com.verifolio.verification
 
 data class BadgeText(val title: String, val limitation: String?)
 

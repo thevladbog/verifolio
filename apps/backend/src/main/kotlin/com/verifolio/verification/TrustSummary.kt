@@ -1,6 +1,6 @@
-package com.verifolio.verification.domain
+package com.verifolio.verification
 
-import com.verifolio.verification.SignalView
+
 
 /**
  * Trust summary derivation (docs/VERIFICATION_SIGNALS.md): counts of VERIFIED signals per

@@ -22,6 +22,7 @@ notifications
 audit
 privacy
 admin
+publicpages
 ```
 
 ## Module Responsibilities
@@ -125,7 +126,22 @@ Owns:
 - trust summary derivation (counts of confirmed signals by category — never a numeric score);
 - verification status;
 - evidence metadata;
-- verification page display model.
+- badge display texts (plain-language names and limitations per the signal catalog).
+
+### publicpages
+
+Composition layer for the public verification page (read-only). Owns:
+
+- the public `/api/v1/verification-pages` endpoints;
+- page assembly from the read models of `documents` (ShareLinkAccess), `requests`
+  (RequestPublicView), `profiles`, and `verification` (signals, trust summary, badge texts);
+- public page view/download audit emission.
+
+Rationale: domain modules write signals INTO `verification` (documents → verification,
+requests → verification), while the page must read FROM documents, requests, and
+verification. Hosting the composition inside `verification` would create dependency
+cycles; `publicpages` sits on top of the domain modules instead. Nothing may depend on
+`publicpages`.
 
 ### signatures
 

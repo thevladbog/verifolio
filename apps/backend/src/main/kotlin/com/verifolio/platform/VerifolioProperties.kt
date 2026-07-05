@@ -27,6 +27,8 @@ data class VerifolioProperties(
         val frontendBaseUrl: String,
         val cookieSecure: Boolean = true,
         val recommenderSessionTtl: Duration = Duration.ofHours(1),
+        /** Per-IP magic-link request window; raised in integration tests (shared 127.0.0.1). */
+        val magicLinkIpLimit: Int = 100,
         val emailConfirmationTtl: Duration = Duration.ofMinutes(10),
         val emailConfirmationLimit: Int = 3,
         val emailConfirmationWindow: Duration = Duration.ofMinutes(15),

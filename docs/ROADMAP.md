@@ -13,7 +13,7 @@ This document defines the scope cut per release stage. Agents must not build pos
 - Documents: version locking and recipient review before locking — **delivered (2026-07, apps/backend)**; tombstoning ships with the privacy module.
 - Files (private object storage through the files module) — **generated-PDF slice delivered (2026-07, apps/backend)**; user uploads (presigned PUT + validation pipeline) pending.
 - Core verification signals — **creation delivered (2026-07, apps/backend)**; read model/trust summary ship with the public verification page; NAME_MATCH pending a structured recipient-name field.
-- Share links and the public verification page.
+- Share links and the public verification page — **delivered (2026-07, apps/backend)**; verification certificate PDF and scan/signature sections ship with their features.
 - Audit events.
 - Notifications.
 - Minimal workflows: reminders and expiration.

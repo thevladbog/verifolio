@@ -208,6 +208,49 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/share-links/{id}/revoke:
+    post:
+      tags:
+      - share-link-controller
+      operationId: revokeShareLink
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Public access stops immediately
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ShareLinkResponse"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Share link not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Already revoked
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/reference-requests:
     get:
       tags:
@@ -665,6 +708,90 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/documents/{id}/share-links:
+    get:
+      tags:
+      - share-link-controller
+      operationId: listShareLinks
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ShareLinkListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Document not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      tags:
+      - share-link-controller
+      operationId: createShareLink
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShareLinkRequest"
+      responses:
+        "201":
+          description: The response contains the raw link URL exactly once
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ShareLinkCreatedResponse"
+        "400":
+          description: Validation failed
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Document not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Document has no locked version
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/contacts:
     get:
       tags:
@@ -808,6 +935,66 @@ paths:
             text/html:
               schema:
                 type: string
+  /api/v1/verification-pages/{token}:
+    get:
+      tags:
+      - public-verification-controller
+      operationId: page
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/VerificationPageResponse"
+        "404":
+          description: "Unknown, revoked, or expired link"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limited
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/verification-pages/{token}/download-url:
+    get:
+      tags:
+      - public-verification-controller
+      operationId: downloadUrl
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Short-lived presigned link to the pinned PDF
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PublicDownloadLinkResponse"
+        "404":
+          description: "Unknown, revoked, or expired link"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limited
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/templates:
     get:
       tags:
@@ -1020,7 +1207,7 @@ paths:
     get:
       tags:
       - document-controller
-      operationId: downloadUrl
+      operationId: downloadUrl_1
       parameters:
       - name: id
         in: path
@@ -1235,6 +1422,24 @@ components:
           type:
           - string
           - "null"
+    ShareLinkResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        versionNumber:
+          type: integer
+          format: int32
+        expiresAt:
+          type:
+          - string
+          - "null"
+        revokedAt:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
     CreateReferenceRequestRequest:
       type: object
       properties:
@@ -1364,6 +1569,32 @@ components:
       properties:
         status:
           type: string
+    CreateShareLinkRequest:
+      type: object
+      properties:
+        expiresInDays:
+          type:
+          - integer
+          - "null"
+          format: int32
+          maximum: 365
+          minimum: 1
+    ShareLinkCreatedResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+        versionNumber:
+          type: integer
+          format: int32
+        expiresAt:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
     SessionRequest:
       type: object
       properties:
@@ -1393,6 +1624,106 @@ components:
       type: object
       properties:
         message:
+          type: string
+    BadgeDto:
+      type: object
+      properties:
+        signalType:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+        date:
+          type:
+          - string
+          - "null"
+        limitation:
+          type:
+          - string
+          - "null"
+    PageHeaderDto:
+      type: object
+      properties:
+        documentType:
+          type: string
+        verificationId:
+          type: string
+        lastVerifiedAt:
+          type:
+          - string
+          - "null"
+    RecipientDto:
+      type: object
+      properties:
+        name:
+          type: string
+    RecommenderDto:
+      type: object
+      properties:
+        name:
+          type: string
+        relationshipType:
+          type:
+          - string
+          - "null"
+        statedByRecommender:
+          type: boolean
+    TimelineEntryDto:
+      type: object
+      properties:
+        event:
+          type: string
+        at:
+          type: string
+    VerificationPageResponse:
+      type: object
+      properties:
+        header:
+          $ref: "#/components/schemas/PageHeaderDto"
+        recipient:
+          $ref: "#/components/schemas/RecipientDto"
+        recommender:
+          oneOf:
+          - $ref: "#/components/schemas/RecommenderDto"
+          - type: "null"
+        badges:
+          type: array
+          items:
+            $ref: "#/components/schemas/BadgeDto"
+        trustSummary:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+        version:
+          $ref: "#/components/schemas/VersionDto"
+        timeline:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineEntryDto"
+        disclaimer:
+          type: string
+        privacyNotice:
+          type: string
+    VersionDto:
+      type: object
+      properties:
+        versionNumber:
+          type: integer
+          format: int32
+        lockedAt:
+          type: string
+        status:
+          type: string
+        supersededByNewerVersion:
+          type: boolean
+    PublicDownloadLinkResponse:
+      type: object
+      properties:
+        url:
+          type: string
+        expiresAt:
           type: string
     TemplateListItem:
       type: object
@@ -1578,6 +1909,13 @@ components:
           type: string
         expiresAt:
           type: string
+    ShareLinkListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShareLinkResponse"
     ContactListResponse:
       type: object
       properties:

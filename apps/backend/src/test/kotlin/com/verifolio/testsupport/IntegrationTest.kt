@@ -26,6 +26,8 @@ abstract class IntegrationTest {
             registry.add("verifolio.storage.endpoint", minio::getS3URL)
             registry.add("verifolio.storage.access-key", minio::getUserName)
             registry.add("verifolio.storage.secret-key", minio::getPassword)
+            // The whole suite shares one context and one client IP; production default is 100.
+            registry.add("verifolio.auth.magic-link-ip-limit") { "100000" }
         }
     }
 }
