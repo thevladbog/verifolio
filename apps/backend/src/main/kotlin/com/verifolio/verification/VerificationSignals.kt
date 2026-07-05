@@ -32,10 +32,25 @@ interface VerificationSignals {
     fun listVerified(entityType: String, entityId: UUID): List<SignalView>
 
     /**
+     * VERIFIED and REVOKED signals for one entity, in creation order — the read model for
+     * surfaces that render revoked badges (a retracted recommendation shows its signals in
+     * their REVOKED state, docs/PUBLIC_VERIFICATION_PAGE.md). EXPIRED and superseded rows
+     * are excluded.
+     */
+    fun listForDisplay(entityType: String, entityId: UUID): List<SignalView>
+
+    /**
      * Flips VERIFIED signals of the given type on the entity to REVOKED; returns the
      * number flipped. Audits VERIFICATION_SIGNAL_UPDATED per row.
      */
     fun markRevoked(entityType: String, entityId: UUID, signalType: String): Int
+
+    /**
+     * Flips ALL VERIFIED signals on the entity (any type) to REVOKED — used when a whole
+     * entity's signals are revoked at once (retraction / consent withdrawal). Returns the
+     * number flipped. Audits VERIFICATION_SIGNAL_UPDATED per row.
+     */
+    fun revokeAllForEntity(entityType: String, entityId: UUID): Int
 
     /**
      * Flips VERIFIED signals to EXPIRED (catalog semantics: natural expiry, not

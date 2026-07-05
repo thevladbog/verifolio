@@ -80,10 +80,18 @@ File uploads:
 POST /api/v1/files/upload-requests
 ```
 
-Data subject requests:
+Data subject requests (privacy module). Two channels: the account-holder channel is
+session-scoped and CSRF-protected; the account-less recommender channel is public and
+CSRF-exempt (like invitations), always answers `202` regardless of match
+(anti-enumeration), and is gated by an emailed 6-digit code (TokenHasher HMAC, 10-min TTL,
+5 attempts, 3/15-min resend per email, 100/15-min per IP). A verified `CONSENT_WITHDRAWAL`
+executes immediately (Flow 10); the other types are recorded `RECEIVED` for manual handling.
 
 ```text
-POST /api/v1/data-subject-requests
+POST /api/v1/privacy/data-subject-requests                     (session; submit → RECEIVED)
+GET  /api/v1/privacy/data-subject-requests                     (session; keyset list)
+POST /api/v1/privacy/recommender-requests                      (public; always 202)
+POST /api/v1/privacy/recommender-requests/{id}/verify          (public; emailed-code verify)
 ```
 
 Admin API uses a dedicated prefix with separate authorization:

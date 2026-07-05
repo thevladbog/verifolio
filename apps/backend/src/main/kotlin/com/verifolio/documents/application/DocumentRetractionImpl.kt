@@ -53,4 +53,15 @@ internal class DocumentRetractionImpl(
         }
         return affected
     }
+
+    @Transactional(readOnly = true)
+    override fun versionIdsForRequest(requestId: UUID): List<UUID> {
+        val d = DOCUMENT
+        val dv = DOCUMENT_VERSION
+        return dsl.select(dv.ID)
+            .from(dv)
+            .where(dv.DOCUMENT_ID.`in`(dsl.select(d.ID).from(d).where(d.REQUEST_ID.eq(requestId))))
+            .fetch(dv.ID)
+            .filterNotNull()
+    }
 }

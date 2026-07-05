@@ -29,6 +29,9 @@ create table dsr_verification_code (      -- account-less recommender channel
 );
 
 alter table reference_request add column recommender_pii_erased_at timestamptz;
+-- Terminal-transition timestamp stamped by the DECLINED transition; the decline-grace erasure
+-- sweep (RecommenderPiiErasureTask) measures the abuse-investigation window from this column.
+alter table reference_request add column declined_at timestamptz;
 alter table reference_request alter column recommender_name drop not null;
 alter table reference_request alter column recommender_email drop not null;
 -- Recommender-PII erasure nulls the invitation-token email snapshot (erasure matrix); the

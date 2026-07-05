@@ -159,11 +159,17 @@ ReferenceRequest
 - purpose
 - status
 - declined_reason
+- declined_at
 - recommender_pii_erased_at
 - expires_at
 - created_at
 - updated_at
 ```
+
+`declined_at` (Flyway V11, nullable) is the terminal-transition timestamp stamped by the
+DECLINED transition. The decline-grace erasure sweep (`RecommenderPiiErasureTask`, privacy
+module) measures the abuse-investigation window from this column before erasing the
+recommender PII of a declined request.
 
 `declined_reason` (Flyway V10, nullable) is the optional decline reason category chosen by
 the recommender — enum values `DONT_KNOW_REQUESTER | TOO_BUSY | NOT_COMFORTABLE | OTHER`

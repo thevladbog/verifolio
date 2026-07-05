@@ -111,5 +111,11 @@ data class VerifolioProperties(
         val sla: Duration = Duration.ofDays(30),
         /** Abuse-investigation window before declined requests' recommender PII is erased (Flow 9). */
         val declineErasureGrace: Duration = Duration.ofHours(24),
+        /** Per-email verification-code window for the recommender DSR channel. */
+        val codeLimit: Int = 3,
+        val codeLimitWindow: Duration = Duration.ofMinutes(15),
+        /** Per-IP window for the public recommender DSR intake; raised in integration tests. */
+        val recommenderIpLimit: Int = 100,
+        val recommenderIpWindow: Duration = Duration.ofMinutes(15),
     )
 }

@@ -204,11 +204,16 @@ internal class PublicVerificationPageService(
         )
 
     private fun collectSignals(view: SharedVersionView): List<SignalView> {
-        val versionSignals = verificationSignals.listVerified("DOCUMENT_VERSION", view.versionId)
+        // listForDisplay surfaces VERIFIED + REVOKED so a retracted recommendation shows its
+        // signals in their REVOKED state (docs/PUBLIC_VERIFICATION_PAGE.md). Non-retracted pages
+        // are unaffected — they carry no REVOKED rows.
+        val versionSignals = verificationSignals.listForDisplay("DOCUMENT_VERSION", view.versionId)
         val responseSignals = view.requestId
             ?.let { requestPublicView.latestResponseId(it) }
-            ?.let { verificationSignals.listVerified("REFERENCE_RESPONSE", it) }
+            ?.let { verificationSignals.listForDisplay("REFERENCE_RESPONSE", it) }
             ?: emptyList()
+        // Share-link signals keep the VERIFIED-only read: an EXPIRED link stops resolving before
+        // this point, and a live link's PUBLIC_VERIFICATION_ENABLED signal is not part of retraction.
         val linkSignals = verificationSignals.listVerified("SHARE_LINK", view.shareLinkId)
         return responseSignals + versionSignals + linkSignals
     }

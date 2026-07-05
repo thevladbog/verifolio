@@ -102,6 +102,11 @@ CONSENT_DECLINED
 CONSENT_WITHDRAWN
 ```
 
+`CONSENT_WITHDRAWN` (actor SYSTEM, entity `REFERENCE_REQUEST`) records the Flow-10 consent
+withdrawal: the request's GRANTED recommender consent rows are flipped to `WITHDRAWN` (never
+deleted — they evidence lawful basis). Metadata carries `requestId`, `recommenderContactId`
+and the withdrawn-row `count` only.
+
 ### Data Subject Requests
 
 ```text
@@ -125,6 +130,14 @@ uploads, nulls the invitation-token email, deletes recommender sessions and conf
 codes). Metadata is IDs/counts only: `requestId`, `responsesDeleted`, `uploadsDeleted`,
 `tokensScrubbed`, `sessionsDeleted`. Each physical upload delete additionally emits its own
 `FILE_DELETED` (actor SYSTEM) from the files module.
+
+`DATA_SUBJECT_REQUEST_RECEIVED` (actor USER for the account-holder channel, RECOMMENDER for the
+account-less recommender channel) records intake; `DATA_SUBJECT_REQUEST_EXECUTED` (actor USER or
+SYSTEM) records completion. Metadata carries `type`/`region`/`previousStatus` enums only. Hybrid
+execution: a verified `CONSENT_WITHDRAWAL` runs RECEIVED → EXECUTED in one chain, emitting
+`CONSENT_WITHDRAWN`, `VERIFICATION_SIGNAL_UPDATED` (per revoked signal), `RECOMMENDATION_RETRACTED`
+and `RECOMMENDER_PII_ERASED` along the way. The other DSR types stay RECEIVED for manual/admin
+execution in a later iteration.
 
 ### Recommender Response
 

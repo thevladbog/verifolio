@@ -16,4 +16,11 @@ interface DocumentRetraction {
      * content is never modified. Audits RECOMMENDATION_RETRACTED (metadata: requestId, count).
      */
     fun markRetracted(requestId: UUID): Int
+
+    /**
+     * Version ids of the request's document(s) — the entities whose verification signals the
+     * privacy module revokes as part of a retraction / consent-withdrawal. Read-only; owns the
+     * document→version resolution so the privacy module never touches documents-owned tables.
+     */
+    fun versionIdsForRequest(requestId: UUID): List<UUID>
 }

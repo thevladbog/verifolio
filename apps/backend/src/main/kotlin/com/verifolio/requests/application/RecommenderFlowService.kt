@@ -710,6 +710,11 @@ internal class RecommenderFlowService(
         var update = dsl.update(REFERENCE_REQUEST)
             .set(REFERENCE_REQUEST.STATUS, to.name)
             .set(REFERENCE_REQUEST.UPDATED_AT, OffsetDateTime.now())
+        if (to == ReferenceRequestStatus.DECLINED) {
+            // Terminal-transition timestamp for the decline-grace erasure sweep; stamped on the
+            // same UPDATE as the status CAS so it can never land on a non-DECLINED row.
+            update = update.set(REFERENCE_REQUEST.DECLINED_AT, OffsetDateTime.now())
+        }
         if (declinedReason != null) {
             // Same UPDATE as the status CAS: the reason can never land on a non-DECLINED row.
             update = update.set(REFERENCE_REQUEST.DECLINED_REASON, declinedReason.name)
