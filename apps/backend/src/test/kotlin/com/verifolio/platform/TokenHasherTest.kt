@@ -1,4 +1,4 @@
-package com.verifolio.identity.domain
+package com.verifolio.platform
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
