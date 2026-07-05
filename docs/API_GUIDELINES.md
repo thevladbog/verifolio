@@ -105,6 +105,24 @@ Admin API uses a dedicated prefix with separate authorization:
 /api/v1/admin/...
 ```
 
+Admin DSR review queue (admin module → privacy admin API). Every endpoint requires an admin
+session (isolated admin SecurityFilterChain), a code-defined RBAC permission (`DSR_VIEW` /
+`DSR_DECIDE` / `DSR_EXECUTE`; missing → `403 FORBIDDEN`), and is region-scoped to the acting
+admin's cell (a DSR in another region is not listed and `404`s on detail/decision). Every read
+of subject data is audited (`ADMIN_DSR_VIEWED`, IDs only); decisions/executions record the ADMIN
+actor id on the DSR lifecycle audit. `execute` on a type without an automated executor yet
+(EXPORT / account-holder DELETION / REGION_MIGRATION / CORRECTION) returns
+`409 EXECUTION_NOT_AUTOMATED` ("manual execution required") rather than 500.
+
+```text
+GET  /api/v1/admin/dashboard                                   (DSR_VIEW; pending DSR counts by status)
+GET  /api/v1/admin/data-subject-requests?status=&cursor=       (DSR_VIEW; keyset list; audits ADMIN_DSR_VIEWED)
+GET  /api/v1/admin/data-subject-requests/{id}                  (DSR_VIEW; detail; audits ADMIN_DSR_VIEWED)
+POST /api/v1/admin/data-subject-requests/{id}/approve          (DSR_DECIDE; → APPROVED)
+POST /api/v1/admin/data-subject-requests/{id}/reject           (DSR_DECIDE; {notes} → REJECTED)
+POST /api/v1/admin/data-subject-requests/{id}/execute          (DSR_EXECUTE; → EXECUTED or 409 EXECUTION_NOT_AUTOMATED)
+```
+
 ## Command Endpoints
 
 Use explicit commands for important state changes:
