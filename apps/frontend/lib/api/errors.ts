@@ -13,6 +13,7 @@ export const KNOWN_CODES = new Set([
   "FORBIDDEN",
   "UNAUTHORIZED",
   "PROFILE_ERROR",
+  "EXECUTION_NOT_AUTOMATED",
 ]);
 
 type Translator = (key: string, values?: Record<string, string>) => string;
