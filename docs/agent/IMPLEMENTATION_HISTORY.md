@@ -314,3 +314,42 @@ inherit context; append an entry when an iteration ships.
 - **Verification certificate PDF, scan/signature download sections, NAME_MATCH,
   retraction/tombstone page states** — with their features.
 - **View sampling is in-process randomness** — per-cell aggregation post-MVP.
+
+## 2026-07 — Recommender uploads (iteration 7)
+
+### What shipped
+
+- **Schema**: Flyway V8 adds `response_upload` (kind SCAN/SIGNED_PDF/DETACHED_SIGNATURE/
+  ATTACHMENT, self-FK `target_upload_id` for signature→scan, `shared_publicly`,
+  `consent_record_id`) and `document_attachment` (per DATA_MODEL).
+- **files**: `FileUploads` public API — requestUpload (PENDING FileObject, constrained
+  presigned PUT: signed content-type + content-length, TTL 10m, opaque keys, per-purpose
+  MIME allowlists, 15 MB cap) / confirmUpload (synchronous validation inside the call:
+  head-size match, `MimeSniffer` magic bytes, SHA-256; REJECTED deletes the object) /
+  deleteUpload (physical). Audits FILE_UPLOAD_REQUESTED/FILE_UPLOADED/FILE_VALIDATED/
+  FILE_DELETED.
+- **Recommender API**: `POST/GET/DELETE /api/v1/recommender/uploads` +
+  `POST /{id}/confirm` — same response-cycle gate as drafts; cap 10 per request;
+  DETACHED_SIGNATURE requires a READY SCAN/SIGNED_PDF target (a signature covers a
+  specific uploaded file, never the generated PDF); deleting a signature target is
+  blocked while the signature exists. `sharedPublicly` on confirm writes a per-upload
+  `RECOMMENDER_PUBLIC_SHARING_CONSENT` record (versioned text
+  `verifolio.consents.public-sharing`) linked via `consent_record_id`.
+- **Acceptance**: READY uploads become `document_attachment` rows on the locked version
+  (`DocumentPublisher.attachFiles`); signals `SCAN_ATTACHED` (once) and
+  `SIGNATURE_ATTACHED` (per signature, evidence carries signatureFileId + targetFileId +
+  format "CMS/CAdES (detached)").
+- **Public page**: `downloads[]` section (generated PDF always; attachments downloadable
+  only with a GRANTED non-withdrawn consent; unconsented ones listed without filename);
+  `GET /api/v1/verification-pages/{token}/attachments/{attachmentId}/download-url`
+  (operationId publicAttachmentDownloadUrl) with full download audit.
+- **Tests**: presigned PUT exercised for real (HttpClient PUT to MinIO from tests);
+  content-mismatch rejection; signature-target rules; consent gating on public downloads.
+
+### Deferred items
+
+- **Antivirus / async validation pipeline** — Temporal item; VALIDATING runs inside confirm.
+- **PENDING-TTL cleanup job** — workflows item (abandoned PENDING rows/objects remain until then).
+- **Signature verification (Signature table, providers)** — ADR-0007, v1.1; only
+  SIGNATURE_ATTACHED is asserted.
+- **Consent withdrawal effects on published attachments** — retraction/privacy flows.

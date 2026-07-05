@@ -516,6 +516,114 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/recommender/uploads:
+    get:
+      tags:
+      - recommender-flow-controller
+      operationId: listUploads
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UploadListResponse"
+        "401":
+          description: No active recommender session
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Not a recommender session
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      tags:
+      - recommender-flow-controller
+      operationId: createUpload
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUploadRequest"
+        required: true
+      responses:
+        "201":
+          description: Constrained presigned PUT URL for direct upload
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UploadCreatedResponse"
+        "400":
+          description: "Validation failed (type, size, MIME)"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: No active recommender session
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Not a recommender session or missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: "Wrong status, upload cap, or invalid signature target"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/recommender/uploads/{id}/confirm:
+    post:
+      tags:
+      - recommender-flow-controller
+      operationId: confirmUpload
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: READY or REJECTED with the reason
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ConfirmUploadResponse"
+        "401":
+          description: No active recommender session
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Not a recommender session or missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Upload not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Upload is not awaiting confirmation
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/recommender/responses:
     post:
       tags:
@@ -995,6 +1103,42 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/verification-pages/{token}/attachments/{attachmentId}/download-url:
+    get:
+      tags:
+      - public-verification-controller
+      operationId: publicAttachmentDownloadUrl
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: attachmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Short-lived presigned link to a publicly shared attachment
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PublicDownloadLinkResponse"
+        "404":
+          description: Unknown link or attachment not publicly downloadable
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limited
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/templates:
     get:
       tags:
@@ -1277,6 +1421,45 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/recommender/uploads/{id}:
+    delete:
+      tags:
+      - recommender-flow-controller
+      operationId: deleteUpload
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: No active recommender session
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Not a recommender session or missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Upload not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: A signature references this upload
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     DraftRequest:
@@ -1506,6 +1689,66 @@ components:
           $ref: "#/components/schemas/ReferenceRequestResponse"
         documentId:
           type: string
+    CreateUploadRequest:
+      type: object
+      properties:
+        kind:
+          type:
+          - string
+          - "null"
+          enum:
+          - SCAN
+          - SIGNED_PDF
+          - DETACHED_SIGNATURE
+          - ATTACHMENT
+        filename:
+          type:
+          - string
+          - "null"
+          minLength: 1
+        mimeType:
+          type:
+          - string
+          - "null"
+          minLength: 1
+        sizeBytes:
+          type: integer
+          format: int64
+        sharedPublicly:
+          type: boolean
+        targetUploadId:
+          type:
+          - string
+          - "null"
+          format: uuid
+      required:
+      - filename
+      - kind
+      - mimeType
+    UploadCreatedResponse:
+      type: object
+      properties:
+        uploadId:
+          type: string
+        fileId:
+          type: string
+        uploadUrl:
+          type: string
+        expiresAt:
+          type: string
+    ConfirmUploadResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        sha256:
+          type:
+          - string
+          - "null"
+        reason:
+          type:
+          - string
+          - "null"
     SubmitResponseRequest:
       type: object
       properties:
@@ -1642,6 +1885,19 @@ components:
           type:
           - string
           - "null"
+    DownloadDto:
+      type: object
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+        filename:
+          type:
+          - string
+          - "null"
+        downloadable:
+          type: boolean
     PageHeaderDto:
       type: object
       properties:
@@ -1700,6 +1956,10 @@ components:
             format: int32
         version:
           $ref: "#/components/schemas/VersionDto"
+        downloads:
+          type: array
+          items:
+            $ref: "#/components/schemas/DownloadDto"
         timeline:
           type: array
           items:
@@ -1772,6 +2032,30 @@ components:
           items:
             $ref: "#/components/schemas/ReferenceRequestResponse"
         nextCursor:
+          type:
+          - string
+          - "null"
+    UploadListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadResponse"
+    UploadResponse:
+      type: object
+      properties:
+        uploadId:
+          type: string
+        kind:
+          type: string
+        filename:
+          type: string
+        status:
+          type: string
+        sharedPublicly:
+          type: boolean
+        targetUploadId:
           type:
           - string
           - "null"
