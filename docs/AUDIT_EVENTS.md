@@ -154,6 +154,12 @@ SHARE_LINK_EXPIRED
 
 Rename note: `SHARE_LINK_CREATED` / `SHARE_LINK_REVOKED` replace the former `DOCUMENT_SHARED` / `DOCUMENT_SHARE_REVOKED` event names to align with the SHARE_LINK entity type.
 
+`DOCUMENT_VERSION_TOMBSTONED` (actor SYSTEM, entity `DOCUMENT_VERSION`) records the single
+sanctioned content-erasing mutation of a locked version: the generated PDF and attachment
+objects are physically deleted (each emitting its own `FILE_DELETED`), then `content_json`
+and `rendered_html` are nulled and the status flips to `TOMBSTONED`; `sha256_hash`,
+`version_number` and `locked_at` are retained. Metadata is IDs only: `versionId`.
+
 ### Files
 
 ```text
@@ -183,6 +189,11 @@ RECOMMENDATION_RETRACTED
 PUBLIC_VERIFICATION_PAGE_VIEWED
 PUBLIC_VERIFICATION_PAGE_DOWNLOAD
 ```
+
+`RECOMMENDATION_RETRACTED` (actor SYSTEM, entity `REFERENCE_REQUEST`) records the recommender
+retracting the recommendation: `retracted_at` is stamped on the request's document versions
+(locked content is NOT modified — retraction ≠ deletion). Metadata is IDs/counts only:
+`requestId`, `count`.
 
 Public page view rules:
 

@@ -5,6 +5,7 @@ import com.verifolio.documents.PinnedPdf
 import com.verifolio.documents.ShareLinkAccess
 import com.verifolio.documents.SharedAttachment
 import com.verifolio.documents.SharedVersionView
+import com.verifolio.documents.TombstonedVersionView
 import com.verifolio.jooq.tables.references.CONSENT_RECORD
 import com.verifolio.jooq.tables.references.DOCUMENT_ATTACHMENT
 import com.verifolio.jooq.tables.references.FILE_OBJECT
@@ -175,6 +176,27 @@ internal class ShareLinkService(
     }
 
     @Transactional(readOnly = true)
+    override fun resolveTombstonedNotice(rawToken: String): TombstonedVersionView? {
+        val sl = SHARE_LINK
+        val link = dsl.selectFrom(sl)
+            .where(sl.TOKEN_HASH.eq(hasher.hash(rawToken)))
+            .fetchOne()
+            ?.takeIf { it.revokedAt == null && (it.expiresAt == null || it.expiresAt!!.isAfter(OffsetDateTime.now())) }
+            ?: return null
+        val dv = DOCUMENT_VERSION
+        val version = dsl.selectFrom(dv).where(dv.ID.eq(link.documentVersionId)).fetchOne() ?: return null
+        if (version.status != "TOMBSTONED") return null
+        val documentType = dsl.select(DOCUMENT.TYPE).from(DOCUMENT)
+            .where(DOCUMENT.ID.eq(link.documentId)).fetchOne(DOCUMENT.TYPE) ?: return null
+        return TombstonedVersionView(
+            shareLinkId = link.id!!,
+            documentType = documentType,
+            versionNumber = version.versionNumber!!,
+            tombstonedAt = version.tombstonedAt,
+        )
+    }
+
+    @Transactional(readOnly = true)
     override fun presignPinnedPdf(rawToken: String): PinnedPdf {
         val view = resolve(rawToken)
             ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Verification page not found")
@@ -221,6 +243,7 @@ internal class ShareLinkService(
             lockedAt = version.lockedAt!!,
             versionStatus = version.status!!,
             supersededByNewerVersion = version.versionNumber!! < currentNumber,
+            retractedAt = version.retractedAt,
             shareLinkCreatedAt = link.createdAt!!,
             attachments = sharedAttachments(version.id!!),
         )

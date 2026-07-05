@@ -3,6 +3,7 @@ package com.verifolio.publicpages.application
 import com.verifolio.audit.AuditService
 import com.verifolio.documents.ShareLinkAccess
 import com.verifolio.documents.SharedVersionView
+import com.verifolio.documents.TombstonedVersionView
 import com.verifolio.platform.ApiException
 import com.verifolio.platform.VerifolioProperties
 import com.verifolio.profiles.ProfileService
@@ -37,6 +38,10 @@ private const val PRIVACY_NOTICE =
         "keyed hashes of your IP address and browser identifier. These hashes are treated as " +
         "personal data and are retained under Verifolio's audit retention policy."
 
+private const val TOMBSTONE_NOTICE =
+    "The content of this document was removed at the data subject's request. The verification " +
+        "record remains, but the document and its attachments are no longer available."
+
 @Service
 internal class PublicVerificationPageService(
     private val shareLinkAccess: ShareLinkAccess,
@@ -51,7 +56,12 @@ internal class PublicVerificationPageService(
 
     @Transactional(readOnly = true)
     fun page(rawToken: String, ipHash: String?, userAgentHash: String?): VerificationPageResponse {
-        val view = shareLinkAccess.resolve(rawToken) ?: throw pageNotFound()
+        val view = shareLinkAccess.resolve(rawToken)
+            // A valid token pinned to a tombstoned version renders the neutral notice shape;
+            // an unknown/revoked/expired token stays a 404 (no state oracle).
+            ?: return shareLinkAccess.resolveTombstonedNotice(rawToken)
+                ?.let { tombstonedResponse(it) }
+                ?: throw pageNotFound()
 
         val signals = collectSignals(view)
         val requestInfo = view.requestId?.let { requestPublicView.forRequest(it) }
@@ -59,6 +69,7 @@ internal class PublicVerificationPageService(
         recordSampledView(view.shareLinkId, ipHash, userAgentHash)
 
         return VerificationPageResponse(
+            status = "ACTIVE",
             header = PageHeaderDto(
                 documentType = view.documentType,
                 verificationId = view.shareLinkId.toString(),
@@ -90,6 +101,7 @@ internal class PublicVerificationPageService(
                 lockedAt = view.lockedAt.toString(),
                 status = view.versionStatus,
                 supersededByNewerVersion = view.supersededByNewerVersion,
+                retractedAt = view.retractedAt?.toString(),
             ),
             downloads = buildList {
                 add(DownloadDto(id = "generated-pdf", kind = "GENERATED_PDF", filename = null, downloadable = true))
@@ -165,6 +177,31 @@ internal class PublicVerificationPageService(
     }
 
     // ---- helpers ----
+
+    /**
+     * Tombstoned pinned version: header + neutral notice only. No recipient, recommender,
+     * signals, downloads or timeline are exposed — the content was erased at the subject's
+     * request. The download-url endpoints separately 404 (the version no longer resolves).
+     */
+    private fun tombstonedResponse(view: TombstonedVersionView): VerificationPageResponse =
+        VerificationPageResponse(
+            status = "TOMBSTONED",
+            header = PageHeaderDto(
+                documentType = view.documentType,
+                verificationId = view.shareLinkId.toString(),
+                lastVerifiedAt = null,
+            ),
+            recipient = null,
+            recommender = null,
+            badges = emptyList(),
+            trustSummary = emptyMap(),
+            version = null,
+            downloads = emptyList(),
+            timeline = emptyList(),
+            disclaimer = null,
+            privacyNotice = null,
+            notice = TOMBSTONE_NOTICE,
+        )
 
     private fun collectSignals(view: SharedVersionView): List<SignalView> {
         val versionSignals = verificationSignals.listVerified("DOCUMENT_VERSION", view.versionId)

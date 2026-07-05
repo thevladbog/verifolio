@@ -96,6 +96,27 @@ internal class FileStoreImpl(
         return DownloadLink(url = url, expiresAt = OffsetDateTime.now().plus(ttl))
     }
 
+    @Transactional
+    override fun deleteGeneratedAsSystem(fileId: UUID) {
+        val fo = FILE_OBJECT
+        val record = dsl.selectFrom(fo).where(fo.ID.eq(fileId)).forUpdate().fetchOne() ?: return
+        // Idempotent: an already-DELETED object is a no-op (tombstone re-runs land here).
+        if (record.status == "DELETED") return
+        // Storage first, DB status after (cleanup-task precedent). Swallow storage failure —
+        // the object may already be gone; the row still flips to DELETED so it is never served.
+        runCatching { storage.delete(record.storageKey!!) }
+        dsl.update(fo)
+            .set(fo.STATUS, "DELETED")
+            .set(fo.DELETED_AT, OffsetDateTime.now())
+            .where(fo.ID.eq(fileId))
+            .execute()
+        audit.record(
+            actorType = "SYSTEM", actorId = null, action = "FILE_DELETED",
+            entityType = "FILE_OBJECT", entityId = fileId.toString(),
+            metadata = mapOf("purpose" to (record.purpose ?: "GENERATED_PDF")),
+        )
+    }
+
     private fun sha256Hex(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 }

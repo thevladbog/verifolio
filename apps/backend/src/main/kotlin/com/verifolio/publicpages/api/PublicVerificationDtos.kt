@@ -30,6 +30,8 @@ data class VersionDto(
     val lockedAt: String,
     val status: String,
     val supersededByNewerVersion: Boolean,
+    /** Set when the recommender retracted; the frontend renders the retracted banner. */
+    val retractedAt: String? = null,
 )
 
 data class TimelineEntryDto(val event: String, val at: String)
@@ -43,16 +45,21 @@ data class DownloadDto(
 )
 
 data class VerificationPageResponse(
+    /** "ACTIVE" for a live/retracted version, "TOMBSTONED" for the erased-content notice shape. */
+    val status: String,
     val header: PageHeaderDto,
-    val recipient: RecipientDto,
+    /** Null in the tombstoned shape — no recipient/recommender/signals/downloads are exposed. */
+    val recipient: RecipientDto?,
     val recommender: RecommenderDto?,
     val badges: List<BadgeDto>,
     val trustSummary: Map<String, Int>,
-    val version: VersionDto,
+    val version: VersionDto?,
     val downloads: List<DownloadDto>,
     val timeline: List<TimelineEntryDto>,
-    val disclaimer: String,
-    val privacyNotice: String,
+    val disclaimer: String?,
+    val privacyNotice: String?,
+    /** Neutral notice for the tombstoned shape; null otherwise. */
+    val notice: String? = null,
 )
 
 data class PublicDownloadLinkResponse(

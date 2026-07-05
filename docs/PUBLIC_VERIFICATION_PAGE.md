@@ -72,8 +72,8 @@ Revoked signals must not appear as confirmed.
 - lock date;
 - locked status;
 - superseded marker if a newer version exists (superseded versions remain visible, never edited);
-- retracted state: if the recommender retracted, show "Recommendation retracted by recommender on <date>" and related signals as revoked;
-- tombstoned state: if content was erased via a data subject request, show "content removed at data subject's request";
+- retracted state (implemented): if the recommender retracted, the response carries `version.retractedAt` and the frontend shows "Recommendation retracted by recommender on <date>"; the locked content stays readable and signals reflect their live status (revoked signals shown as revoked). The generated PDF remains downloadable — retraction is not deletion;
+- tombstoned state (implemented): if content was erased via a data subject request, the response collapses to the minimal shape `{status: "TOMBSTONED", header, notice}` with no recipient/recommender/signals/downloads/timeline; the download-url endpoints return 404. The token itself still resolves (no state oracle: unknown/revoked/expired tokens remain 404);
 - translations are marked as translations; the original-language text is canonical and the recommender's accuracy attestation covers the original text only.
 
 ### Downloads
