@@ -54,6 +54,26 @@ without an approved task):
 - **11e** — generated-PDF redesign (backend openhtmltopdf template — separate backend task).
 - **7a/7c «переключатель темы»** — dark mode is out of scope v1 per DESIGN_SYSTEM.md;
   only the language switcher ships.
+- **9a/9b differentiated expired-vs-revoked third-party states** — conflict with the
+  backend's no-state-oracle rule (any invalid share token is a uniform 404, by design —
+  privacy wins over the canvas); the frontend shows one neutral invalid state.
+- **6d rich submitted state** (version hash, signals, PDF copy for the recommender) —
+  no recommender-facing endpoint exposes this after submission.
+
+### Canvas copy note
+
+The committed `docs/design/Verifolio Design.dc.html` is truncated at the MCP read cap
+(256 KiB of 380 KiB); the missing tail falls inside the t5 admin section (post-MVP
+screens 5a–5e). All 37 screen labels and every in-scope screen survive in the committed
+copy. Re-import the full file when the admin iteration starts.
+
+### Fidelity-pass status (2026-07-05)
+
+Applied during implementation: Manrope UI font, top-navbar app shell (supersedes
+DESIGN_SYSTEM.md's dark sidebar), pill locale switcher, avatar menu, `@theme` tokens,
+contacts/requests/builder/share-dialog/empty-dashboard structure per canvas
+7e/7a/6a–6c/6f/8b. Remaining deltas are all in the deferred list above (backend-gated);
+a deeper interactive pixel review remains an optional follow-up.
 
 ## Placement: monorepo `apps/frontend`
 
