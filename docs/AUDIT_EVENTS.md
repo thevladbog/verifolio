@@ -132,12 +132,40 @@ codes). Metadata is IDs/counts only: `requestId`, `responsesDeleted`, `uploadsDe
 `FILE_DELETED` (actor SYSTEM) from the files module.
 
 `DATA_SUBJECT_REQUEST_RECEIVED` (actor USER for the account-holder channel, RECOMMENDER for the
-account-less recommender channel) records intake; `DATA_SUBJECT_REQUEST_EXECUTED` (actor USER or
-SYSTEM) records completion. Metadata carries `type`/`region`/`previousStatus` enums only. Hybrid
+account-less recommender channel) records intake; `DATA_SUBJECT_REQUEST_EXECUTED` (actor USER,
+SYSTEM, or ADMIN when triggered from the admin console) records completion. `DATA_SUBJECT_REQUEST_APPROVED`
+/ `_REJECTED` (actor ADMIN, `actorId` = admin account id) record admin review decisions. Metadata
+carries `type`/`region`/`previousStatus` enums only. Hybrid
 execution: a verified `CONSENT_WITHDRAWAL` runs RECEIVED → EXECUTED in one chain, emitting
 `CONSENT_WITHDRAWN`, `VERIFICATION_SIGNAL_UPDATED` (per revoked signal), `RECOMMENDATION_RETRACTED`
 and `RECOMMENDER_PII_ERASED` along the way. The other DSR types stay RECEIVED for manual/admin
 execution in a later iteration.
+
+### Admin
+
+```text
+ADMIN_ACCOUNT_CREATED
+ADMIN_LOGIN_SUCCEEDED
+ADMIN_LOGIN_FAILED
+ADMIN_SESSION_CREATED
+ADMIN_SESSION_REVOKED
+ADMIN_DSR_VIEWED
+```
+
+`ADMIN_ACCOUNT_CREATED` (actor SYSTEM, entity `ADMIN_ACCOUNT`) records config-driven bootstrap of a
+SUPERADMIN admin account. `ADMIN_LOGIN_SUCCEEDED` + `ADMIN_SESSION_CREATED` (actor ADMIN, entity
+`ADMIN_ACCOUNT` / `ADMIN_SESSION`) are emitted together when the two-factor sequence (magic-link +
+TOTP) mints an admin session; `ADMIN_SESSION_REVOKED` (actor ADMIN, entity `ADMIN_SESSION`) records
+admin logout. Metadata is IDs/enums only (`region`, `adminId`); admin auth is isolated from user auth
+(separate cookie/session/chain). `ADMIN_LOGIN_FAILED` is reserved for future failed-factor
+recording; the always-202 magic-link request is anti-enumeration and is not itself audited per-email.
+
+`ADMIN_DSR_VIEWED` (actor ADMIN, entity `DATA_SUBJECT_REQUEST`) records every admin read of the DSR
+review queue — a list read carries the listed ids (`dsrIds`, comma-separated); a detail read carries
+the single `dsrId`. Metadata is IDs only (`region`, `adminId`, `dsrId`/`dsrIds`); no subject data is
+copied into the audit. Admin DSR decisions/executions reuse the existing DSR lifecycle events
+(`DATA_SUBJECT_REQUEST_APPROVED` / `_REJECTED` / `_EXECUTED`) with the acting admin recorded as the
+ADMIN actor (`actorId` = admin account id).
 
 ### Recommender Response
 

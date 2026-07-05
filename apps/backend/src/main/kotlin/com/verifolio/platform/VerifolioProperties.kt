@@ -15,10 +15,14 @@ data class VerifolioProperties(
     val publicPage: PublicPage = PublicPage(),
     val workflows: Workflows = Workflows(),
     val privacy: Privacy = Privacy(),
+    val admin: Admin = Admin(),
 ) {
     init {
         require(region == "local" || auth.tokenPepper != "local-dev-pepper-change-me") {
             "verifolio.auth.token-pepper must be overridden outside the local region"
+        }
+        require(region == "local" || admin.totpSecretKey != Admin.LOCAL_DEV_TOTP_SECRET_KEY) {
+            "verifolio.admin.totp-secret-key must be overridden outside the local region"
         }
     }
 
@@ -118,4 +122,23 @@ data class VerifolioProperties(
         val recommenderIpLimit: Int = 100,
         val recommenderIpWindow: Duration = Duration.ofMinutes(15),
     )
+
+    /**
+     * Admin foundation config (docs/superpowers/specs/2026-07-05-admin-foundation-design.md).
+     * @param bootstrapEmails config-driven, idempotent SUPERADMIN bootstrap on startup;
+     *   empty = no bootstrap (prod sets it per cell).
+     * @param totpSecretKey the per-cell secret that AdminTotpCipher derives its AES-256 key
+     *   from (SHA-256). An ops-provided secret string, not a committed key blob. The local
+     *   placeholder ships for dev only; real cells set their own (validated non-default when
+     *   region != local, mirroring the pepper rule).
+     */
+    data class Admin(
+        val bootstrapEmails: List<String> = emptyList(),
+        val totpSecretKey: String = LOCAL_DEV_TOTP_SECRET_KEY,
+    ) {
+        companion object {
+            /** DEV ONLY placeholder — a plainly-non-secret string; real cells must override. */
+            const val LOCAL_DEV_TOTP_SECRET_KEY = "local-dev-unsafe-totp-key"
+        }
+    }
 }

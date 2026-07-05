@@ -207,10 +207,14 @@ internal class DataSubjectRequestService(
     /**
      * Executes a DSR. Implemented for CONSENT_WITHDRAWAL (across the subject's requests, or the
      * scoped one) and DELETION of a recommender subject scoped to a reference request (tombstone
-     * + erasure). Other types are deferred to the admin/automation iteration.
+     * + erasure). Other types are deferred to the admin/automation iteration and surface as
+     * 409 EXECUTION_NOT_AUTOMATED so the admin UI shows "manual execution required" rather than 500.
+     *
+     * [adminActorId] is the acting admin's id when triggered from the admin console (audited as the
+     * ADMIN actor); null for the recommender-channel auto-execute path (audited as SYSTEM/USER).
      */
     @Transactional
-    fun execute(dsrId: UUID) {
+    fun execute(dsrId: UUID, adminActorId: String? = null) {
         val dsr = DATA_SUBJECT_REQUEST
         val record = dsl.selectFrom(dsr).where(dsr.ID.eq(dsrId)).forUpdate().fetchOne()
             ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Data request not found")
@@ -237,8 +241,8 @@ internal class DataSubjectRequestService(
                 // holder deletion is deferred to the admin/automation iteration.
                 if (record.recommenderContactId == null) {
                     throw ApiException(
-                        HttpStatus.CONFLICT, "NOT_IMPLEMENTED",
-                        "Account-holder deletion execution is not available in this iteration",
+                        HttpStatus.CONFLICT, "EXECUTION_NOT_AUTOMATED",
+                        "Account-holder deletion execution is not automated yet; manual execution required",
                     )
                 }
                 scopeForRecommender(record).forEach { ref ->
@@ -254,8 +258,8 @@ internal class DataSubjectRequestService(
                 }
             }
             else -> throw ApiException(
-                HttpStatus.CONFLICT, "NOT_IMPLEMENTED",
-                "Execution for ${record.type} is not available in this iteration",
+                HttpStatus.CONFLICT, "EXECUTION_NOT_AUTOMATED",
+                "Execution for ${record.type} is not automated yet; manual execution required",
             )
         }
 
@@ -264,9 +268,15 @@ internal class DataSubjectRequestService(
             .set(dsr.UPDATED_AT, OffsetDateTime.now())
             .where(dsr.ID.eq(dsrId))
             .execute()
+        // An admin-triggered execution records the ADMIN actor; the auto path keeps SYSTEM/USER.
+        val actorType = when {
+            adminActorId != null -> "ADMIN"
+            record.userId != null -> "USER"
+            else -> "SYSTEM"
+        }
         audit.record(
-            actorType = if (record.userId != null) "USER" else "SYSTEM",
-            actorId = record.userId?.toString(),
+            actorType = actorType,
+            actorId = adminActorId ?: record.userId?.toString(),
             action = "DATA_SUBJECT_REQUEST_EXECUTED",
             entityType = "DATA_SUBJECT_REQUEST",
             entityId = dsrId.toString(),
@@ -274,17 +284,21 @@ internal class DataSubjectRequestService(
         )
     }
 
-    /** Transition helpers for review completeness (no HTTP surface yet). */
+    /**
+     * Admin decision transitions (admin console). [adminActorId] is the acting admin's id — the
+     * DATA_SUBJECT_REQUEST_APPROVED/REJECTED audit records the ADMIN actor.
+     */
     @Transactional
-    fun approve(dsrId: UUID, actorId: String?) = transition(dsrId, DsrStatus.APPROVED, "DATA_SUBJECT_REQUEST_APPROVED", actorId, null)
+    fun approve(dsrId: UUID, adminActorId: String) =
+        transition(dsrId, DsrStatus.APPROVED, "DATA_SUBJECT_REQUEST_APPROVED", adminActorId, null)
 
     @Transactional
-    fun reject(dsrId: UUID, actorId: String?, notes: String?) =
-        transition(dsrId, DsrStatus.REJECTED, "DATA_SUBJECT_REQUEST_REJECTED", actorId, notes)
+    fun reject(dsrId: UUID, adminActorId: String, notes: String?) =
+        transition(dsrId, DsrStatus.REJECTED, "DATA_SUBJECT_REQUEST_REJECTED", adminActorId, notes)
 
     // ---- helpers ----
 
-    private fun transition(dsrId: UUID, target: DsrStatus, action: String, actorId: String?, notes: String?) {
+    private fun transition(dsrId: UUID, target: DsrStatus, action: String, adminActorId: String, notes: String?) {
         val dsr = DATA_SUBJECT_REQUEST
         val record = dsl.selectFrom(dsr).where(dsr.ID.eq(dsrId)).forUpdate().fetchOne()
             ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Data request not found")
@@ -298,8 +312,8 @@ internal class DataSubjectRequestService(
         if (notes != null) update = update.set(dsr.RESOLUTION_NOTES, notes)
         update.where(dsr.ID.eq(dsrId)).execute()
         audit.record(
-            actorType = if (actorId != null) "USER" else "SYSTEM",
-            actorId = actorId,
+            actorType = "ADMIN",
+            actorId = adminActorId,
             action = action,
             entityType = "DATA_SUBJECT_REQUEST",
             entityId = dsrId.toString(),

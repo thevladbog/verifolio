@@ -614,3 +614,53 @@ inherit context; append an entry when an iteration ships.
   verified org name.
 - **RU / GLOBAL cell org seeds** — V13 seeds a single starter set; region-specific
   registries are not yet seeded.
+
+## 2026-07 — Admin foundation + DSR queue (iteration 13)
+
+### What shipped
+
+- **Schema**: Flyway V14 adds `admin_account` (user_account FK, region, role
+  SUPPORT_L1/L2/SUPERADMIN, status, `totp_secret_enc`, `mfa_enrolled_at`),
+  `admin_magic_link_token`, `admin_session`, `admin_mfa_pending`.
+- **Admin auth — magic-link + mandatory TOTP MFA** (fully isolated from user/recommender
+  auth: separate tables, cookies `verifolio_admin_session`/`verifolio_admin_pending`, and
+  a second `SecurityFilterChain @Order(1)` scoped to `/api/v1/admin/**`; the user chain is
+  `@Order(2)`). A session is minted ONLY after both factors pass. Flow: `POST
+  /admin/auth/magic-links` (always 202 anti-enum, rate-limited) → `/consume` (→ pending
+  cookie + ENROLL|CHALLENGE state) → enroll (`GET /mfa/enrollment` secret+otpauth URI,
+  `POST /mfa/enroll`) or challenge (`POST /mfa/verify`, attempt-capped atomic claim) →
+  session; `GET /me`, `POST /logout`. TOTP via `com.eatthepath:java-otp` (RFC 6238,
+  ±1 step skew); **secret AES-256-GCM encrypted at rest** (`AdminTotpCipher`, per-cell
+  key `verifolio.admin.totp-secret-key`).
+- **RBAC**: fixed code-defined role→permission map (`AdminRole.has`); `AdminAuthorization.
+  require` → 403. L1 = DSR_VIEW; L2/SUPERADMIN add DSR_DECIDE + DSR_EXECUTE; ADMIN_MANAGE
+  = SUPERADMIN only.
+- **Bootstrap**: `verifolio.admin.bootstrap-emails` → idempotent SUPERADMIN creation on
+  ApplicationReady (the only first-admin path this iteration), audited ADMIN_ACCOUNT_CREATED.
+- **DSR review queue** (admin, region-scoped): privacy exposes `DataSubjectRequestAdminView`
+  (listForRegion/get/counts + region-scoped approve/reject/execute — admin never touches
+  DSR tables). `GET /admin/dashboard`, `GET /admin/data-subject-requests` (+`/{id}`) audit
+  ADMIN_DSR_VIEWED (every admin read of subject data); approve/reject/execute record the
+  ADMIN actor id. `execute()` on a not-yet-automated type → 409 EXECUTION_NOT_AUTOMATED.
+- **Frontend**: `(admin)` route group — login → TOTP enroll/challenge, dashboard shell,
+  DSR queue (role-gated actions).
+- **Isolation invariants tested**: a user session cannot authenticate `/api/v1/admin/**`
+  and an admin session cannot authenticate user endpoints; MFA-before-session; attempt
+  caps; anti-enum; CSRF; region scoping.
+
+### Deferred items
+
+- **DSR automated executors** (EXPORT, account-holder DELETION, REGION_MIGRATION,
+  CORRECTION) — still NOT_IMPLEMENTED; the queue lets admins decide + execute the
+  automated types (recommender-DELETION; CONSENT_WITHDRAWAL auto at intake).
+- **User management, audit-log viewer, identity-verification queue, org/catalog/consent
+  write management** (design 5b/5c/5e/11a/11b/11c) — follow-up admin iterations.
+- **Superadmin 2-step confirmation of critical actions** (step-up) — role gating only now.
+- **Per-role field restrictions ("support without content access")** — with user mgmt.
+- **ADMIN_LOGIN_FAILED emission**, admin-session TTL config (hardcoded 8h), RFC-strict
+  otpauth label encoding — minor follow-ups flagged in review.
+- **Login-timing admin-enumeration** on `POST /admin/auth/magic-links` (synchronous
+  `mail.send` for real admins vs no-op otherwise leaks existence despite the identical
+  202 + rate limits) — the same synchronous-mail anti-enum tradeoff as the user
+  magic-link and the recommender DSR channel; the uniform fix is the tracked
+  outbox/AFTER-COMMIT async-dispatch item (deferred since iteration 1).

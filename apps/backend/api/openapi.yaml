@@ -1191,6 +1191,252 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/data-subject-requests/{id}/reject:
+    post:
+      tags:
+      - admin-dsr-controller
+      operationId: reject
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminDsrRejectRequest"
+        required: true
+      responses:
+        "200":
+          description: Rejected
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminDsrStatusResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found in the admin's region
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Illegal state transition
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/data-subject-requests/{id}/execute:
+    post:
+      tags:
+      - admin-dsr-controller
+      operationId: execute
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Executed
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminDsrStatusResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found in the admin's region
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: "Illegal state, or EXECUTION_NOT_AUTOMATED for a type without\
+            \ an automated executor yet"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/data-subject-requests/{id}/approve:
+    post:
+      tags:
+      - admin-dsr-controller
+      operationId: approve
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Approved (RECEIVED/IN_REVIEW → APPROVED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminDsrStatusResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found in the admin's region
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Illegal state transition
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/auth/mfa/verify:
+    post:
+      tags:
+      - admin-auth-controller
+      operationId: verify_1
+      parameters:
+      - name: verifolio_admin_pending
+        in: cookie
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminMfaCodeRequest"
+        required: true
+      responses:
+        "200":
+          description: Challenge passed; admin session cookie set
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminOkResponse"
+        "400":
+          description: Invalid code / pending
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/auth/mfa/enroll:
+    post:
+      tags:
+      - admin-auth-controller
+      operationId: enroll
+      parameters:
+      - name: verifolio_admin_pending
+        in: cookie
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminMfaCodeRequest"
+        required: true
+      responses:
+        "200":
+          description: Enrolled; admin session cookie set
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminOkResponse"
+        "400":
+          description: Invalid code / pending
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/auth/magic-links:
+    post:
+      tags:
+      - admin-auth-controller
+      operationId: requestMagicLink_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminMagicLinkRequest"
+        required: true
+      responses:
+        "202":
+          description: Accepted — identical whether or not an admin exists
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminMessageResponse"
+        "429":
+          description: Rate limited
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/auth/magic-links/consume:
+    post:
+      tags:
+      - admin-auth-controller
+      operationId: consume
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminConsumeRequest"
+        required: true
+      responses:
+        "200":
+          description: Token consumed; MFA branch returned + pending cookie set
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminConsumeResponse"
+        "400":
+          description: Invalid or expired token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/auth/logout:
+    post:
+      tags:
+      - admin-auth-controller
+      operationId: logout
+      parameters:
+      - name: verifolio_admin_session
+        in: cookie
+        required: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Session revoked (idempotent)
+        "403":
+          description: Missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /docs:
     get:
       tags:
@@ -1722,7 +1968,7 @@ paths:
     delete:
       tags:
       - auth-controller
-      operationId: logout
+      operationId: logout_1
       parameters:
       - name: verifolio_session
         in: cookie
@@ -1734,6 +1980,150 @@ paths:
           description: Session revoked (idempotent)
         "403":
           description: Missing CSRF token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/me:
+    get:
+      tags:
+      - admin-auth-controller
+      operationId: me
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminMeResponse"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/data-subject-requests:
+    get:
+      tags:
+      - admin-dsr-controller
+      operationId: list_1
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminDsrListResponse"
+        "400":
+          description: Invalid cursor or status
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Insufficient permissions
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/data-subject-requests/{id}:
+    get:
+      tags:
+      - admin-dsr-controller
+      operationId: detail
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminDsrDetailResponse"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Insufficient permissions
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found in the admin's region
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/dashboard:
+    get:
+      tags:
+      - admin-dsr-controller
+      operationId: dashboard
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminDashboardResponse"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Insufficient permissions
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/auth/mfa/enrollment:
+    get:
+      tags:
+      - admin-auth-controller
+      operationId: enrollment
+      parameters:
+      - name: verifolio_admin_pending
+        in: cookie
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminEnrollmentResponse"
+        "400":
+          description: No/expired pending MFA
           content:
             '*/*':
               schema:
@@ -2320,6 +2710,61 @@ components:
       properties:
         message:
           type: string
+    AdminDsrRejectRequest:
+      type: object
+      properties:
+        notes:
+          type:
+          - string
+          - "null"
+          maxLength: 2000
+          minLength: 0
+    AdminDsrStatusResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+    AdminMfaCodeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+      required:
+      - code
+    AdminOkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+    AdminMagicLinkRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          minLength: 1
+      required:
+      - email
+    AdminMessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+    AdminConsumeRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+      required:
+      - token
+    AdminConsumeResponse:
+      type: object
+      properties:
+        state:
+          type: string
     BadgeDto:
       type: object
       properties:
@@ -2782,4 +3227,92 @@ components:
         title:
           type: string
         body:
+          type: string
+    AdminMeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        region:
+          type: string
+    AdminDsrItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        subjectEmail:
+          type: string
+        dueAt:
+          type: string
+        createdAt:
+          type: string
+        resolutionNotes:
+          type:
+          - string
+          - "null"
+    AdminDsrListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminDsrItemResponse"
+        nextCursor:
+          type:
+          - string
+          - "null"
+    AdminDsrDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        subjectEmail:
+          type: string
+        region:
+          type: string
+        dueAt:
+          type: string
+        verifiedAt:
+          type:
+          - string
+          - "null"
+        resolutionNotes:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+        updatedAt:
+          type:
+          - string
+          - "null"
+    AdminDashboardResponse:
+      type: object
+      properties:
+        dsrByStatus:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+        dsrPendingTotal:
+          type: integer
+          format: int32
+    AdminEnrollmentResponse:
+      type: object
+      properties:
+        secretBase32:
+          type: string
+        otpauthUri:
           type: string
