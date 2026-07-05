@@ -113,13 +113,14 @@ internal class LifecycleActions(
             // Raw tokens are never stored — reminders must re-mint the link. The OLD
             // tokens are revoked only after the new one was successfully emailed:
             // revocation audits run REQUIRES_NEW and would survive a mail-failure
-            // rollback, falsely claiming a still-usable token was revoked.
-            val mintedAt = OffsetDateTime.now()
-            val remaining = Duration.between(mintedAt, row.expiresAt)
+            // rollback, falsely claiming a still-usable token was revoked. The fresh
+            // token is excluded by hash, not by timestamp (DB created_at is the
+            // transaction start time and is not comparable with the JVM clock).
+            val remaining = Duration.between(now, row.expiresAt)
             val ttl = if (remaining > Duration.ofDays(1)) remaining else Duration.ofDays(1)
             val rawToken = invitationTokens.mint(requestId, row.recommenderEmail!!, ttl)
             sendReminderMail(row, reminderIndex == offsets.size - 1, rawToken)
-            invitationTokens.revokeForRequest(requestId, createdBefore = mintedAt)
+            invitationTokens.revokeForRequest(requestId, exceptRawToken = rawToken)
         } catch (e: Exception) {
             sendLimiter.release(limiterKey)
             throw e

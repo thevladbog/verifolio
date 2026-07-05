@@ -33,10 +33,10 @@ internal class InvitationTokenServiceImpl(
     }
 
     @Transactional
-    override fun revokeForRequest(requestId: UUID, createdBefore: OffsetDateTime?): Int {
+    override fun revokeForRequest(requestId: UUID, exceptRawToken: String?): Int {
         val it = INVITATION_TOKEN
         var condition = it.REQUEST_ID.eq(requestId).and(it.CONSUMED_AT.isNull).and(it.REVOKED_AT.isNull)
-        if (createdBefore != null) condition = condition.and(it.CREATED_AT.lt(createdBefore))
+        if (exceptRawToken != null) condition = condition.and(it.TOKEN_HASH.ne(hasher.hash(exceptRawToken)))
         val revoked = dsl.update(it)
             .set(it.REVOKED_AT, OffsetDateTime.now())
             .where(condition)

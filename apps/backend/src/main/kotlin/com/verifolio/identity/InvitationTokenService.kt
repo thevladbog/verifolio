@@ -1,7 +1,6 @@
 package com.verifolio.identity
 
 import java.time.Duration
-import java.time.OffsetDateTime
 import java.util.UUID
 
 /**
@@ -14,8 +13,10 @@ interface InvitationTokenService {
 
     /**
      * Revokes outstanding (unconsumed, unrevoked) tokens for the request. Audited per
-     * token. [createdBefore] limits revocation to older tokens — reminder re-minting
-     * revokes the previous links only after the new one was successfully emailed.
+     * token. [exceptRawToken] excludes one token (matched by hash) — reminder re-minting
+     * revokes the previous links after the new one was successfully emailed. The
+     * exclusion is by identity, never by timestamps: DB `created_at` defaults use the
+     * transaction start time, which is not comparable with mid-transaction JVM clocks.
      */
-    fun revokeForRequest(requestId: UUID, createdBefore: OffsetDateTime? = null): Int
+    fun revokeForRequest(requestId: UUID, exceptRawToken: String? = null): Int
 }

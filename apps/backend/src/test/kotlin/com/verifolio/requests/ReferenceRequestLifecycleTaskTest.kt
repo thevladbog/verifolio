@@ -154,6 +154,17 @@ class ReferenceRequestLifecycleTaskTest : IntegrationTest() {
         assertThat(open.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(remindersSent(requestId)).isEqualTo(1)
 
+        // Clock-independent guard: the freshly minted token itself is NOT revoked while
+        // the pre-reminder token is (revocation excludes by hash, never by timestamps —
+        // DB created_at is the transaction start time and races the JVM clock).
+        val it = INVITATION_TOKEN
+        val tokens = dsl.selectFrom(it)
+            .where(it.REQUEST_ID.eq(UUID.fromString(requestId)))
+            .orderBy(it.CREATED_AT.asc())
+            .fetch()
+        assertThat(tokens).hasSize(2)
+        assertThat(tokens.count { row -> row.revokedAt == null }).isEqualTo(1)
+
         // Idempotency: an immediate second tick sends nothing more.
         mail.sent.clear()
         task.run()
