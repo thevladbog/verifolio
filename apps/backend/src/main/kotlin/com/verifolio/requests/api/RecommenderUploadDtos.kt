@@ -9,7 +9,7 @@ data class CreateUploadRequest(
     @field:NotNull val kind: UploadKind?,
     @field:NotBlank val filename: String?,
     @field:NotBlank val mimeType: String?,
-    @field:Positive val sizeBytes: Long,
+    @field:NotNull @field:Positive val sizeBytes: Long?,
     /** Per-upload "may be shared publicly" toggle (RECOMMENDER_PUBLIC_SHARING_CONSENT). */
     val sharedPublicly: Boolean = false,
     /** Required for DETACHED_SIGNATURE: the READY upload the signature covers. */

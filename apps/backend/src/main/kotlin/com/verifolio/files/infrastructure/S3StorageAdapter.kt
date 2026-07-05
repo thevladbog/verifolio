@@ -85,6 +85,13 @@ internal class S3StorageAdapter(private val props: VerifolioProperties) {
     fun getBytes(key: String): ByteArray =
         client.getObjectAsBytes { it.bucket(props.storage.bucket).key(key) }.asByteArray()
 
+    fun copy(srcKey: String, dstKey: String) {
+        client.copyObject {
+            it.sourceBucket(props.storage.bucket).sourceKey(srcKey)
+                .destinationBucket(props.storage.bucket).destinationKey(dstKey)
+        }
+    }
+
     fun put(key: String, bytes: ByteArray, contentType: String) {
         client.putObject(
             PutObjectRequest.builder()

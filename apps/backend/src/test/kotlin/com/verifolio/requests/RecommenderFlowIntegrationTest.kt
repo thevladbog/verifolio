@@ -622,8 +622,11 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
 
     /** PUTs bytes to the presigned URL exactly as a browser would. */
     private fun putToPresignedUrl(url: String, bytes: ByteArray, contentType: String): Int {
-        val client = java.net.http.HttpClient.newHttpClient()
+        val client = java.net.http.HttpClient.newBuilder()
+            .connectTimeout(java.time.Duration.ofSeconds(10))
+            .build()
         val request = java.net.http.HttpRequest.newBuilder(java.net.URI(url))
+            .timeout(java.time.Duration.ofSeconds(30))
             .header("Content-Type", contentType)
             .PUT(java.net.http.HttpRequest.BodyPublishers.ofByteArray(bytes))
             .build()

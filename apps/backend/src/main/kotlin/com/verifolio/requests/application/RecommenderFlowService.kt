@@ -403,12 +403,26 @@ internal class RecommenderFlowService(
         val record = loadActiveRequest(actor.requestId)
         ensureResponseCycle(record)
 
+        // Serialize the cap check: concurrent creates for the same request queue on the
+        // request row lock, so the count-then-insert below cannot exceed the cap.
+        dsl.selectFrom(REFERENCE_REQUEST)
+            .where(REFERENCE_REQUEST.ID.eq(actor.requestId))
+            .forUpdate()
+            .fetchOne()
+
         val ru = RESPONSE_UPLOAD
         val count = dsl.fetchCount(dsl.selectFrom(ru).where(ru.REQUEST_ID.eq(actor.requestId)))
         if (count >= 10) {
             throw ApiException(HttpStatus.CONFLICT, "INVALID_REQUEST_STATE", "Upload limit reached for this request")
         }
 
+        if (req.kind != UploadKind.DETACHED_SIGNATURE && req.targetUploadId != null) {
+            throw ApiException(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "targetUploadId is only valid for detached signatures",
+            )
+        }
         if (req.kind == UploadKind.DETACHED_SIGNATURE) {
             // A signature covers a specific uploaded file, never the generated PDF.
             val target = req.targetUploadId?.let { loadUpload(actor, it) }
@@ -432,7 +446,7 @@ internal class RecommenderFlowService(
             purpose = purpose,
             filename = req.filename!!,
             declaredMime = req.mimeType!!,
-            declaredSizeBytes = req.sizeBytes,
+            declaredSizeBytes = req.sizeBytes!!,
             actorId = null,
         )
 
@@ -456,23 +470,30 @@ internal class RecommenderFlowService(
     @Transactional
     fun confirmUpload(actor: RecommenderActor, uploadId: UUID): ConfirmUploadResponse {
         val record = loadActiveRequest(actor.requestId)
+        // Same gate as create/delete: evidence must not change outside a response cycle
+        // (e.g. a confirm racing the submission into NEEDS_REVIEW).
+        ensureResponseCycle(record)
         val upload = loadUpload(actor, uploadId)
 
         val outcome = fileUploads.confirmUpload(upload.fileObjectId!!)
 
-        if (outcome.status == "READY" && upload.sharedPublicly == true && upload.consentRecordId == null) {
+        // The per-upload sharing decision is always recorded — accept AND decline
+        // (AGENTS.md consent rule); GRANTED gates public downloads.
+        if (outcome.status == "READY" && upload.consentRecordId == null) {
+            val granted = upload.sharedPublicly == true
+            val now = OffsetDateTime.now()
             val cr = CONSENT_RECORD
-            val consentId = dsl.insertInto(cr)
+            var insert = dsl.insertInto(cr)
                 .set(cr.SUBJECT_TYPE, "RECOMMENDER")
                 .set(cr.RECOMMENDER_CONTACT_ID, record.recommenderContactId)
                 .set(cr.REFERENCE_REQUEST_ID, actor.requestId)
                 .set(cr.CONSENT_TYPE, "RECOMMENDER_PUBLIC_SHARING_CONSENT")
                 .set(cr.POLICY_TEXT_VERSION, props.consents.publicSharing.versionedId)
                 .set(cr.REGION, props.region)
-                .set(cr.STATUS, "GRANTED")
-                .set(cr.GRANTED_AT, OffsetDateTime.now())
-                .returning(cr.ID)
-                .fetchOne()!!.id!!
+                .set(cr.STATUS, if (granted) "GRANTED" else "DECLINED")
+            insert = if (granted) insert.set(cr.GRANTED_AT, now) else insert.set(cr.DECLINED_AT, now)
+            val consentId = insert.returning(cr.ID).fetchOne()!!.id!!
+
             dsl.update(RESPONSE_UPLOAD)
                 .set(RESPONSE_UPLOAD.CONSENT_RECORD_ID, consentId)
                 .where(RESPONSE_UPLOAD.ID.eq(uploadId))
@@ -480,7 +501,7 @@ internal class RecommenderFlowService(
             audit.record(
                 actorType = "RECOMMENDER",
                 actorId = null,
-                action = "CONSENT_GRANTED",
+                action = if (granted) "CONSENT_GRANTED" else "CONSENT_DECLINED",
                 entityType = "CONSENT_RECORD",
                 entityId = consentId.toString(),
                 metadata = mapOf(

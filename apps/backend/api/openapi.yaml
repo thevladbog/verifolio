@@ -1712,7 +1712,9 @@ components:
           - "null"
           minLength: 1
         sizeBytes:
-          type: integer
+          type:
+          - integer
+          - "null"
           format: int64
         sharedPublicly:
           type: boolean
@@ -1725,6 +1727,7 @@ components:
       - filename
       - kind
       - mimeType
+      - sizeBytes
     UploadCreatedResponse:
       type: object
       properties:

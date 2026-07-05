@@ -16,6 +16,8 @@ create table document_attachment (
     document_version_id uuid not null references document_version (id),
     file_object_id      uuid not null references file_object (id),
     type                text not null check (type in ('SCAN','SIGNED_PDF','DETACHED_SIGNATURE','ATTACHMENT')),
-    created_at          timestamptz not null default now()
+    created_at          timestamptz not null default now(),
+    -- retries of attachFiles must not duplicate links (public downloads list every row)
+    unique (document_version_id, file_object_id)
 );
 create index idx_document_attachment_version on document_attachment (document_version_id);
