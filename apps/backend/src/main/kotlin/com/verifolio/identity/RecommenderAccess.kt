@@ -5,7 +5,7 @@ import java.util.UUID
 /** Cookie carrying the short-lived recommender session (docs/AUTHENTICATION.md). */
 const val RECOMMENDER_SESSION_COOKIE = "verifolio_recommender_session"
 
-data class InvitationInfo(val requestId: UUID, val recommenderEmail: String)
+data class InvitationInfo(val invitationId: UUID, val requestId: UUID, val recommenderEmail: String)
 
 data class RecommenderGrant(
     val rawSessionToken: String,

@@ -10,9 +10,9 @@ This document defines the scope cut per release stage. Agents must not build pos
 - Request templates — **delivered (2026-07, apps/backend)**.
 - Reference requests, including the consent model (per-region consent texts, cross-border transfer consent, requester attestation of verbal consent, recommender accept/decline of the processing policy) — **delivered (2026-07, apps/backend)**.
 - Recommender flow — **delivered through submission (2026-07, apps/backend)**; AI letter drafting and scan/signature uploads follow with their provider/files modules.
-- Documents: version locking and recipient review before locking.
-- Files (private object storage through the files module).
-- Core verification signals.
+- Documents: version locking and recipient review before locking — **delivered (2026-07, apps/backend)**; tombstoning ships with the privacy module.
+- Files (private object storage through the files module) — **generated-PDF slice delivered (2026-07, apps/backend)**; user uploads (presigned PUT + validation pipeline) pending.
+- Core verification signals — **creation delivered (2026-07, apps/backend)**; read model/trust summary ship with the public verification page; NAME_MATCH pending a structured recipient-name field.
 - Share links and the public verification page.
 - Audit events.
 - Notifications.

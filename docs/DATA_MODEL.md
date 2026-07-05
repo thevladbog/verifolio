@@ -2,7 +2,7 @@
 
 ## Implementation Status
 
-The auth-related tables `user_account`, `magic_link_token`, `user_session`, and `audit_event` are implemented in `apps/backend` (Flyway V1 migration). The `person_profile`, `organization` (minimal), `recommender_contact`, and `template` tables are implemented in `apps/backend` (Flyway V2 migration); six English-locale templates are seeded via Flyway V3 data migration. The `reference_request`, `consent_record`, and `invitation_token` tables are implemented in `apps/backend` (Flyway V4 migration). The `recommender_session`, `email_confirmation_code`, and `reference_response` tables are implemented in `apps/backend` (Flyway V5 migration) — the recommender flow runs through submission (`NEEDS_REVIEW`); recipient review and document generation are not implemented yet. All other entities described in this document are specification-only so far and have no corresponding migrations.
+The auth-related tables `user_account`, `magic_link_token`, `user_session`, and `audit_event` are implemented in `apps/backend` (Flyway V1 migration). The `person_profile`, `organization` (minimal), `recommender_contact`, and `template` tables are implemented in `apps/backend` (Flyway V2 migration); six English-locale templates are seeded via Flyway V3 data migration. The `reference_request`, `consent_record`, and `invitation_token` tables are implemented in `apps/backend` (Flyway V4 migration). The `recommender_session`, `email_confirmation_code`, and `reference_response` tables are implemented in `apps/backend` (Flyway V5 migration). The `file_object`, `document`, `document_version`, and `verification_signal` tables are implemented in `apps/backend` (Flyway V6 migration) — recipient review, PDF generation, version locking, and core verification signals are live; user uploads, tombstoning, share links, and the signal read model are not implemented yet. All other entities described in this document are specification-only so far and have no corresponding migrations.
 
 ## Canonical Enums
 
@@ -154,6 +154,7 @@ ReferenceRequest
 - recommender_contact_id
 - recommender_name
 - recommender_email
+- recommender_relationship_type
 - template_id
 - purpose
 - status
@@ -162,8 +163,8 @@ ReferenceRequest
 - updated_at
 ```
 
-`recommender_name` and `recommender_email` are snapshots of the contact taken at request
-creation. The requester's verbal-consent attestation covers exactly this recipient, so the
+`recommender_name`, `recommender_email`, and `recommender_relationship_type` are snapshots
+of the contact taken at request creation. The requester's verbal-consent attestation covers exactly this recipient, so the
 invitation is always sent to the snapshotted address — editing the contact after creation
 must not redirect an already-attested request. A contact referenced by reference requests
 cannot be hard-deleted (`ON DELETE RESTRICT`; the API returns 409 `CONTACT_IN_USE`).

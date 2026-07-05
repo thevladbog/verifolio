@@ -13,9 +13,16 @@ internal class TemplateLookupImpl(private val dsl: DSLContext) : TemplateLookup 
         dsl.fetchExists(dsl.selectFrom(TEMPLATE).where(TEMPLATE.ID.eq(templateId)))
 
     override fun snapshot(templateId: UUID): TemplateSnapshot? =
-        dsl.select(TEMPLATE.ID, TEMPLATE.NAME, TEMPLATE.QUESTION_SCHEMA_JSON)
+        dsl.select(TEMPLATE.ID, TEMPLATE.TYPE, TEMPLATE.NAME, TEMPLATE.QUESTION_SCHEMA_JSON)
             .from(TEMPLATE)
             .where(TEMPLATE.ID.eq(templateId))
             .fetchOne()
-            ?.let { TemplateSnapshot(it[TEMPLATE.ID]!!, it[TEMPLATE.NAME]!!, it[TEMPLATE.QUESTION_SCHEMA_JSON]!!.data()) }
+            ?.let {
+                TemplateSnapshot(
+                    it[TEMPLATE.ID]!!,
+                    it[TEMPLATE.TYPE]!!,
+                    it[TEMPLATE.NAME]!!,
+                    it[TEMPLATE.QUESTION_SCHEMA_JSON]!!.data(),
+                )
+            }
 }

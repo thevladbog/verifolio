@@ -69,6 +69,34 @@ internal class ReferenceRequestController(
     ): ReferenceRequestResponse = service.send(user, id)
 
     @ApiResponses(
+        ApiResponse(responseCode = "200", description = "Response accepted; document generated and locked"),
+        ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "403", description = "Missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "404", description = "Reference request not found", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "409", description = "Not in NEEDS_REVIEW or no submitted response", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
+    @PostMapping("/{id}/accept")
+    fun acceptResponse(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+        @PathVariable id: UUID,
+    ): AcceptResponse = service.accept(user, id)
+
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "Correction requested; recommender re-invited"),
+        ApiResponse(responseCode = "400", description = "Validation failed", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "403", description = "Missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "404", description = "Reference request not found", content = [Content(schema = Schema(implementation = ApiError::class))]),
+        ApiResponse(responseCode = "409", description = "Not in NEEDS_REVIEW", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
+    @PostMapping("/{id}/request-correction")
+    fun requestCorrection(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+        @PathVariable id: UUID,
+        @Valid @RequestBody(required = false) body: RequestCorrectionRequest?,
+    ): ReferenceRequestResponse = service.requestCorrection(user, id, body?.message)
+
+    @ApiResponses(
         ApiResponse(responseCode = "200"),
         ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
         ApiResponse(responseCode = "403", description = "Missing CSRF token", content = [Content(schema = Schema(implementation = ApiError::class))]),

@@ -11,9 +11,9 @@ import java.util.UUID
 internal class ContactLookupImpl(private val dsl: DSLContext) : ContactLookup {
     override fun findOwned(contactId: UUID, ownerProfileId: UUID): ContactSnapshot? {
         val rc = RECOMMENDER_CONTACT
-        return dsl.select(rc.ID, rc.NAME, rc.EMAIL).from(rc)
+        return dsl.select(rc.ID, rc.NAME, rc.EMAIL, rc.RELATIONSHIP_TYPE).from(rc)
             .where(rc.ID.eq(contactId).and(rc.OWNER_PROFILE_ID.eq(ownerProfileId)))
             .fetchOne()
-            ?.let { ContactSnapshot(it[rc.ID]!!, it[rc.NAME]!!, it[rc.EMAIL]!!) }
+            ?.let { ContactSnapshot(it[rc.ID]!!, it[rc.NAME]!!, it[rc.EMAIL]!!, it[rc.RELATIONSHIP_TYPE]!!) }
     }
 }

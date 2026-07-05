@@ -10,6 +10,8 @@ data class VerifolioProperties(
     val mail: Mail = Mail(),
     val consents: Consents = Consents(),
     val requests: Requests = Requests(),
+    val storage: Storage = Storage(),
+    val verification: Verification = Verification(),
 ) {
     init {
         require(region == "local" || auth.tokenPepper != "local-dev-pepper-change-me") {
@@ -49,5 +51,22 @@ data class VerifolioProperties(
         val expiry: Duration = Duration.ofDays(21),
         val sendLimitPerRecommender: Int = 5,
         val sendLimitWindow: Duration = Duration.ofDays(1),
+    )
+
+    data class Storage(
+        val endpoint: String = "http://localhost:9000",
+        val regionName: String = "local",
+        val bucket: String = "verifolio-local",
+        val accessKey: String = "minioadmin",
+        val secretKey: String = "minioadmin",
+        val presignedTtl: Duration = Duration.ofMinutes(5),
+        val pathStyle: Boolean = true,
+    )
+
+    data class Verification(
+        val freeEmailDomains: List<String> = listOf(
+            "gmail.com", "googlemail.com", "yahoo.com", "hotmail.com", "outlook.com",
+            "mail.ru", "yandex.ru", "icloud.com", "proton.me", "protonmail.com",
+        ),
     )
 }

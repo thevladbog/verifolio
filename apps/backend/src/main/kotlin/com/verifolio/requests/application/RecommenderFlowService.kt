@@ -89,7 +89,8 @@ internal class RecommenderFlowService(
         val info = invitationAccess.peek(rawToken) ?: throw invitationNotFound()
         loadActiveRequest(info.requestId)
 
-        val limiterKey = info.requestId.toString()
+        // Keyed by invitation, not request: a fresh correction token gets a fresh window.
+        val limiterKey = info.invitationId.toString()
         if (!codeLimiter.tryAcquire(limiterKey)) {
             throw ApiException(
                 HttpStatus.TOO_MANY_REQUESTS,
@@ -246,7 +247,7 @@ internal class RecommenderFlowService(
     @Transactional
     fun saveDraft(actor: RecommenderActor, draft: DraftRequest): DraftDto {
         val record = loadActiveRequest(actor.requestId)
-        requireStatus(record, ReferenceRequestStatus.IN_PROGRESS)
+        ensureResponseCycle(record)
 
         val rr = REFERENCE_RESPONSE
         val answers = JSONB.valueOf(objectMapper.writeValueAsString(draft.answersJson))
@@ -292,7 +293,9 @@ internal class RecommenderFlowService(
     @Transactional
     fun submit(actor: RecommenderActor, req: SubmitResponseRequest): ReferenceRequestStatus {
         val record = loadActiveRequest(actor.requestId)
-        requireStatus(record, ReferenceRequestStatus.IN_PROGRESS)
+        // Direct submit is allowed without a prior autosave — including in the correction
+        // cycle, where it starts the new response cycle just like a draft save would.
+        ensureResponseCycle(record)
 
         val cr = CONSENT_RECORD
         val consentGranted = dsl.fetchExists(
@@ -322,7 +325,7 @@ internal class RecommenderFlowService(
         val answers = req.answersJson?.let { JSONB.valueOf(objectMapper.writeValueAsString(it)) }
 
         val responseId = if (existing == null) {
-            dsl.insertInto(rr)
+            val inserted = dsl.insertInto(rr)
                 .set(rr.REQUEST_ID, actor.requestId)
                 .set(rr.RECOMMENDER_EMAIL, actor.email)
                 .set(rr.ANSWERS_JSON, answers ?: JSONB.valueOf("{}"))
@@ -333,6 +336,16 @@ internal class RecommenderFlowService(
                 .set(rr.SUBMITTED_AT, now)
                 .returning(rr.ID)
                 .fetchOne()!!.id!!
+            // STARTED marks the creation of a response row (direct submit without autosave).
+            audit.record(
+                actorType = "RECOMMENDER",
+                actorId = null,
+                action = "REFERENCE_RESPONSE_STARTED",
+                entityType = "REFERENCE_RESPONSE",
+                entityId = inserted.toString(),
+                metadata = mapOf("requestId" to actor.requestId.toString()),
+            )
+            inserted
         } else {
             var update = dsl.update(rr)
                 .set(rr.APPROVED_LETTER_TEXT, req.approvedLetterText)
@@ -416,12 +429,21 @@ internal class RecommenderFlowService(
         )
     }
 
-    private fun requireStatus(record: ReferenceRequestRecord, expected: ReferenceRequestStatus) {
-        if (ReferenceRequestStatus.valueOf(record.status!!) != expected) {
-            throw ApiException(
+    /**
+     * Answers/submission require IN_PROGRESS. In the correction cycle the first write
+     * (draft save OR direct submit) flips CORRECTION_REQUESTED -> IN_PROGRESS
+     * (WORKFLOWS.md). REFERENCE_RESPONSE_STARTED is audited when the new response row
+     * is inserted.
+     */
+    private fun ensureResponseCycle(record: ReferenceRequestRecord) {
+        when (val status = ReferenceRequestStatus.valueOf(record.status!!)) {
+            ReferenceRequestStatus.IN_PROGRESS -> Unit
+            ReferenceRequestStatus.CORRECTION_REQUESTED ->
+                transition(record.id!!, status, ReferenceRequestStatus.IN_PROGRESS)
+            else -> throw ApiException(
                 HttpStatus.CONFLICT,
                 "INVALID_REQUEST_STATE",
-                "Request must be in the $expected status for this action",
+                "Request must be in the IN_PROGRESS status for this action",
             )
         }
     }
