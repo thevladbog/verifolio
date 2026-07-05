@@ -495,7 +495,36 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
                 .fetchOne(vs.STATUS)!!
         assertThat(signalStatus(expiredLink["id"] as String)).isEqualTo("EXPIRED")
         assertThat(signalStatus(revokedLink["id"] as String)).isEqualTo("REVOKED")
-        assertThat(auditActions()).contains("VERIFICATION_SIGNAL_UPDATED")
+
+        // Isolate the sweep's own audit trail: the EXPIRED flip of THIS link's signal
+        // (the earlier revoke also emits VERIFICATION_SIGNAL_UPDATED) + the mandatory
+        // link-level SHARE_LINK_EXPIRED event.
+        val expiredFlips = dsl.selectFrom(AUDIT_EVENT)
+            .where(AUDIT_EVENT.ACTION.eq("VERIFICATION_SIGNAL_UPDATED"))
+            .fetch()
+            .filter {
+                val meta = it.metadata!!.data()
+                meta.contains("EXPIRED") && meta.contains(expiredLink["id"] as String)
+            }
+        assertThat(expiredFlips).hasSize(1)
+        val linkExpiredEvents = dsl.fetchCount(
+            dsl.selectFrom(AUDIT_EVENT).where(
+                AUDIT_EVENT.ACTION.eq("SHARE_LINK_EXPIRED")
+                    .and(AUDIT_EVENT.ENTITY_ID.eq(expiredLink["id"] as String)),
+            ),
+        )
+        assertThat(linkExpiredEvents).isEqualTo(1)
+
+        // Second sweep: no duplicate events.
+        task.run()
+        assertThat(
+            dsl.fetchCount(
+                dsl.selectFrom(AUDIT_EVENT).where(
+                    AUDIT_EVENT.ACTION.eq("SHARE_LINK_EXPIRED")
+                        .and(AUDIT_EVENT.ENTITY_ID.eq(expiredLink["id"] as String)),
+                ),
+            ),
+        ).isEqualTo(1)
     }
 
     @Test

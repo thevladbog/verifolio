@@ -19,6 +19,7 @@ import java.time.OffsetDateTime
 internal class ExpiredShareLinkSignalTask(
     private val dsl: DSLContext,
     private val verificationSignals: VerificationSignals,
+    private val audit: com.verifolio.audit.AuditService,
     private val props: VerifolioProperties,
 ) : RecurringTask {
 
@@ -32,8 +33,18 @@ internal class ExpiredShareLinkSignalTask(
             .where(sl.EXPIRES_AT.le(OffsetDateTime.now()).and(sl.REVOKED_AT.isNull))
             .fetch(sl.ID)
         expiredLinkIds.filterNotNull().forEach { linkId ->
-            // markExpired flips VERIFIED rows only — already-flipped links are no-ops.
-            verificationSignals.markExpired("SHARE_LINK", linkId, "PUBLIC_VERIFICATION_ENABLED")
+            // markExpired flips VERIFIED rows only — already-flipped links are no-ops,
+            // which also makes the SHARE_LINK_EXPIRED audit fire exactly once per link.
+            val flipped = verificationSignals.markExpired("SHARE_LINK", linkId, "PUBLIC_VERIFICATION_ENABLED")
+            if (flipped > 0) {
+                audit.record(
+                    actorType = "SYSTEM",
+                    actorId = null,
+                    action = "SHARE_LINK_EXPIRED",
+                    entityType = "SHARE_LINK",
+                    entityId = linkId.toString(),
+                )
+            }
         }
     }
 }

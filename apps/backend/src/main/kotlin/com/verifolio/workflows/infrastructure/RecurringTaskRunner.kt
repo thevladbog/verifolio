@@ -27,6 +27,12 @@ internal class RecurringTaskRunner(
         initialize()
     }
 
+    @jakarta.annotation.PreDestroy
+    fun stop() {
+        // Not a Spring-managed bean — dispose the executor explicitly on context close.
+        scheduler.shutdown()
+    }
+
     @EventListener(ApplicationReadyEvent::class)
     fun start() {
         if (!props.workflows.enabled) {

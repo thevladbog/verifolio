@@ -365,24 +365,31 @@ inherit context; append an entry when an iteration ships.
   (`verifolio.workflows.enabled=false`) — tests call `run()` directly, no sleeps.
 - **Schema**: Flyway V9 adds `reference_request.sent_at` (reminder anchor, set by send),
   `reminders_sent`, `reminders_stopped_at`.
-- **ReferenceRequestLifecycleTask** (requests): reminders at configurable offsets
-  (`verifolio.workflows.reminder-offsets`, default 3d/7d/14d from sent_at; the last one
-  carries the expiration-warning copy); each reminder re-mints the invitation token
-  (raw tokens are never stored) after revoking outstanding ones; per-row transactions —
-  a mail failure leaves `reminders_sent` unchanged and retries next tick. Auto-EXPIRED
-  for past-due active requests with token+session revocation. New audit events
-  (catalog updated): `REFERENCE_REQUEST_REMINDER_SENT` (SYSTEM), `REMINDERS_STOPPED`
-  (RECOMMENDER).
+- **ReferenceRequestLifecycleTask** (requests): expiration runs BEFORE reminders (a
+  downtime-delayed tick must not email a link that dies moments later); reminders at
+  configurable offsets (`verifolio.workflows.reminder-offsets`, default 3d/7d/14d from
+  sent_at; the last one carries the expiration-warning copy) under the global
+  per-recommender-email send limiter (Reminder Policy); each reminder mints a fresh
+  token, emails it, and only then revokes the older ones (`revokeForRequest(createdBefore)`)
+  — revocation audits run REQUIRES_NEW and must not survive a mail-failure rollback;
+  per-row transactions — a mail failure leaves `reminders_sent` unchanged and retries
+  next tick. Auto-EXPIRED for past-due active requests with token+session revocation
+  and unsubmitted-draft erasure (drafts expire with the request, AUTHENTICATION.md).
+  New audit events (catalog updated): `REFERENCE_REQUEST_REMINDER_SENT` (SYSTEM),
+  `REMINDERS_STOPPED` (RECOMMENDER).
 - **One-click stop-reminders**: `POST /api/v1/invitations/{token}/stop-reminders`
   (works post-consumption, idempotent); the stop link now appears in ALL recommender
   emails (invitation, correction, reminders) — closing the RECOMMENDER_EXPERIENCE.md
   "every email" gap.
 - **PendingUploadCleanupTask** (files): PENDING uploads older than
   `verifolio.workflows.pending-upload-ttl` (24h) → object deleted, status DELETED,
-  FILE_DELETED audit.
+  FILE_DELETED audit. Rows flip to DELETED only after the storage delete succeeds
+  (failed deletes stay PENDING and retry); bounded batches of 100, S3 calls outside
+  any DB transaction.
 - **ExpiredShareLinkSignalTask** (documents): expired unrevoked links → their
   PUBLIC_VERIFICATION_ENABLED signal flips to EXPIRED via new
-  `VerificationSignals.markExpired` (closing the iteration-6 deferred sweep).
+  `VerificationSignals.markExpired`, plus the mandatory `SHARE_LINK_EXPIRED` audit
+  (exactly once per link — gated on the flip) (closing the iteration-6 deferred sweep).
 
 ### Deferred items
 
