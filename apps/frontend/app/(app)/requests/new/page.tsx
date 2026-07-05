@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ContactDialog } from "@/components/contacts/contact-dialog";
 import { Stepper } from "@/components/requests/stepper";
 import { api } from "@/lib/api/client";
+import { consentParagraphs, useConsentText } from "@/lib/hooks/use-consent-text";
 import { unwrap } from "@/lib/query-provider";
 import { useContactNames, useTemplates } from "@/lib/requests/queries";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,10 @@ export default function NewRequestPage() {
 
   const templates = useTemplates(locale);
   const contacts = useContactNames();
+  // The attestation copy is backend-served: what the requester ticks is
+  // exactly the text the deployment records against the request.
+  const attestationText = useConsentText("REQUESTER_VERBAL_CONSENT_ATTESTATION");
+  const attestationParagraphs = consentParagraphs(attestationText.data?.body);
 
   const create = useMutation({
     mutationFn: async () =>
@@ -78,7 +83,7 @@ export default function NewRequestPage() {
     (step === 0 && !!templateId) ||
     step === 1 ||
     (step === 2 && !!contactId) ||
-    (step === 3 && attested);
+    (step === 3 && attested && !!attestationText.data);
 
   const selectedTemplate = templates.data?.items?.find(
     (tpl) => tpl.id === templateId,
@@ -243,18 +248,47 @@ export default function NewRequestPage() {
               </p>
             )}
           </Card>
-          <label className="flex items-start gap-3 rounded-card border border-border-light bg-paper/60 p-4">
-            <Checkbox
-              checked={attested}
-              onCheckedChange={(v) => setAttested(v === true)}
-              aria-label={t("builder.attestation")}
-              className="mt-0.5"
-            />
-            <span className="text-sm text-ink">{t("builder.attestation")}</span>
-          </label>
-          <p className="text-xs text-muted-text">
-            {t("builder.attestationHint")}
-          </p>
+          {attestationText.isError ? (
+            <div className="flex flex-col items-start gap-2 rounded-card border border-danger/40 p-4 text-sm text-danger">
+              {t("builder.attestationError")}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => attestationText.refetch()}
+              >
+                {t("common.retry")}
+              </Button>
+            </div>
+          ) : attestationText.data ? (
+            <>
+              <label className="flex flex-col gap-2 rounded-card border border-border-light bg-paper/60 p-4">
+                <span className="text-sm font-semibold text-ink">
+                  {attestationText.data.title}
+                </span>
+                <span className="flex items-start gap-3">
+                  <Checkbox
+                    checked={attested}
+                    onCheckedChange={(v) => setAttested(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-sm text-ink">
+                    {attestationParagraphs[0]}
+                  </span>
+                </span>
+              </label>
+              {attestationParagraphs.slice(1).map((paragraph, i) => (
+                <p key={i} className="text-xs text-muted-text">
+                  {paragraph}
+                </p>
+              ))}
+            </>
+          ) : (
+            <div className="flex flex-col gap-2 rounded-card border border-border-light bg-paper/60 p-4">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+          )}
         </section>
       )}
 

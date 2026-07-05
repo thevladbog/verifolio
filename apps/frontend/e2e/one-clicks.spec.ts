@@ -59,16 +59,25 @@ test("stop-reminders and decline one-clicks", async ({ browser }) => {
     recommenderPage.getByText(/Reminders are stopped/),
   ).toBeVisible();
 
-  // Decline: terminal for the request.
+  // Decline with a chosen reason category: terminal for the request.
   await recommenderPage.goto(`${invitationLink}/decline`);
+  await recommenderPage
+    .getByRole("combobox", { name: /why are you declining/i })
+    .click();
+  await recommenderPage
+    .getByRole("option", { name: "I'm too busy right now" })
+    .click();
   await recommenderPage.getByRole("button", { name: "Decline request" }).click();
   await expect(
     recommenderPage.getByText(/The request is declined/),
   ).toBeVisible();
 
-  // Requester sees DECLINED and the terminal banner.
+  // Requester sees DECLINED, the terminal banner, and the reason line.
   await requesterPage.goto(requestUrl);
   await expect(
     requesterPage.getByText(/recommender declined this request/i),
+  ).toBeVisible();
+  await expect(
+    requesterPage.getByText("Recommender declined: Too busy"),
   ).toBeVisible();
 });

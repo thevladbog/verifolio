@@ -30,6 +30,7 @@ import com.verifolio.requests.api.DraftRequest
 import com.verifolio.requests.api.InvitationPreviewResponse
 import com.verifolio.requests.api.RecommenderRequestContext
 import com.verifolio.requests.api.SubmitResponseRequest
+import com.verifolio.requests.domain.DeclineReason
 import com.verifolio.requests.domain.ReferenceRequestStatus
 import com.verifolio.templates.TemplateLookup
 import com.verifolio.platform.SlidingWindowRateLimiter
@@ -139,7 +140,7 @@ internal class RecommenderFlowService(
     }
 
     @Transactional
-    fun declineByToken(rawToken: String, reason: String) {
+    fun declineByToken(rawToken: String, reason: String, reasonCategory: DeclineReason? = null) {
         val info = invitationAccess.identify(rawToken) ?: throw invitationNotFound()
         val record = loadRequest(info.requestId) ?: throw invitationNotFound()
         val status = ReferenceRequestStatus.valueOf(record.status!!)
@@ -151,7 +152,7 @@ internal class RecommenderFlowService(
             )
         }
 
-        transition(record.id!!, status, ReferenceRequestStatus.DECLINED)
+        transition(record.id!!, status, ReferenceRequestStatus.DECLINED, declinedReason = reasonCategory)
         invitationTokens.revokeForRequest(record.id!!)
         recommenderSessions.revokeForRequest(record.id!!)
         audit.record(
@@ -160,7 +161,7 @@ internal class RecommenderFlowService(
             action = "REQUEST_DECLINED",
             entityType = "REFERENCE_REQUEST",
             entityId = record.id.toString(),
-            metadata = mapOf("reason" to reason, "previousStatus" to status.name),
+            metadata = declineMetadata(reason, status, reasonCategory),
         )
     }
 
@@ -238,7 +239,7 @@ internal class RecommenderFlowService(
                 granted = false, now = now,
             )
             auditConsent("CONSENT_DECLINED", declinedConsentId, record, "RECOMMENDER_PROCESSING_CONSENT", props.consents.processing.versionedId)
-            transition(record.id!!, status, ReferenceRequestStatus.DECLINED)
+            transition(record.id!!, status, ReferenceRequestStatus.DECLINED, declinedReason = decision.reasonCategory)
             invitationTokens.revokeForRequest(record.id!!)
             recommenderSessions.revokeForRequest(record.id!!)
             audit.record(
@@ -247,7 +248,7 @@ internal class RecommenderFlowService(
                 action = "REQUEST_DECLINED",
                 entityType = "REFERENCE_REQUEST",
                 entityId = record.id.toString(),
-                metadata = mapOf("reason" to "consent_declined", "previousStatus" to status.name),
+                metadata = declineMetadata("consent_declined", status, decision.reasonCategory),
             )
             ReferenceRequestStatus.DECLINED
         }
@@ -681,8 +682,13 @@ internal class RecommenderFlowService(
      * stale caller (e.g. the requester cancelled concurrently) cannot overwrite a terminal
      * state. Throws 409 when another transaction moved the status first.
      */
-    internal fun transition(requestId: UUID, from: ReferenceRequestStatus, to: ReferenceRequestStatus) {
-        if (!tryTransition(requestId, from, to)) {
+    internal fun transition(
+        requestId: UUID,
+        from: ReferenceRequestStatus,
+        to: ReferenceRequestStatus,
+        declinedReason: DeclineReason? = null,
+    ) {
+        if (!tryTransition(requestId, from, to, declinedReason)) {
             throw ApiException(
                 HttpStatus.CONFLICT,
                 "INVALID_REQUEST_STATE",
@@ -691,13 +697,37 @@ internal class RecommenderFlowService(
         }
     }
 
-    private fun tryTransition(requestId: UUID, from: ReferenceRequestStatus, to: ReferenceRequestStatus): Boolean {
+    private fun tryTransition(
+        requestId: UUID,
+        from: ReferenceRequestStatus,
+        to: ReferenceRequestStatus,
+        declinedReason: DeclineReason? = null,
+    ): Boolean {
         check(from.canTransitionTo(to)) { "Illegal transition $from -> $to" }
-        return dsl.update(REFERENCE_REQUEST)
+        check(declinedReason == null || to == ReferenceRequestStatus.DECLINED) {
+            "declinedReason is only valid for the DECLINED transition"
+        }
+        var update = dsl.update(REFERENCE_REQUEST)
             .set(REFERENCE_REQUEST.STATUS, to.name)
             .set(REFERENCE_REQUEST.UPDATED_AT, OffsetDateTime.now())
+        if (declinedReason != null) {
+            // Same UPDATE as the status CAS: the reason can never land on a non-DECLINED row.
+            update = update.set(REFERENCE_REQUEST.DECLINED_REASON, declinedReason.name)
+        }
+        return update
             .where(REFERENCE_REQUEST.ID.eq(requestId).and(REFERENCE_REQUEST.STATUS.eq(from.name)))
             .execute() == 1
+    }
+
+    /** REQUEST_DECLINED audit metadata — enum/ID values only (AGENTS.md audit rule). */
+    private fun declineMetadata(
+        reason: String,
+        previousStatus: ReferenceRequestStatus,
+        reasonCategory: DeclineReason?,
+    ): Map<String, String> = buildMap {
+        put("reason", reason)
+        put("previousStatus", previousStatus.name)
+        if (reasonCategory != null) put("reasonCategory", reasonCategory.name)
     }
 
     private fun invitationNotFound() =

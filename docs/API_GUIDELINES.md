@@ -22,6 +22,11 @@ Examples:
 /api/v1/profile
 /api/v1/reference-requests
 /api/v1/reference-requests/{id}
+/api/v1/reference-requests/{id}/response  (read-only; owner reads the latest submitted
+                                           response: letter text, parsed answers,
+                                           confirmations, and READY upload metadata —
+                                           no pre-accept file downloads; 404 until a
+                                           submission exists)
 /api/v1/documents
 /api/v1/documents/{id}
 /api/v1/documents/{id}/versions
@@ -29,6 +34,9 @@ Examples:
 /api/v1/verification-pages/{token}
 /api/v1/templates
 /api/v1/templates/{id}
+/api/v1/consent-texts/{consentType}     (open/permitAll, read-only; region-configured consent
+                                         policy text — ?locale= falls back to en; unknown
+                                         consentType → 404; reads are not audited)
 /api/v1/contacts
 /api/v1/contacts/{id}
 /api/v1/verification-signals            (read-only)

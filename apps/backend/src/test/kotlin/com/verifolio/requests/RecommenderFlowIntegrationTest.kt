@@ -126,6 +126,21 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
     private fun auditActions(): List<String?> =
         dsl.select(AUDIT_EVENT.ACTION).from(AUDIT_EVENT).fetch(AUDIT_EVENT.ACTION)
 
+    private fun declinedReasonColumn(requestId: String): String? {
+        val rr = com.verifolio.jooq.tables.references.REFERENCE_REQUEST
+        return dsl.select(rr.DECLINED_REASON).from(rr)
+            .where(rr.ID.eq(UUID.fromString(requestId)))
+            .fetchOne(rr.DECLINED_REASON)
+    }
+
+    private fun latestDeclineMetadata(): String {
+        return dsl.select(AUDIT_EVENT.METADATA).from(AUDIT_EVENT)
+            .where(AUDIT_EVENT.ACTION.eq("REQUEST_DECLINED"))
+            .orderBy(AUDIT_EVENT.CREATED_AT.desc())
+            .limit(1)
+            .fetchOne(AUDIT_EVENT.METADATA)!!.data()
+    }
+
     // ---- recommender-side helpers ----
 
     private fun openInvitation(rawToken: String) = rest.exchange(
@@ -252,6 +267,9 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(requestStatus(requestId)).isEqualTo("DECLINED")
         assertThat(auditActions()).contains("REQUEST_DECLINED")
+        // Backwards compatible: no body means no reason category.
+        assertThat(declinedReasonColumn(requestId)).isNull()
+        assertThat(latestDeclineMetadata()).doesNotContain("reasonCategory")
 
         // Terminal request: open now 404, second decline 409.
         assertThat(openInvitation(rawToken).statusCode).isEqualTo(HttpStatus.NOT_FOUND)
@@ -268,6 +286,48 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
         val response = rest.postForEntity("/api/v1/invitations/$rawToken/decline", null, Map::class.java)
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(requestStatus(requestId)).isEqualTo("DECLINED")
+    }
+
+    @Test
+    fun `decline with a reason category persists it and exposes it to the owner`() {
+        val (rawToken, requestId) = sendInvitation("reason_requester@example.com", "reason_rec@corp.example.com")
+
+        val jsonHeaders = HttpHeaders().apply { set(HttpHeaders.CONTENT_TYPE, "application/json") }
+        val response = rest.postForEntity(
+            "/api/v1/invitations/$rawToken/decline",
+            HttpEntity(mapOf("reasonCategory" to "TOO_BUSY"), jsonHeaders),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(requestStatus(requestId)).isEqualTo("DECLINED")
+        assertThat(declinedReasonColumn(requestId)).isEqualTo("TOO_BUSY")
+        assertThat(latestDeclineMetadata()).contains("reasonCategory").contains("TOO_BUSY")
+
+        // The owner sees the category on the request detail.
+        val cookie = login("reason_requester@example.com")
+        val detail = rest.exchange(
+            "/api/v1/reference-requests/$requestId", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        assertThat(detail.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(detail.body!!["status"]).isEqualTo("DECLINED")
+        assertThat(detail.body!!["declinedReason"]).isEqualTo("TOO_BUSY")
+    }
+
+    @Test
+    fun `decline with an unknown reason category returns 400 and leaves the request untouched`() {
+        val (rawToken, requestId) = sendInvitation("badreason_requester@example.com", "badreason_rec@corp.example.com")
+
+        val jsonHeaders = HttpHeaders().apply { set(HttpHeaders.CONTENT_TYPE, "application/json") }
+        val response = rest.postForEntity(
+            "/api/v1/invitations/$rawToken/decline",
+            HttpEntity(mapOf("reasonCategory" to "IN_A_MEETING"), jsonHeaders),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(requestStatus(requestId)).isEqualTo("SENT")
+        assertThat(declinedReasonColumn(requestId)).isNull()
     }
 
     @Test
@@ -365,6 +425,24 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
             Map::class.java,
         )
         assertThat(afterSubmit.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `declining at the consent gate with a reason category persists it`() {
+        val (rawToken, requestId) = sendInvitation("gatereason_requester@example.com", "gatereason_rec@corp.example.com")
+        openInvitation(rawToken)
+        val cookie = confirmEmail(rawToken, "gatereason_rec@corp.example.com")
+        val xsrfToken = recommenderXsrf(cookie)
+
+        val response = rest.exchange(
+            "/api/v1/recommender/consent", HttpMethod.POST,
+            HttpEntity(mapOf("accepted" to false, "reasonCategory" to "NOT_COMFORTABLE"), authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(requestStatus(requestId)).isEqualTo("DECLINED")
+        assertThat(declinedReasonColumn(requestId)).isEqualTo("NOT_COMFORTABLE")
+        assertThat(latestDeclineMetadata()).contains("reasonCategory").contains("NOT_COMFORTABLE")
     }
 
     @Test

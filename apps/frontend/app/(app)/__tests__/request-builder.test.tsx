@@ -46,6 +46,15 @@ beforeEach(() => {
       return ok({ items: [TEMPLATE] }) as never;
     if (path === "/api/v1/contacts")
       return ok({ items: [CONTACT], nextCursor: null }) as never;
+    if (path === "/api/v1/consent-texts/{consentType}")
+      return ok({
+        consentType: "REQUESTER_VERBAL_CONSENT_ATTESTATION",
+        textId: "local-requester-attestation",
+        version: 1,
+        locale: "en",
+        title: "Verbal consent attestation",
+        body: "I confirm the recommender gave me verbal consent to receive this request.\n\nThis attestation is recorded.",
+      }) as never;
     throw new Error(`unexpected GET ${path}`);
   });
 });

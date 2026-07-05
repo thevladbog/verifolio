@@ -1,5 +1,6 @@
 package com.verifolio.requests.api
 
+import com.verifolio.requests.domain.DeclineReason
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
@@ -30,6 +31,8 @@ data class RecommenderRequestContext(
 data class ConsentDecisionRequest(
     @field:NotNull val accepted: Boolean?,
     val crossBorderAccepted: Boolean? = null,
+    /** Optional decline category; applied only when the decision is DECLINED. */
+    val reasonCategory: DeclineReason? = null,
 )
 
 data class DraftRequest(

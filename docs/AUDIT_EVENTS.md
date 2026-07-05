@@ -87,6 +87,11 @@ REQUEST_CORRECTION_REQUESTED
 Reminder Policy schedule; `REMINDERS_STOPPED` (actor RECOMMENDER) records the one-click
 stop-reminders action.
 
+`REQUEST_DECLINED` metadata carries `reason` (`declined` / `abuse_report` /
+`consent_declined`), `previousStatus`, and — only when the recommender chose one —
+`reasonCategory` (`DONT_KNOW_REQUESTER | TOO_BUSY | NOT_COMFORTABLE | OTHER`; enum value
+only, never free text).
+
 Rename note: `REFERENCE_REQUEST_CANCELLED` replaces the former `REFERENCE_REQUEST_REVOKED` to align with the `CANCELLED` request status and the `/cancel` API command.
 
 ### Consent

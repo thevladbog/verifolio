@@ -1,5 +1,6 @@
 package com.verifolio.requests.api
 
+import com.verifolio.requests.domain.DeclineReason
 import jakarta.validation.constraints.NotBlank
 
 data class InvitationPreviewResponse(
@@ -16,4 +17,9 @@ data class ConfirmEmailRequest(
 
 data class ConfirmEmailResponse(
     val status: String,
+)
+
+/** Optional one-click decline body; absent body behaves exactly as before. */
+data class DeclineRequest(
+    val reasonCategory: DeclineReason? = null,
 )

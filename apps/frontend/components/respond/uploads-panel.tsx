@@ -16,9 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { BadgeStatus } from "@/components/verifolio/badge-status";
 import { api } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/errors";
+import { consentParagraphs, useConsentText } from "@/lib/hooks/use-consent-text";
 import { RequestError, unwrap } from "@/lib/query-provider";
 
 const KINDS = ["SCAN", "SIGNED_PDF", "DETACHED_SIGNATURE"] as const;
@@ -31,6 +33,11 @@ export function UploadsPanel() {
   const [kind, setKind] = useState<Kind>("SCAN");
   const [sharedPublicly, setSharedPublicly] = useState(false);
   const [targetUploadId, setTargetUploadId] = useState<string>();
+
+  // Per-file public-sharing consent copy is backend-served — what the
+  // recommender ticks here is exactly what the deployment records.
+  const sharingText = useConsentText("RECOMMENDER_PUBLIC_SHARING_CONSENT");
+  const sharingParagraphs = consentParagraphs(sharingText.data?.body);
 
   const uploads = useQuery({
     queryKey: ["recommender-uploads"],
@@ -186,12 +193,24 @@ export function UploadsPanel() {
               onCheckedChange={(v) => setSharedPublicly(v === true)}
               className="mt-0.5"
             />
-            <span>
-              {t("uploads.shareToggle")}
-              <span className="block text-xs text-muted-text">
-                {t("uploads.shareConsent")}
+            {sharingText.data ? (
+              <span>
+                <span className="block font-semibold">
+                  {sharingText.data.title}
+                </span>
+                {sharingParagraphs[0]}
+                {sharingParagraphs.slice(1).map((paragraph, i) => (
+                  <span key={i} className="block text-xs text-muted-text">
+                    {paragraph}
+                  </span>
+                ))}
               </span>
-            </span>
+            ) : (
+              <span className="flex w-full flex-col gap-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-full" />
+              </span>
+            )}
           </label>
 
           <input

@@ -29,8 +29,25 @@ const QUESTIONS = {
   ],
 };
 
+const CONSENT_TEXTS: Record<string, { title: string; body: string }> = {
+  RECOMMENDER_PROCESSING_CONSENT: {
+    title: "Before you start: data processing consent",
+    body: "To collect your response, Verifolio will process your data.\n\nYou can withdraw consent later.",
+  },
+  CROSS_BORDER_TRANSFER_CONSENT: {
+    title: "Cross-border transfer consent",
+    body: "I consent to the cross-border transfer of my data.",
+  },
+  RECOMMENDER_PUBLIC_SHARING_CONSENT: {
+    title: "Public sharing consent",
+    body: "This file may be shown publicly on the verification page.\n\nOptional and revocable.",
+  },
+};
+
+type GetInit = { params?: { path?: { consentType?: string } } };
+
 function stubContext(status: string, draft: unknown = null) {
-  mockGet.mockImplementation(async (path: string) => {
+  mockGet.mockImplementation(async (path: string, init?: GetInit) => {
     if (path === "/api/v1/recommender/request")
       return ok({
         status,
@@ -46,6 +63,16 @@ function stubContext(status: string, draft: unknown = null) {
       }) as never;
     if (path === "/api/v1/recommender/uploads")
       return ok({ items: [] }) as never;
+    if (path === "/api/v1/consent-texts/{consentType}") {
+      const consentType = init?.params?.path?.consentType ?? "";
+      return ok({
+        consentType,
+        textId: "local",
+        version: 1,
+        locale: "en",
+        ...CONSENT_TEXTS[consentType],
+      }) as never;
+    }
     throw new Error(`unexpected GET ${path}`);
   });
 }
@@ -92,6 +119,41 @@ describe("RespondPage consent gate", () => {
     expect(await screen.findByText(/You declined/)).toBeInTheDocument();
   });
 
+  it("enables accept only after the backend consent text is rendered", async () => {
+    stubContext("OPENED");
+    let releaseTexts!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseTexts = resolve;
+    });
+    const base = mockGet.getMockImplementation()!;
+    mockGet.mockImplementation(async (path: string, init?: unknown) => {
+      if (path === "/api/v1/consent-texts/{consentType}") await gate;
+      return base(path as never, init as never);
+    });
+    renderWithProviders(<RespondPage />);
+
+    const accept = await screen.findByRole("button", {
+      name: "I agree — start",
+    });
+    expect(accept).toBeDisabled();
+    expect(
+      screen.queryByText(/Verifolio will process your data/),
+    ).not.toBeInTheDocument();
+
+    releaseTexts();
+
+    // The exact backend-served policy text is shown before accept unlocks.
+    expect(
+      await screen.findByText(
+        "To collect your response, Verifolio will process your data.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Before you start: data processing consent"),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(accept).toBeEnabled());
+  });
+
   it("requires the cross-border checkbox when the jurisdiction differs", async () => {
     stubContext("OPENED");
     renderWithProviders(<RespondPage />);
@@ -99,7 +161,7 @@ describe("RespondPage consent gate", () => {
     const accept = await screen.findByRole("button", {
       name: "I agree — start",
     });
-    expect(accept).toBeEnabled();
+    await waitFor(() => expect(accept).toBeEnabled());
 
     await userEvent.click(
       screen.getByRole("checkbox", { name: /different jurisdiction/i }),

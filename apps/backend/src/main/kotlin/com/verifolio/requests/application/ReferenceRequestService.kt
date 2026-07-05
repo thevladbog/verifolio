@@ -588,6 +588,7 @@ internal class ReferenceRequestService(
         templateId = templateId!!.toString(),
         purpose = purpose,
         status = status!!,
+        declinedReason = declinedReason,
         expiresAt = expiresAt!!.toString(),
         createdAt = createdAt!!.toString(),
         updatedAt = updatedAt?.toString(),

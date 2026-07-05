@@ -77,8 +77,11 @@ internal class InvitationController(
         ApiResponse(responseCode = "409", description = "Request already terminal", content = [Content(schema = Schema(implementation = ApiError::class))]),
     )
     @PostMapping("/{token}/decline")
-    fun decline(@PathVariable token: String): ResponseEntity<Void> {
-        flow.declineByToken(token, reason = "declined")
+    fun decline(
+        @PathVariable token: String,
+        @RequestBody(required = false) body: DeclineRequest?,
+    ): ResponseEntity<Void> {
+        flow.declineByToken(token, reason = "declined", reasonCategory = body?.reasonCategory)
         return ResponseEntity.status(HttpStatus.OK).build()
     }
 

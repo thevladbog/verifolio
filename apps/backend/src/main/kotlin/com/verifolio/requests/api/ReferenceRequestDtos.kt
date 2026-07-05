@@ -18,6 +18,8 @@ data class ReferenceRequestResponse(
     val templateId: String,
     val purpose: String?,
     val status: String,
+    /** Decline reason category (enum value); set only for DECLINED requests, and only when the recommender chose one. */
+    val declinedReason: String?,
     val expiresAt: String,
     val createdAt: String,
     val updatedAt: String?,
@@ -36,4 +38,25 @@ data class RequestCorrectionRequest(
 data class AcceptResponse(
     val request: ReferenceRequestResponse,
     val documentId: String,
+)
+
+/** Owner-visible view of the latest submitted response (Flow 4 review, pre-accept). */
+data class SubmittedResponseView(
+    val approvedLetterText: String?,
+    val answers: Map<String, Any?>,
+    val submittedAt: String,
+    val recipientConfirmed: Boolean,
+    val relationshipConfirmed: Boolean,
+    /** Metadata only — no pre-accept file downloads (spec: frontend-api-tails §1). */
+    val uploads: List<UploadMeta>,
+)
+
+data class UploadMeta(
+    val id: String,
+    val kind: String,
+    val contentType: String,
+    val sizeBytes: Long,
+    val sharedPublicly: Boolean,
+    /** For DETACHED_SIGNATURE: the upload the signature covers. */
+    val targetUploadId: String?,
 )
