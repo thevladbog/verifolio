@@ -58,6 +58,33 @@ internal class S3StorageAdapter(private val props: VerifolioProperties) {
         client.deleteObject { it.bucket(props.storage.bucket).key(key) }
     }
 
+    /** Presigned PUT with the content type and length signed in — the client must match them. */
+    fun presignPut(key: String, contentType: String, contentLength: Long, ttl: Duration): String {
+        val putRequest = PutObjectRequest.builder()
+            .bucket(props.storage.bucket)
+            .key(key)
+            .contentType(contentType)
+            .contentLength(contentLength)
+            .build()
+        val presigned = presigner.presignPutObject(
+            software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest.builder()
+                .signatureDuration(ttl)
+                .putObjectRequest(putRequest)
+                .build(),
+        )
+        return presigned.url().toString()
+    }
+
+    /** Size of the stored object, or null when it does not exist. */
+    fun headSize(key: String): Long? = try {
+        client.headObject { it.bucket(props.storage.bucket).key(key) }.contentLength()
+    } catch (_: software.amazon.awssdk.services.s3.model.NoSuchKeyException) {
+        null
+    }
+
+    fun getBytes(key: String): ByteArray =
+        client.getObjectAsBytes { it.bucket(props.storage.bucket).key(key) }.asByteArray()
+
     fun put(key: String, bytes: ByteArray, contentType: String) {
         client.putObject(
             PutObjectRequest.builder()
