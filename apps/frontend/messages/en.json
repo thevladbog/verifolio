@@ -406,5 +406,39 @@
     "doneWithdrawal": "Consent withdrawal completed. The recommendation has been retracted and your personal data in this recommendation erased.",
     "doneRecorded": "Request received. We'll respond by {date}.",
     "doneRecordedNoDate": "Your request has been recorded. We will respond within the statutory period."
+  },
+  "admin": {
+    "shell": {
+      "badge": "Admin"
+    },
+    "login": {
+      "title": "Admin sign-in",
+      "subtitle": "Enter your admin email to receive a single-use sign-in link.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "admin@example.com",
+      "submit": "Send sign-in link",
+      "sent": "If this is an admin address, a sign-in link is on its way. The link is valid for 15 minutes.",
+      "invalidEmail": "Enter a valid email address"
+    },
+    "callback": {
+      "verifying": "Verifying your link…",
+      "invalidTitle": "This admin sign-in link is invalid or has expired",
+      "invalidBody": "Admin links are single-use and expire after 15 minutes. Request a new one to continue.",
+      "backToLogin": "Back to sign-in"
+    },
+    "mfa": {
+      "codeLabel": "Authenticator code",
+      "codeFormat": "Enter the 6-digit code from your authenticator app",
+      "enrollTitle": "Set up two-factor authentication",
+      "enrollBody": "Scan this QR code with an authenticator app, then enter the 6-digit code it shows.",
+      "secretLabel": "Or enter this key manually",
+      "enrollSubmit": "Enable two-factor",
+      "challengeTitle": "Two-factor verification",
+      "challengeBody": "Enter the 6-digit code from your authenticator app to continue.",
+      "verifySubmit": "Verify",
+      "expiredTitle": "Your sign-in session has expired",
+      "expiredBody": "The setup window has expired. Request a new sign-in link to continue.",
+      "backToLogin": "Back to sign-in"
+    }
   }
 }

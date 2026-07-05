@@ -32,6 +32,9 @@ const PUBLIC_PREFIXES = [
   "/login",
   "/auth",
   "/data-requests",
+  // Admin has its own login; a 401 here must never bounce to the USER /login.
+  // Authenticated admin pages guard themselves via /admin/me (see lib/admin/use-admin-session).
+  "/admin",
 ];
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
