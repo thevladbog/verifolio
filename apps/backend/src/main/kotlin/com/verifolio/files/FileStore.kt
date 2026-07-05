@@ -26,6 +26,15 @@ interface FileStore {
     ): StoredFile
 
     /**
+     * Stores a subject's DSR EXPORT artifact (JSON metadata package bytes) under an opaque
+     * region-scoped key and inserts the FileObject directly as READY with purpose DATA_EXPORT.
+     * Mirrors [storeGeneratedPdf] (backend-produced bytes skip the async validation pipeline).
+     * Audited (FILE_UPLOADED). Region is enforced by the key prefix — the artifact never leaves
+     * its cell.
+     */
+    fun storeExport(bytes: ByteArray): StoredFile
+
+    /**
      * Short-lived presigned GET for a READY file. Domain authorization is the caller's
      * responsibility; this only enforces file status.
      */
