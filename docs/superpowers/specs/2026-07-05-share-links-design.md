@@ -21,8 +21,13 @@ tombstoned versions), translations, recipient profile trust signals beyond the n
 
 - **documents** owns `share_link` and its lifecycle + "public verification page core
   data": new public API `ShareLinkAccess`.
-- **verification** owns the display model: the public controller, badge catalog texts,
-  and trust-summary derivation.
+- **verification** owns signal records, trust-summary derivation, and badge catalog texts
+  (all exposed at the package root as public display API).
+- **publicpages** (new module, documented in MODULES.md) owns the public controller and
+  page composition. Revision note: the original plan hosted composition inside
+  `verification`, but domain modules write signals INTO verification while the page reads
+  FROM documents/requests — ModularityTests flagged the resulting dependency cycles, so
+  the composition layer sits on top instead. Nothing may depend on `publicpages`.
 - **requests** exposes a new read model `RequestPublicView` for recommender context and
   timeline timestamps.
 
