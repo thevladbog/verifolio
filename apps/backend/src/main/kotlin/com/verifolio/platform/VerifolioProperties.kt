@@ -13,6 +13,7 @@ data class VerifolioProperties(
     val storage: Storage = Storage(),
     val verification: Verification = Verification(),
     val publicPage: PublicPage = PublicPage(),
+    val workflows: Workflows = Workflows(),
 ) {
     init {
         require(region == "local" || auth.tokenPepper != "local-dev-pepper-change-me") {
@@ -83,6 +84,22 @@ data class VerifolioProperties(
         init {
             require(viewAuditSampleRate in 0.0..1.0) {
                 "verifolio.public-page.view-audit-sample-rate must be within 0.0..1.0"
+            }
+        }
+    }
+
+    /** DB-scheduler fallback per ADR-0005; Temporal remains the target engine. */
+    data class Workflows(
+        val enabled: Boolean = true,
+        val tickInterval: Duration = Duration.ofMinutes(1),
+        /** Reminder offsets from sent_at; the last one carries the expiration warning. */
+        val reminderOffsets: List<Duration> = listOf(Duration.ofDays(3), Duration.ofDays(7), Duration.ofDays(14)),
+        val cleanupInterval: Duration = Duration.ofHours(1),
+        val pendingUploadTtl: Duration = Duration.ofHours(24),
+    ) {
+        init {
+            require(reminderOffsets == reminderOffsets.sorted()) {
+                "verifolio.workflows.reminder-offsets must be sorted ascending"
             }
         }
     }

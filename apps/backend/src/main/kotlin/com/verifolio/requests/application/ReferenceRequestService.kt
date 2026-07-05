@@ -213,6 +213,7 @@ internal class ReferenceRequestService(
 
         val updated = dsl.update(rr)
             .set(rr.STATUS, ReferenceRequestStatus.SENT.name)
+            .set(rr.SENT_AT, now) // reminder schedule anchor (day 0)
             .set(rr.UPDATED_AT, now)
             .where(rr.ID.eq(id))
             .returning()
