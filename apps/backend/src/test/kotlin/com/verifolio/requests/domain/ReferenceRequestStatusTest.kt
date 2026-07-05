@@ -63,7 +63,8 @@ class ReferenceRequestStatusTest {
         assertThat(SENT.canTransitionTo(DECLINED)).isTrue()
         assertThat(OPENED.canTransitionTo(DECLINED)).isTrue()
         assertThat(IN_PROGRESS.canTransitionTo(DECLINED)).isTrue()
-        assertThat(CORRECTION_REQUESTED.canTransitionTo(DECLINED)).isFalse()
+        // Correction re-invites carry one-click decline links, so decline stays possible.
+        assertThat(CORRECTION_REQUESTED.canTransitionTo(DECLINED)).isTrue()
         assertThat(CREATED.canTransitionTo(DECLINED)).isFalse()
 
         assertThat(CORRECTION_REQUESTED.canTransitionTo(EXPIRED)).isTrue()

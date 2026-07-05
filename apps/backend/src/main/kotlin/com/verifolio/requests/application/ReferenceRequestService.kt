@@ -73,9 +73,10 @@ internal class ReferenceRequestService(
             .set(rr.REQUESTER_PROFILE_ID, requesterProfileId)
             .set(rr.RECOMMENDER_CONTACT_ID, req.recommenderContactId)
             // Snapshot: the attestation covers this recipient; later contact edits must not
-            // redirect an already-attested invitation.
+            // redirect an already-attested invitation or alter the confirmed relationship.
             .set(rr.RECOMMENDER_NAME, contact.name)
             .set(rr.RECOMMENDER_EMAIL, contact.email)
+            .set(rr.RECOMMENDER_RELATIONSHIP_TYPE, contact.relationshipType)
             .set(rr.TEMPLATE_ID, req.templateId)
             .set(rr.PURPOSE, req.purpose)
             .set(rr.STATUS, ReferenceRequestStatus.CREATED.name)
@@ -297,7 +298,6 @@ internal class ReferenceRequestService(
 
         val template = templateLookup.snapshot(record.templateId!!)
             ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Template not found")
-        val contact = contactLookup.findOwned(record.recommenderContactId!!, requesterProfileId)
 
         val published = documentPublisher.publishLockedVersion(
             PublishDocumentCommand(
@@ -313,7 +313,7 @@ internal class ReferenceRequestService(
             ),
         )
 
-        createAcceptanceSignals(record, response.id!!, contact?.relationshipType, published)
+        createAcceptanceSignals(record, response.id!!, response.submittedAt!!, published)
 
         // CAS: forUpdate above serializes concurrent accepts; the guard keeps the invariant.
         val updated = dsl.update(rr)
@@ -408,7 +408,7 @@ internal class ReferenceRequestService(
     private fun createAcceptanceSignals(
         record: com.verifolio.jooq.tables.records.ReferenceRequestRecord,
         responseId: UUID,
-        relationshipType: String?,
+        submittedAt: OffsetDateTime,
         published: com.verifolio.documents.PublishedVersion,
     ) {
         val requestId = record.id!!.toString()
@@ -416,15 +416,19 @@ internal class ReferenceRequestService(
 
         verificationSignals.createVerified(
             "REFERENCE_RESPONSE", responseId, "RECIPIENT_CONFIRMED",
-            mapOf("requestId" to requestId, "responseId" to responseId.toString(), "confirmedAt" to OffsetDateTime.now().toString()),
+            // The confirmation happened at submission, not at recipient acceptance.
+            mapOf("requestId" to requestId, "responseId" to responseId.toString(), "confirmedAt" to submittedAt.toString()),
         )
         verificationSignals.createVerified(
             "REFERENCE_RESPONSE", responseId, "RECOMMENDER_RELATIONSHIP_CONFIRMED",
             mapOf(
                 "requestId" to requestId,
                 "responseId" to responseId.toString(),
-                "relationshipType" to (relationshipType ?: "OTHER"),
+                // Snapshot taken at request creation — the value the recommender confirmed,
+                // immune to later contact edits.
+                "relationshipType" to (record.recommenderRelationshipType ?: "OTHER"),
                 "statedByRecommender" to "true",
+                "confirmedAt" to submittedAt.toString(),
             ),
         )
         verificationSignals.createVerified(

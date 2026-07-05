@@ -1104,6 +1104,8 @@ components:
           type:
           - string
           - "null"
+          maxLength: 20000
+          minLength: 0
       required:
       - answersJson
     ApiError:
@@ -1306,11 +1308,14 @@ components:
           type:
           - string
           - "null"
-          minLength: 1
+          maxLength: 20000
+          minLength: 0
         confirmationText:
           type:
           - string
           - "null"
+          maxLength: 2000
+          minLength: 0
         recipientConfirmed:
           type:
           - boolean

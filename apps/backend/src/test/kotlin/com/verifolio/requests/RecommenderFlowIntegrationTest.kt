@@ -804,7 +804,7 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
         )
         assertThat(resubmit.statusCode).isEqualTo(HttpStatus.CREATED)
 
-        // Accept again -> version 2.
+        // The only acceptance in this request's life — it locks version 1 with the corrected text.
         val secondAccept = rest.exchange(
             "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
             HttpEntity<Void>(authHeaders(cookie, xsrf(cookie))),
@@ -827,6 +827,61 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
         val doc = dsl.selectFrom(d).where(d.ID.eq(UUID.fromString(documentId))).fetchOne()!!
         assertThat(doc.currentVersionId).isEqualTo(versions[0].id)
         assertThat(requestStatus(requestId)).isEqualTo("COMPLETED")
+    }
+
+    @Test
+    fun `one-click decline works from a correction re-invite`() {
+        val (rawToken, requestId) = sendInvitation("corrdecl_requester@example.com", "corrdecl_rec@corp.example.com")
+        driveToNeedsReview(rawToken, "corrdecl_rec@corp.example.com")
+        val (cookie, xsrfToken) = requesterSession("corrdecl_requester@example.com")
+
+        rest.exchange(
+            "/api/v1/reference-requests/$requestId/request-correction", HttpMethod.POST,
+            HttpEntity(mapOf<String, Any>(), authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        val newToken = Regex("/invitations/([A-Za-z0-9_-]+)")
+            .find(mail.sent.last { it.to == "corrdecl_rec@corp.example.com" }.textBody)!!.groupValues[1]
+
+        // The correction email advertises the decline link — it must work from CORRECTION_REQUESTED.
+        val decline = rest.postForEntity("/api/v1/invitations/$newToken/decline", null, Map::class.java)
+        assertThat(decline.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(requestStatus(requestId)).isEqualTo("DECLINED")
+    }
+
+    @Test
+    fun `direct submit without an autosave works in the correction cycle`() {
+        val (rawToken, requestId) = sendInvitation("directsub_requester@example.com", "directsub_rec@corp.example.com")
+        driveToNeedsReview(rawToken, "directsub_rec@corp.example.com")
+        val (cookie, xsrfToken) = requesterSession("directsub_requester@example.com")
+
+        rest.exchange(
+            "/api/v1/reference-requests/$requestId/request-correction", HttpMethod.POST,
+            HttpEntity(mapOf<String, Any>(), authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        val newToken = Regex("/invitations/([A-Za-z0-9_-]+)")
+            .find(mail.sent.last { it.to == "directsub_rec@corp.example.com" }.textBody)!!.groupValues[1]
+
+        openInvitation(newToken)
+        val recCookie = confirmEmail(newToken, "directsub_rec@corp.example.com")
+        val recXsrf = recommenderXsrf(recCookie)
+
+        // No PUT /response-draft first — submit directly from CORRECTION_REQUESTED.
+        val submit = rest.exchange(
+            "/api/v1/recommender/responses", HttpMethod.POST,
+            HttpEntity(
+                mapOf(
+                    "approvedLetterText" to "Directly resubmitted corrected letter.",
+                    "recipientConfirmed" to true,
+                    "relationshipConfirmed" to true,
+                ),
+                authHeaders(recCookie, recXsrf),
+            ),
+            Map::class.java,
+        )
+        assertThat(submit.statusCode).isEqualTo(HttpStatus.CREATED)
+        assertThat(requestStatus(requestId)).isEqualTo("NEEDS_REVIEW")
     }
 
     @Test

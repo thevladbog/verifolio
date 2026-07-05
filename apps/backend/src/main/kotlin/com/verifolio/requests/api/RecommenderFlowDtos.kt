@@ -2,6 +2,7 @@ package com.verifolio.requests.api
 
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Size
 
 data class ConsentTextRef(val textId: String, val version: Int)
 
@@ -33,12 +34,13 @@ data class ConsentDecisionRequest(
 
 data class DraftRequest(
     @field:NotNull val answersJson: Map<String, Any?>?,
-    val approvedLetterText: String? = null,
+    @field:Size(max = 20000) val approvedLetterText: String? = null,
 )
 
 data class SubmitResponseRequest(
-    @field:NotBlank val approvedLetterText: String?,
-    val confirmationText: String? = null,
+    /** Bounded: this text is rendered synchronously into the PDF at acceptance. */
+    @field:NotBlank @field:Size(max = 20000) val approvedLetterText: String?,
+    @field:Size(max = 2000) val confirmationText: String? = null,
     @field:NotNull val recipientConfirmed: Boolean?,
     @field:NotNull val relationshipConfirmed: Boolean?,
     val answersJson: Map<String, Any?>? = null,

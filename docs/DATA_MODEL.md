@@ -154,6 +154,7 @@ ReferenceRequest
 - recommender_contact_id
 - recommender_name
 - recommender_email
+- recommender_relationship_type
 - template_id
 - purpose
 - status
@@ -162,8 +163,8 @@ ReferenceRequest
 - updated_at
 ```
 
-`recommender_name` and `recommender_email` are snapshots of the contact taken at request
-creation. The requester's verbal-consent attestation covers exactly this recipient, so the
+`recommender_name`, `recommender_email`, and `recommender_relationship_type` are snapshots
+of the contact taken at request creation. The requester's verbal-consent attestation covers exactly this recipient, so the
 invitation is always sent to the snapshotted address — editing the contact after creation
 must not redirect an already-attested request. A contact referenced by reference requests
 cannot be hard-deleted (`ON DELETE RESTRICT`; the API returns 409 `CONTACT_IN_USE`).

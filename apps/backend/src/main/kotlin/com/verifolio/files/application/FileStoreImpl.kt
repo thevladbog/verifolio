@@ -9,9 +9,12 @@ import com.verifolio.jooq.tables.references.FILE_OBJECT
 import com.verifolio.platform.ApiException
 import com.verifolio.platform.VerifolioProperties
 import org.jooq.DSLContext
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.security.MessageDigest
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -23,6 +26,8 @@ internal class FileStoreImpl(
     private val audit: AuditService,
     private val props: VerifolioProperties,
 ) : FileStore {
+
+    private val log = LoggerFactory.getLogger(FileStoreImpl::class.java)
 
     @Transactional
     override fun storeGeneratedPdf(
@@ -38,6 +43,18 @@ internal class FileStoreImpl(
         val sha256 = sha256Hex(bytes)
 
         storage.put(key, bytes, "application/pdf")
+
+        // Compensation: the S3 write is not transactional. If the surrounding transaction
+        // rolls back (accept failure after the upload), delete the orphaned object so no
+        // untracked user data remains in storage.
+        TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+            override fun afterCompletion(status: Int) {
+                if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
+                    runCatching { storage.delete(key) }
+                        .onFailure { log.warn("Failed to clean up orphaned object {} after rollback", key, it) }
+                }
+            }
+        })
 
         val fo = FILE_OBJECT
         dsl.insertInto(fo)

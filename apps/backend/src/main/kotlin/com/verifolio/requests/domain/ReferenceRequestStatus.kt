@@ -17,7 +17,9 @@ enum class ReferenceRequestStatus {
         NEEDS_REVIEW -> this == SUBMITTED
         CORRECTION_REQUESTED -> this == NEEDS_REVIEW
         COMPLETED -> this == NEEDS_REVIEW
-        DECLINED -> this == SENT || this == OPENED || this == IN_PROGRESS
+        // CORRECTION_REQUESTED included: every recommender email (incl. correction re-invites)
+        // carries one-click decline links, which must keep working (RECOMMENDER_EXPERIENCE.md).
+        DECLINED -> this == SENT || this == OPENED || this == IN_PROGRESS || this == CORRECTION_REQUESTED
         EXPIRED -> this == SENT || this == OPENED || this == IN_PROGRESS || this == CORRECTION_REQUESTED
         CANCELLED -> !terminal
     }

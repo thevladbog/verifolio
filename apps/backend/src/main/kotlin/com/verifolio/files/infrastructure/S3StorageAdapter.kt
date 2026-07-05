@@ -44,13 +44,18 @@ internal class S3StorageAdapter(private val props: VerifolioProperties) {
 
     @PostConstruct
     fun ensureBucket() {
-        // Auto-create only makes sense for local/dev MinIO; production buckets are provisioned.
-        if (!props.storage.pathStyle) return
+        // Auto-create only in the local/dev cell; production buckets are pre-provisioned
+        // and the credentials may lack createBucket rights.
+        if (props.region != "local") return
         try {
             client.createBucket { it.bucket(props.storage.bucket) }
         } catch (_: BucketAlreadyOwnedByYouException) {
             // fine
         }
+    }
+
+    fun delete(key: String) {
+        client.deleteObject { it.bucket(props.storage.bucket).key(key) }
     }
 
     fun put(key: String, bytes: ByteArray, contentType: String) {

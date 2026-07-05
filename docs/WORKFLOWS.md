@@ -55,7 +55,7 @@ Note: the former `VERIFIED` state is renamed `COMPLETED`.
 | NEEDS_REVIEW | COMPLETED | Recipient | Recipient accepts the response | REFERENCE_RESPONSE_ACCEPTED, DOCUMENT_VERSION_LOCKED, VERIFICATION_SIGNAL_CREATED |
 | NEEDS_REVIEW | CORRECTION_REQUESTED | Recipient | Recipient requests a correction | REQUEST_CORRECTION_REQUESTED |
 | CORRECTION_REQUESTED | IN_PROGRESS | Recommender | New response cycle starts (new document version on next acceptance) | REFERENCE_RESPONSE_STARTED |
-| SENT / OPENED / IN_PROGRESS | DECLINED | Recommender | Explicit decline or abuse report | REQUEST_DECLINED |
+| SENT / OPENED / IN_PROGRESS / CORRECTION_REQUESTED | DECLINED | Recommender | Explicit decline or abuse report (every recommender email, including correction re-invites, carries one-click decline links) | REQUEST_DECLINED |
 | SENT / OPENED / IN_PROGRESS / CORRECTION_REQUESTED | EXPIRED | System | Day 21 without submission | REFERENCE_REQUEST_EXPIRED |
 | Any non-terminal | CANCELLED | Requester | Requester cancels the request | REFERENCE_REQUEST_CANCELLED |
 

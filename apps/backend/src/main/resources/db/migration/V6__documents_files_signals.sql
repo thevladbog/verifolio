@@ -1,3 +1,8 @@
+-- Snapshot of the contact's relationship at request creation, alongside the existing
+-- name/email snapshots: the RECOMMENDER_RELATIONSHIP_CONFIRMED signal must record the
+-- value the recommender actually confirmed, not the mutable contact row at accept time.
+alter table reference_request add column recommender_relationship_type text;
+
 create table file_object (
     id                   uuid primary key default gen_random_uuid(),
     bucket               text not null,
@@ -22,7 +27,7 @@ create table document (
     type               text not null check (type in (
         'REFERENCE_LETTER','EMPLOYMENT_PROOF','IMMIGRATION_REFERENCE','VISA_SUPPORT_LETTER',
         'ACADEMIC_RECOMMENDATION','CLIENT_TESTIMONIAL','CHARACTER_REFERENCE','CUSTOM')),
-    status             text not null default 'ACTIVE',
+    status             text not null default 'ACTIVE' check (status in ('ACTIVE')),
     current_version_id uuid,
     created_at         timestamptz not null default now(),
     updated_at         timestamptz not null default now()

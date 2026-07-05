@@ -37,11 +37,11 @@ internal class InvitationAccessImpl(
     override fun peek(rawToken: String): InvitationInfo? =
         findByHash(rawToken)
             ?.takeIf { it.consumedAt == null && it.revokedAt == null && it.expiresAt!!.isAfter(OffsetDateTime.now()) }
-            ?.let { InvitationInfo(it.requestId!!, it.recommenderEmail!!) }
+            ?.let { InvitationInfo(it.id!!, it.requestId!!, it.recommenderEmail!!) }
 
     @Transactional(readOnly = true)
     override fun identify(rawToken: String): InvitationInfo? =
-        findByHash(rawToken)?.let { InvitationInfo(it.requestId!!, it.recommenderEmail!!) }
+        findByHash(rawToken)?.let { InvitationInfo(it.id!!, it.requestId!!, it.recommenderEmail!!) }
 
     @Transactional
     override fun issueEmailConfirmation(rawToken: String): String {
