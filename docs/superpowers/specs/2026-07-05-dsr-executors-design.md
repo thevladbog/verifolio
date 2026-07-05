@@ -79,8 +79,9 @@ verifolio:
 
 ## EXPORT executor (privacy)
 
-`ExportExecutor.execute(dsr): FileRef` — synchronous, called from `execute()` for
-`type == EXPORT`:
+`ExportExecutor.execute(dsr)` — synchronous and side-effecting (no return value); called from
+`execute()` for `type == EXPORT`. It stores the artifact, records `dsr.export_file_id`, and
+emails the subject:
 
 1. Resolve the subject: account-holder (`user_id`) or recommender (`recommender_contact_id`).
 2. Assemble a JSON package (metadata + references only) via new read ports:
@@ -88,7 +89,7 @@ verifolio:
 | Section | Source port (new) | Content (metadata only) |
 |---|---|---|
 | `account` | `identity.AccountExport.forUser(userId)` | email, region, status, createdAt |
-| `profile` | `profiles.ProfileExport.forUser(userId)` | displayName, headline, legalName, locale |
+| `profile` | `profiles.ProfileExport.forUser(userId)` | displayName, legalName, preferredLocale (no headline column) |
 | `contacts` | `contacts.ContactExport.forOwner(profileId)` | per contact: name, email, company, relationship, createdAt |
 | `referenceRequests` | `requests.RequestExport.forRequester(profileId)` | per request: id, recommender snapshot, purpose, status, timestamps |
 | `documents` | `documents.DocumentExport.forOwner(profileId)` | per document: type + versions [versionNumber, sha256, status, lockedAt, retractedAt, tombstonedAt] |
@@ -102,9 +103,11 @@ omitted.
 
 Then: serialize (pretty JSON, top-level `{generatedAt, subjectType, ...sections}`), store
 via `files.FileStore.storeExport(bytes)` (→ `DATA_EXPORT` FileObject, opaque region key);
-`presignedDownloadUrl(fileId, ttl=export-link-ttl)`; `mail.send(subjectEmail, link)`; set
-`dsr.export_file_id`; audit `DATA_EXPORTED` (actor ADMIN/SYSTEM, metadata: dsrId, fileId,
-subjectType — no email/content); DSR → EXECUTED.
+set `dsr.export_file_id`; audit `DATA_EXPORTED` (actor ADMIN/SYSTEM, metadata: fileId,
+subjectType — the DSR id is already the audit `entityId`; no email/content); then
+`presignedDownloadUrl(fileId, ttl=export-link-ttl)` + `mail.send(subjectEmail, link)` LAST, so
+a mail failure rolls back the pointer and audit in the same transaction; DSR → EXECUTED.
+Idempotent: if `dsr.export_file_id` is already set, `execute` is a no-op (no regenerate/re-email).
 
 Module deps added: privacy → identity, profiles, contacts (all one-way; ModularityTests
 must stay green). requests/documents export ports are new methods on existing ports or new
@@ -118,7 +121,7 @@ package-root ports.
 | Data | Action | Port (new unless noted) |
 |---|---|---|
 | Owned `document_version`s (all versions of the subject's documents) | tombstone (NULL content, TOMBSTONED, retain sha256/version/lockedAt) | `documents.OwnerErasure.tombstoneForOwner(profileId)` → per-version `DocumentTombstone` (reused) |
-| `person_profile` | anonymize PII (null displayName/headline/legalName; keep row for FK) | `profiles.ProfileErasure.eraseForUser(userId)` |
+| `person_profile` | anonymize PII (display_name → "Deleted user" tombstone (NOT NULL); null legalName; keep row for FK) | `profiles.ProfileErasure.eraseForUser(userId)` |
 | `recommender_contact` owned by the subject | anonymize (null name/email/company; RESTRICT FKs from requests/consents hold) | `contacts.ContactErasure.eraseForOwner(profileId)` |
 | `reference_request` the subject created (requester side) | leave the row (documents tombstoned above); requester PII lives in the profile, already anonymized | — |
 | `user_account` | status='DELETED', `deleted_at`=now, email → `deleted-<id>@tombstone.invalid`; delete `user_session` + `magic_link_token` rows | `identity.AccountErasure.eraseForUser(userId)` |
@@ -126,8 +129,9 @@ package-root ports.
 | `audit_event` referencing the subject as actor | pseudonymize `actor_id` → null | `audit.AuditPseudonymizer.pseudonymizeActor(userId)` |
 | Recommender PII on the subject's requests | NOT this executor's job (that is the recommender-subject's own DSR); the requester deletion does not erase the recommenders who helped them | — |
 
-Audit `ACCOUNT_DELETED` (actor ADMIN, metadata: dsrId, userId, counts — no email); DSR →
-EXECUTED. Idempotent: re-running on an already-DELETED account is a no-op.
+Audit `ACCOUNT_DELETED` (actor ADMIN, metadata: dsrId + counts (versionsTombstoned,
+contactsErased, auditRowsPseudonymized) — the deleted user id is already the audit `entityId`;
+no email); DSR → EXECUTED. Idempotent: re-running on an already-DELETED account is a no-op.
 
 Non-negotiables held: locked versions only change via the sanctioned tombstone path; audit
 rows are pseudonymized, never deleted (retention window is a separate deferred item); no

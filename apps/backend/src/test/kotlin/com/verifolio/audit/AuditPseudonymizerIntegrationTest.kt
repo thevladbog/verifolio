@@ -46,6 +46,6 @@ class AuditPseudonymizerIntegrationTest : IntegrationTest() {
         assertThat(other.actorId).isEqualTo(otherActor)
 
         // Idempotent: nothing left to match.
-        assertThat(auditPseudonymizer.pseudonymizeActor(subject)).isZero
+        assertThat(auditPseudonymizer.pseudonymizeActor(subject)).isZero()
     }
 }

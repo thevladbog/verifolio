@@ -83,8 +83,8 @@ class RequestExportIntegrationTest : IntegrationTest() {
         assertThat(data[0].recommenderEmail).isEqualTo("rec1@example.com")
         assertThat(data[0].purpose).isEqualTo("Visa")
         assertThat(data[0].status).isEqualTo("CREATED")
-        assertThat(data[0].createdAt).isNotNull
-        assertThat(data[0].updatedAt).isNotNull
+        assertThat(data[0].createdAt).isNotNull()
+        assertThat(data[0].updatedAt).isNotNull()
     }
 
     @Test
@@ -98,5 +98,19 @@ class RequestExportIntegrationTest : IntegrationTest() {
         assertThat(data).hasSize(1)
         assertThat(data[0].recommenderEmail).isEqualTo("shared-rec@example.com")
         assertThat(requestExport.forRecommenderEmail("nobody@example.com")).isEmpty()
+    }
+
+    @Test
+    fun `forRecommenderEmail matches case-insensitively`() {
+        val owner = seedProfile()
+        val contact = seedContact(owner, "Mixed.Case@Example.com")
+        seedRequest(owner, contact, "Mixed Rec", "Mixed.Case@Example.com", "Purpose B")
+
+        // A lowercased subject email (as carried through the privacy flow) still matches the
+        // mixed-case snapshot stored on the request.
+        val data = requestExport.forRecommenderEmail("mixed.case@example.com")
+
+        assertThat(data).hasSize(1)
+        assertThat(data[0].recommenderEmail).isEqualTo("Mixed.Case@Example.com")
     }
 }

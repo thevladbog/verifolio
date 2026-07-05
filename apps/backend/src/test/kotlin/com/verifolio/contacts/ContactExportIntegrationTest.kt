@@ -57,6 +57,6 @@ class ContactExportIntegrationTest : IntegrationTest() {
         val grace = data.first { it.name == "Grace Hopper" }
         assertThat(grace.companyName).isEqualTo("US Navy")
         assertThat(grace.relationshipType).isEqualTo("MANAGER")
-        assertThat(grace.createdAt).isNotNull
+        assertThat(grace.createdAt).isNotNull()
     }
 }

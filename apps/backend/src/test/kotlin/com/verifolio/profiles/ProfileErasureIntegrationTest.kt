@@ -43,7 +43,7 @@ class ProfileErasureIntegrationTest : IntegrationTest() {
 
         val pp = PERSON_PROFILE
         val row = dsl.selectFrom(pp).where(pp.USER_ACCOUNT_ID.eq(userId)).fetchOne()
-        assertThat(row).isNotNull
+        assertThat(row).isNotNull()
         assertThat(row!![pp.DISPLAY_NAME]).isEqualTo("Deleted user")
         assertThat(row[pp.LEGAL_NAME]).isNull()
         // preferred_locale is a non-PII UI preference — left untouched.

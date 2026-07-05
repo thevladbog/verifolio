@@ -14,7 +14,7 @@ import java.util.UUID
 interface ContactErasure {
     /**
      * Anonymizes every `recommender_contact` owned by [ownerProfileId]: `name` → a tombstone
-     * placeholder ("Deleted contact", the column is NOT NULL), `email` → null,
+     * placeholder ("Deleted contact", the column is NOT NULL), `email` → "" (also NOT NULL),
      * `company_name`/`company_domain`/`title` → null; `relationship_type` and the row are
      * kept (FK integrity). Returns the number of contact rows anonymized. Idempotent:
      * re-running sets the same values and returns the same count.

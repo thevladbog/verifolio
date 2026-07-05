@@ -69,6 +69,6 @@ class DocumentExportIntegrationTest : IntegrationTest() {
         assertThat(data[0].versions.map { it.versionNumber }).containsExactly(1, 2)
         assertThat(data[0].versions.map { it.sha256 }).containsExactly("sha-v1", "sha-v2")
         assertThat(data[0].versions.map { it.status }).containsExactly("LOCKED", "TOMBSTONED")
-        assertThat(data[0].versions[0].lockedAt).isNotNull
+        assertThat(data[0].versions[0].lockedAt).isNotNull()
     }
 }

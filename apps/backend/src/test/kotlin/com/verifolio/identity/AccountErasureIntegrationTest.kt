@@ -62,15 +62,15 @@ class AccountErasureIntegrationTest : IntegrationTest() {
         val ua = USER_ACCOUNT
         val account = dsl.selectFrom(ua).where(ua.ID.eq(userId)).fetchOne()!!
         assertThat(account.status).isEqualTo("DELETED")
-        assertThat(account.deletedAt).isNotNull
+        assertThat(account.deletedAt).isNotNull()
         assertThat(account.email).isEqualTo("deleted-$userId@tombstone.invalid")
 
         assertThat(
             dsl.fetchCount(USER_SESSION, USER_SESSION.USER_ACCOUNT_ID.eq(userId)),
-        ).isZero
+        ).isZero()
         assertThat(
             dsl.fetchCount(MAGIC_LINK_TOKEN, MAGIC_LINK_TOKEN.EMAIL.eq(email)),
-        ).isZero
+        ).isZero()
         // The other email's magic link is untouched.
         assertThat(
             dsl.fetchCount(MAGIC_LINK_TOKEN, MAGIC_LINK_TOKEN.EMAIL.eq(otherEmail)),

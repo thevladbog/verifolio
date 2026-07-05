@@ -20,7 +20,7 @@ class OrganizationLookupTest : IntegrationTest() {
     @Test
     fun `exact domain match resolves the verified org`() {
         val match = lookup.findVerifiedByDomain("sap.com")
-        assertThat(match).isNotNull
+        assertThat(match).isNotNull()
         assertThat(match!!.organizationId).isEqualTo(sapId)
         assertThat(match.name).isEqualTo("SAP SE")
         assertThat(match.matchedDomain).isEqualTo("sap.com")
@@ -29,7 +29,7 @@ class OrganizationLookupTest : IntegrationTest() {
     @Test
     fun `subdomain match resolves the verified org`() {
         val match = lookup.findVerifiedByDomain("careers.sap.com")
-        assertThat(match).isNotNull
+        assertThat(match).isNotNull()
         assertThat(match!!.organizationId).isEqualTo(sapId)
         assertThat(match.matchedDomain).isEqualTo("sap.com")
     }
@@ -37,14 +37,14 @@ class OrganizationLookupTest : IntegrationTest() {
     @Test
     fun `case and whitespace are normalized`() {
         val match = lookup.findVerifiedByDomain("  SAP.COM ")
-        assertThat(match).isNotNull
+        assertThat(match).isNotNull()
         assertThat(match!!.organizationId).isEqualTo(sapId)
     }
 
     @Test
     fun `second domain of a two-domain org resolves that org`() {
         val match = lookup.findVerifiedByDomain("successfactors.com")
-        assertThat(match).isNotNull
+        assertThat(match).isNotNull()
         assertThat(match!!.organizationId).isEqualTo(sapId)
         assertThat(match.matchedDomain).isEqualTo("successfactors.com")
     }
@@ -55,7 +55,7 @@ class OrganizationLookupTest : IntegrationTest() {
         val euOrg = insertOrg("Acme EU", "eu.acme.com", "VERIFIED")
 
         val match = lookup.findVerifiedByDomain("careers.eu.acme.com")
-        assertThat(match).isNotNull
+        assertThat(match).isNotNull()
         assertThat(match!!.organizationId).isEqualTo(euOrg)
         assertThat(match.matchedDomain).isEqualTo("eu.acme.com")
 

@@ -47,27 +47,25 @@ internal class ExportExecutor(
 
     @Transactional
     fun execute(dsr: DataSubjectRequestRecord, adminActorId: String? = null) {
+        // Idempotency guard: an export already produced (its artifact id is recorded on the DSR) is
+        // a no-op — never regenerate, re-store, or re-email a second package. Re-fetch the pointer
+        // so a stale in-memory record cannot mask an already-run export.
+        val exportFileId = dsl.select(DATA_SUBJECT_REQUEST.EXPORT_FILE_ID)
+            .from(DATA_SUBJECT_REQUEST)
+            .where(DATA_SUBJECT_REQUEST.ID.eq(dsr.id))
+            .fetchOne(DATA_SUBJECT_REQUEST.EXPORT_FILE_ID)
+        if (exportFileId != null) return
+
         val pkg = if (dsr.userId != null) assembleAccountHolder(dsr) else assembleRecommender(dsr)
 
         val bytes = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(pkg)
         val stored = files.storeExport(bytes)
         val ttl = props.privacy.exportLinkTtl
-        val link = files.presignedDownloadUrl(stored.fileId, ttl)
 
-        mail.send(
-            to = dsr.subjectEmail!!,
-            subject = "Your Verifolio data export",
-            textBody = buildString {
-                appendLine("Your Verifolio data export is ready.")
-                appendLine()
-                appendLine("Download it here (the link is valid for ${humanizeTtl(ttl)}):")
-                appendLine(link.url)
-                appendLine()
-                appendLine("The package contains metadata and references about your account and activity.")
-                appendLine("If you did not request this export, please contact support.")
-            },
-        )
-
+        // Record the durable DSR pointer + audit BEFORE the side-effecting email, so a
+        // stored/audited artifact is never left without a DSR pointer. The email is LAST: an SMTP
+        // failure rolls back this same transaction (pointer + audit + the stored object's rollback
+        // compensation), so a retry re-runs cleanly rather than emailing an untracked export.
         val d = DATA_SUBJECT_REQUEST
         dsl.update(d)
             .set(d.EXPORT_FILE_ID, stored.fileId)
@@ -86,6 +84,21 @@ internal class ExportExecutor(
                 "fileId" to stored.fileId.toString(),
                 "subjectType" to pkg.subjectType.name,
             ),
+        )
+
+        val link = files.presignedDownloadUrl(stored.fileId, ttl)
+        mail.send(
+            to = dsr.subjectEmail!!,
+            subject = "Your Verifolio data export",
+            textBody = buildString {
+                appendLine("Your Verifolio data export is ready.")
+                appendLine()
+                appendLine("Download it here (the link is valid for ${humanizeTtl(ttl)}):")
+                appendLine(link.url)
+                appendLine()
+                appendLine("The package contains metadata and references about your account and activity.")
+                appendLine("If you did not request this export, please contact support.")
+            },
         )
     }
 

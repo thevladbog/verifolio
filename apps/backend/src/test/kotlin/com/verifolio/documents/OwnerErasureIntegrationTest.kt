@@ -76,13 +76,13 @@ class OwnerErasureIntegrationTest : IntegrationTest() {
         assertThat(erased.renderedHtml).isNull()
         // Integrity anchors retained.
         assertThat(erased.sha256Hash).isEqualTo("sha-owner")
-        assertThat(erased.lockedAt).isNotNull
-        assertThat(erased.tombstonedAt).isNotNull
+        assertThat(erased.lockedAt).isNotNull()
+        assertThat(erased.tombstonedAt).isNotNull()
 
         // The other owner's version is untouched.
         val untouched = dsl.selectFrom(dv).where(dv.ID.eq(otherVersion)).fetchOne()!!
         assertThat(untouched.status).isEqualTo("LOCKED")
-        assertThat(untouched.contentJson).isNotNull
+        assertThat(untouched.contentJson).isNotNull()
         assertThat(untouched.sha256Hash).isEqualTo("sha-other")
 
         // Idempotent: a re-run finds nothing left to tombstone.

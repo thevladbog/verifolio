@@ -111,17 +111,17 @@ class AccountDeletionIntegrationTest : PrivacyFlowSupport() {
         // Account tombstoned: DELETED + deleted_at + email anonymized; sessions + magic links gone.
         val account = dsl.selectFrom(USER_ACCOUNT).where(USER_ACCOUNT.ID.eq(userId)).fetchOne()!!
         assertThat(account.status).isEqualTo("DELETED")
-        assertThat(account.deletedAt).isNotNull
+        assertThat(account.deletedAt).isNotNull()
         assertThat(account.email).isEqualTo("deleted-$userId@tombstone.invalid")
-        assertThat(dsl.fetchCount(USER_SESSION, USER_SESSION.USER_ACCOUNT_ID.eq(userId))).isZero
-        assertThat(dsl.fetchCount(MAGIC_LINK_TOKEN, MAGIC_LINK_TOKEN.EMAIL.eq(owner))).isZero
+        assertThat(dsl.fetchCount(USER_SESSION, USER_SESSION.USER_ACCOUNT_ID.eq(userId))).isZero()
+        assertThat(dsl.fetchCount(MAGIC_LINK_TOKEN, MAGIC_LINK_TOKEN.EMAIL.eq(owner))).isZero()
 
         // Consent RETAINED (lawful-basis evidence).
         assertThat(dsl.fetchCount(CONSENT_RECORD, CONSENT_RECORD.USER_ID.eq(userId)))
             .isEqualTo(consentsBefore)
 
         // Audit actor pseudonymized: rows retained (total only grew), none still reference the user.
-        assertThat(dsl.fetchCount(AUDIT_EVENT, AUDIT_EVENT.ACTOR_ID.eq(userId.toString()))).isZero
+        assertThat(dsl.fetchCount(AUDIT_EVENT, AUDIT_EVENT.ACTOR_ID.eq(userId.toString()))).isZero()
         assertThat(dsl.fetchCount(AUDIT_EVENT)).isGreaterThan(totalAuditBefore)
 
         // ACCOUNT_DELETED audited (ADMIN actor, counts, no email).

@@ -35,6 +35,6 @@ class FileStoreExportIntegrationTest : IntegrationTest() {
         // The one sanctioned object-storage URL: the subject's own short-lived presigned GET.
         val link = fileStore.presignedDownloadUrl(stored.fileId)
         assertThat(link.url).contains("http")
-        assertThat(link.expiresAt).isNotNull
+        assertThat(link.expiresAt).isNotNull()
     }
 }

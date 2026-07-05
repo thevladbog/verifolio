@@ -31,10 +31,10 @@ class AccountExportIntegrationTest : IntegrationTest() {
 
         val data = accountExport.forUser(userId)
 
-        assertThat(data).isNotNull
+        assertThat(data).isNotNull()
         assertThat(data!!.region).isEqualTo("EU")
         assertThat(data.status).isEqualTo("ACTIVE")
-        assertThat(data.createdAt).isNotNull
+        assertThat(data.createdAt).isNotNull()
     }
 
     @Test

@@ -43,7 +43,7 @@ class ProfileExportIntegrationTest : IntegrationTest() {
 
         val data = profileExport.forUser(userId)
 
-        assertThat(data).isNotNull
+        assertThat(data).isNotNull()
         assertThat(data!!.displayName).isEqualTo("Ada Lovelace")
         assertThat(data.legalName).isEqualTo("Augusta Ada King")
         assertThat(data.preferredLocale).isEqualTo("en")

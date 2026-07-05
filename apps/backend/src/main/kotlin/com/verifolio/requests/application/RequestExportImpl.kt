@@ -5,6 +5,7 @@ import com.verifolio.requests.RequestExport
 import com.verifolio.requests.RequestExportData
 import org.jooq.Condition
 import org.jooq.DSLContext
+import org.jooq.impl.DSL
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -21,7 +22,10 @@ internal class RequestExportImpl(private val dsl: DSLContext) : RequestExport {
     @Transactional(readOnly = true)
     override fun forRecommenderEmail(email: String): List<RequestExportData> {
         val rr = REFERENCE_REQUEST
-        return query(rr.RECOMMENDER_EMAIL.eq(email))
+        // Case-insensitive match: the recommender privacy flow lowercases emails before matching,
+        // while the DSR subject email is carried through as captured, so an exact match could omit
+        // requests whose stored casing differs.
+        return query(DSL.lower(rr.RECOMMENDER_EMAIL).eq(email.lowercase()))
     }
 
     private fun query(condition: Condition): List<RequestExportData> {
