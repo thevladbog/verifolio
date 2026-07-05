@@ -11,7 +11,7 @@ buildscript {
     repositories { mavenCentral() }
     dependencies {
         classpath("org.testcontainers:postgresql:1.21.4")
-        classpath("org.flywaydb:flyway-database-postgresql:11.14.1")
+        classpath("org.flywaydb:flyway-database-postgresql:12.10.0")
         classpath("org.postgresql:postgresql:42.7.7")
         classpath("org.jooq:jooq-codegen:3.19.35")
     }
