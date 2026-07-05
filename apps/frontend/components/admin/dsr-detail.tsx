@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { DsrStatusBadge } from "@/components/admin/dsr-status-badge";
 import { dsrTypeLabel } from "@/components/admin/dsr-type";
@@ -47,6 +47,7 @@ export function DsrDetail({
   onExecute: () => void;
 }) {
   const t = useTranslations("admin");
+  const format = useFormatter();
 
   if (isLoading) {
     return <p className="text-sm text-blue-gray">{t("common.loading")}</p>;
@@ -56,7 +57,12 @@ export function DsrDetail({
   }
 
   const dateFmt = (iso?: string) =>
-    iso ? new Date(iso).toLocaleString() : "—";
+    iso
+      ? format.dateTime(new Date(iso), {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })
+      : "—";
 
   return (
     <div className="flex flex-col gap-5">

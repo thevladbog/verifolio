@@ -159,6 +159,43 @@ describe("AdminDataRequestsPage", () => {
     );
   });
 
+  it("renders an error+retry instead of spinning forever on a non-401 session error", async () => {
+    const refetch = vi.fn();
+    useAdminSession.mockReturnValue({
+      admin: undefined,
+      isLoading: false,
+      isError: true,
+      refetch,
+    });
+    renderWithProviders(<AdminDataRequestsPage />);
+
+    const retry = await screen.findByRole("button", { name: "Try again" });
+    expect(retry).toBeInTheDocument();
+    expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+
+    await userEvent.click(retry);
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("resets stale reject notes when the dialog is reopened", async () => {
+    renderWithProviders(<AdminDataRequestsPage />);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /alice@example.com/ }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Reject" }));
+
+    const notes = await screen.findByLabelText("Resolution notes");
+    await userEvent.type(notes, "Some stale reason");
+    expect(notes).toHaveValue("Some stale reason");
+
+    // Close the dialog…
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    // …and reopen it: the notes must not be pre-filled with the previous text.
+    await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+    expect(await screen.findByLabelText("Resolution notes")).toHaveValue("");
+  });
+
   it("shows a manual-execution state on 409 EXECUTION_NOT_AUTOMATED", async () => {
     mockPost.mockResolvedValue(
       fail(409, "EXECUTION_NOT_AUTOMATED") as never,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { DsrStatusBadge } from "@/components/admin/dsr-status-badge";
 import { dsrTypeLabel } from "@/components/admin/dsr-type";
@@ -20,7 +20,10 @@ export function DsrRow({
   onSelect: () => void;
 }) {
   const t = useTranslations("admin");
-  const due = item.dueAt ? new Date(item.dueAt).toLocaleDateString() : "—";
+  const format = useFormatter();
+  const due = item.dueAt
+    ? format.dateTime(new Date(item.dueAt), { dateStyle: "medium" })
+    : "—";
 
   return (
     <button

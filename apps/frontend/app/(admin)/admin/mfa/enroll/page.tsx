@@ -19,7 +19,8 @@ export default function AdminMfaEnrollPage() {
     queryFn: async () =>
       unwrap(await api.GET("/api/v1/admin/auth/mfa/enrollment")),
     retry: false,
-    staleTime: Infinity,
+    // No staleTime: always refetch a fresh secret/QR for the current pending
+    // session so a logout→relogin in the same SPA can't show a stale enrollment.
   });
 
   const enroll = useMutation({

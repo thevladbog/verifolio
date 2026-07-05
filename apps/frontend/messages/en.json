@@ -444,6 +444,10 @@
     "common": {
       "loading": "Loading…"
     },
+    "error": {
+      "title": "Something went wrong. Please try again.",
+      "retry": "Try again"
+    },
     "roles": {
       "SUPPORT_L1": "Support L1",
       "SUPPORT_L2": "Support L2",
@@ -468,6 +472,7 @@
       "logout": "Sign out",
       "pendingTitle": "Pending data requests",
       "pendingHint": "Data subject requests awaiting review or execution in your region.",
+      "pendingError": "Couldn't load the pending count.",
       "openQueue": "Open the review queue"
     },
     "queue": {

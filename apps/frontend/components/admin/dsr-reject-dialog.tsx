@@ -30,6 +30,16 @@ export function DsrRejectDialog({
   const t = useTranslations("admin.queue");
   const [notes, setNotes] = useState("");
 
+  // The dialog is mounted once in the parent, so `notes` would otherwise persist
+  // across close/reopen and across different DSR items. Reset on each open (via
+  // React's "adjust state during render" pattern) so a subsequent rejection
+  // never pre-fills stale notes.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setNotes("");
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>

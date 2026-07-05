@@ -25,15 +25,23 @@ export function useAdminSession() {
     staleTime: 5 * 60_000,
   });
 
+  const is401 =
+    query.error instanceof RequestError && query.error.status === 401;
+
   useEffect(() => {
-    if (query.error instanceof RequestError && query.error.status === 401) {
+    if (is401) {
       router.replace("/admin/login");
     }
-  }, [query.error, router]);
+  }, [is401, router]);
 
   return {
     admin: query.data,
     isLoading: query.isLoading,
+    // A 401 redirects to /admin/login above, so it's not a surfaced error. Any
+    // OTHER failure (500, network) must be surfaced so pages that gate on
+    // `isLoading || !admin` render an error+retry instead of spinning forever.
+    isError: query.isError && !is401,
     error: query.error,
+    refetch: query.refetch,
   };
 }

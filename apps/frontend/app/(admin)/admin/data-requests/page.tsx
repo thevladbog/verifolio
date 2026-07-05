@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { AdminError } from "@/components/admin/admin-error";
 import { DsrDetail } from "@/components/admin/dsr-detail";
 import { DsrRejectDialog } from "@/components/admin/dsr-reject-dialog";
 import { DsrRow } from "@/components/admin/dsr-row";
@@ -25,7 +26,12 @@ type DsrItem = components["schemas"]["AdminDsrItemResponse"];
 export default function AdminDataRequestsPage() {
   const t = useTranslations("admin");
   const queryClient = useQueryClient();
-  const { admin, isLoading: sessionLoading } = useAdminSession();
+  const {
+    admin,
+    isLoading: sessionLoading,
+    isError: sessionError,
+    refetch: refetchSession,
+  } = useAdminSession();
 
   const [status, setStatus] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -119,6 +125,10 @@ export default function AdminDataRequestsPage() {
     setSelectedId(id);
     setExecNotAutomated(false);
   };
+
+  if (sessionError) {
+    return <AdminError onRetry={() => refetchSession()} />;
+  }
 
   if (sessionLoading || !admin) {
     return <p className="text-sm text-blue-gray">{t("common.loading")}</p>;

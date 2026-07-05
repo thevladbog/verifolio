@@ -1,11 +1,12 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { AdminError } from "@/components/admin/admin-error";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api/client";
 import { useAdminSession } from "@/lib/admin/use-admin-session";
@@ -14,7 +15,13 @@ import { unwrap } from "@/lib/query-provider";
 export default function AdminDashboardPage() {
   const t = useTranslations("admin");
   const router = useRouter();
-  const { admin, isLoading } = useAdminSession();
+  const queryClient = useQueryClient();
+  const {
+    admin,
+    isLoading,
+    isError: sessionError,
+    refetch: refetchSession,
+  } = useAdminSession();
 
   const dashboard = useQuery({
     queryKey: ["admin-dashboard"],
@@ -25,16 +32,22 @@ export default function AdminDashboardPage() {
   const logout = useMutation({
     mutationFn: async () =>
       unwrap(await api.POST("/api/v1/admin/auth/logout")),
-    onSuccess: () => router.replace("/admin/login"),
-    onError: () => router.replace("/admin/login"),
+    onSettled: () => {
+      // Drop every cached admin query (the admin-session has a 5m staleTime) so a
+      // subsequent login in the same browser can't render the previous admin.
+      queryClient.clear();
+      router.replace("/admin/login");
+    },
     meta: { inlineError: true },
   });
+
+  if (sessionError) {
+    return <AdminError onRetry={() => refetchSession()} />;
+  }
 
   if (isLoading || !admin) {
     return <p className="text-sm text-blue-gray">{t("common.loading")}</p>;
   }
-
-  const pending = dashboard.data?.dsrPendingTotal ?? 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -65,9 +78,18 @@ export default function AdminDashboardPage() {
         <h2 className="text-sm font-medium uppercase tracking-wide text-blue-gray">
           {t("dashboard.pendingTitle")}
         </h2>
-        <p className="mt-2 text-4xl font-semibold text-paper">
-          {dashboard.isLoading ? "—" : pending}
-        </p>
+        {dashboard.isError ? (
+          <div className="mt-3">
+            <AdminError
+              message={t("dashboard.pendingError")}
+              onRetry={() => dashboard.refetch()}
+            />
+          </div>
+        ) : (
+          <p className="mt-2 text-4xl font-semibold text-paper">
+            {dashboard.isLoading ? "—" : dashboard.data?.dsrPendingTotal ?? 0}
+          </p>
+        )}
         <p className="mt-1 text-sm text-blue-gray">
           {t("dashboard.pendingHint")}
         </p>
