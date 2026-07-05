@@ -353,3 +353,51 @@ inherit context; append an entry when an iteration ships.
 - **Signature verification (Signature table, providers)** — ADR-0007, v1.1; only
   SIGNATURE_ATTACHED is asserted.
 - **Consent withdrawal effects on published attachments** — retraction/privacy flows.
+
+## 2026-07 — Minimal workflows (iteration 8) — MVP backend feature-complete
+
+### What shipped
+
+- **workflows module** (first real code): `RecurringTask` public interface + DB-backed
+  scheduler runner — the ADR-0005 MVP fallback, engaged and recorded in the ADR's
+  implementation note. No engine APIs leak into domain modules; the Temporal migration
+  replaces the runner behind the same interface. Disabled in integration tests
+  (`verifolio.workflows.enabled=false`) — tests call `run()` directly, no sleeps.
+- **Schema**: Flyway V9 adds `reference_request.sent_at` (reminder anchor, set by send),
+  `reminders_sent`, `reminders_stopped_at`.
+- **ReferenceRequestLifecycleTask** (requests): expiration runs BEFORE reminders (a
+  downtime-delayed tick must not email a link that dies moments later); reminders at
+  configurable offsets (`verifolio.workflows.reminder-offsets`, default 3d/7d/14d from
+  sent_at; the last one carries the expiration-warning copy) under the global
+  per-recommender-email send limiter (Reminder Policy); each reminder mints a fresh
+  token, emails it, and only then revokes the older ones (`revokeForRequest(createdBefore)`)
+  — revocation audits run REQUIRES_NEW and must not survive a mail-failure rollback;
+  per-row transactions — a mail failure leaves `reminders_sent` unchanged and retries
+  next tick. Auto-EXPIRED for past-due active requests with token+session revocation
+  and unsubmitted-draft erasure (drafts expire with the request, AUTHENTICATION.md).
+  New audit events (catalog updated): `REFERENCE_REQUEST_REMINDER_SENT` (SYSTEM),
+  `REMINDERS_STOPPED` (RECOMMENDER).
+- **One-click stop-reminders**: `POST /api/v1/invitations/{token}/stop-reminders`
+  (works post-consumption, idempotent); the stop link now appears in ALL recommender
+  emails (invitation, correction, reminders) — closing the RECOMMENDER_EXPERIENCE.md
+  "every email" gap.
+- **PendingUploadCleanupTask** (files): PENDING uploads older than
+  `verifolio.workflows.pending-upload-ttl` (24h) → object deleted, status DELETED,
+  FILE_DELETED audit. Rows flip to DELETED only after the storage delete succeeds
+  (failed deletes stay PENDING and retry); bounded batches of 100, S3 calls outside
+  any DB transaction.
+- **ExpiredShareLinkSignalTask** (documents): expired unrevoked links → their
+  PUBLIC_VERIFICATION_ENABLED signal flips to EXPIRED via new
+  `VerificationSignals.markExpired`, plus the mandatory `SHARE_LINK_EXPIRED` audit
+  (exactly once per link — gated on the flip) (closing the iteration-6 deferred sweep).
+
+### Deferred items
+
+- **Temporal migration** — the runner swap behind `RecurringTask`; docker-compose
+  Temporal services remain in place.
+- **Distributed scheduler locking** — single-instance assumption, consistent with the
+  in-process rate limiters; required before multi-instance cells.
+- **Draft grace-extension near expiry** — the day-14 warning covers notification; the
+  extension logic itself is not implemented.
+- **Staging-key S3 orphans** — still need an S3 lifecycle rule (DB-less objects are
+  invisible to the cleanup task).

@@ -396,6 +396,30 @@ internal class RecommenderFlowService(
         return ReferenceRequestStatus.NEEDS_REVIEW
     }
 
+    /**
+     * One-click stop from any recommender email (Reminder Policy stop condition).
+     * Works after token consumption, like decline; idempotent.
+     */
+    @Transactional
+    fun stopRemindersByToken(rawToken: String) {
+        val info = invitationAccess.identify(rawToken) ?: throw invitationNotFound()
+        val rr = REFERENCE_REQUEST
+        val updated = dsl.update(rr)
+            .set(rr.REMINDERS_STOPPED_AT, OffsetDateTime.now())
+            .where(rr.ID.eq(info.requestId).and(rr.REMINDERS_STOPPED_AT.isNull))
+            .execute()
+        if (updated > 0) {
+            audit.record(
+                actorType = "RECOMMENDER",
+                actorId = null,
+                action = "REMINDERS_STOPPED",
+                entityType = "REFERENCE_REQUEST",
+                entityId = info.requestId.toString(),
+                metadata = mapOf("reason" to "stop_link"),
+            )
+        }
+    }
+
     // ---- uploads (RECOMMENDER_EXPERIENCE.md Optional Uploads) ----
 
     @Transactional

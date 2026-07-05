@@ -26,6 +26,7 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
     @Autowired lateinit var rest: TestRestTemplate
     @Autowired lateinit var mail: RecordingMailPort
     @Autowired lateinit var dsl: DSLContext
+    @Autowired lateinit var context: org.springframework.context.ApplicationContext
 
     @BeforeEach
     fun resetMail() {
@@ -464,6 +465,66 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
             .fetch(cr.STATUS)
         assertThat(declined).contains("DECLINED")
         assertThat(auditActions()).contains("CONSENT_DECLINED")
+    }
+
+    @Test
+    fun `expired link signal is swept to EXPIRED while revoked stays REVOKED`() {
+        val (cookie, documentId) = completeDocument("sweep_owner@example.com", "sweep_rec@corp.example.com")
+        val expiredLink = createLink(cookie, documentId, expiresInDays = 1)
+        val revokedLink = createLink(cookie, documentId)
+
+        // Revoke one link; backdate the other's expiry.
+        rest.exchange(
+            "/api/v1/share-links/${revokedLink["id"]}/revoke", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(cookie, xsrf(cookie))), Map::class.java,
+        )
+        val sl = SHARE_LINK
+        dsl.update(sl)
+            .set(sl.EXPIRES_AT, OffsetDateTime.now().minusMinutes(1))
+            .where(sl.ID.eq(UUID.fromString(expiredLink["id"] as String)))
+            .execute()
+
+        val task = context.getBeansOfType(com.verifolio.workflows.RecurringTask::class.java).values
+            .first { it.name == "expired-share-link-signals" }
+        task.run()
+
+        val vs = VERIFICATION_SIGNAL
+        fun signalStatus(linkId: String): String =
+            dsl.select(vs.STATUS).from(vs)
+                .where(vs.ENTITY_TYPE.eq("SHARE_LINK").and(vs.ENTITY_ID.eq(UUID.fromString(linkId))))
+                .fetchOne(vs.STATUS)!!
+        assertThat(signalStatus(expiredLink["id"] as String)).isEqualTo("EXPIRED")
+        assertThat(signalStatus(revokedLink["id"] as String)).isEqualTo("REVOKED")
+
+        // Isolate the sweep's own audit trail: the EXPIRED flip of THIS link's signal
+        // (the earlier revoke also emits VERIFICATION_SIGNAL_UPDATED) + the mandatory
+        // link-level SHARE_LINK_EXPIRED event.
+        val expiredFlips = dsl.selectFrom(AUDIT_EVENT)
+            .where(AUDIT_EVENT.ACTION.eq("VERIFICATION_SIGNAL_UPDATED"))
+            .fetch()
+            .filter {
+                val meta = it.metadata!!.data()
+                meta.contains("EXPIRED") && meta.contains(expiredLink["id"] as String)
+            }
+        assertThat(expiredFlips).hasSize(1)
+        val linkExpiredEvents = dsl.fetchCount(
+            dsl.selectFrom(AUDIT_EVENT).where(
+                AUDIT_EVENT.ACTION.eq("SHARE_LINK_EXPIRED")
+                    .and(AUDIT_EVENT.ENTITY_ID.eq(expiredLink["id"] as String)),
+            ),
+        )
+        assertThat(linkExpiredEvents).isEqualTo(1)
+
+        // Second sweep: no duplicate events.
+        task.run()
+        assertThat(
+            dsl.fetchCount(
+                dsl.selectFrom(AUDIT_EVENT).where(
+                    AUDIT_EVENT.ACTION.eq("SHARE_LINK_EXPIRED")
+                        .and(AUDIT_EVENT.ENTITY_ID.eq(expiredLink["id"] as String)),
+                ),
+            ),
+        ).isEqualTo(1)
     }
 
     @Test

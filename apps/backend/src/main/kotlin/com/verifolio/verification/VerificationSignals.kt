@@ -36,4 +36,10 @@ interface VerificationSignals {
      * number flipped. Audits VERIFICATION_SIGNAL_UPDATED per row.
      */
     fun markRevoked(entityType: String, entityId: UUID, signalType: String): Int
+
+    /**
+     * Flips VERIFIED signals to EXPIRED (catalog semantics: natural expiry, not
+     * revocation); returns the number flipped. Audits VERIFICATION_SIGNAL_UPDATED.
+     */
+    fun markExpired(entityType: String, entityId: UUID, signalType: String): Int
 }

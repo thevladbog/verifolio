@@ -69,6 +69,12 @@ verifolio:
     upload-url-ttl: 10m
   public-page:
     view-audit-sample-rate: 1.0 # production cells tune this down; downloads are always fully audited
+  workflows: # DB-scheduler fallback per ADR-0005; Temporal remains the target engine
+    enabled: true
+    tick-interval: 1m
+    reminder-offsets: [3d, 7d, 14d] # from sent_at; the last carries the expiration warning
+    cleanup-interval: 1h
+    pending-upload-ttl: 24h
   verification:
     free-email-domains: # deny-list for CORPORATE_DOMAIN_CONFIRMED (docs/VERIFICATION_SIGNALS.md)
       - gmail.com

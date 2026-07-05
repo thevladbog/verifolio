@@ -92,4 +92,14 @@ internal class InvitationController(
         flow.declineByToken(token, reason = "abuse_report")
         return ResponseEntity.status(HttpStatus.OK).build()
     }
+
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "Reminders stopped (idempotent)"),
+        ApiResponse(responseCode = "404", description = "Invitation not found", content = [Content(schema = Schema(implementation = ApiError::class))]),
+    )
+    @PostMapping("/{token}/stop-reminders")
+    fun stopReminders(@PathVariable token: String): ResponseEntity<Void> {
+        flow.stopRemindersByToken(token)
+        return ResponseEntity.status(HttpStatus.OK).build()
+    }
 }

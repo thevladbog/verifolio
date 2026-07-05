@@ -155,11 +155,12 @@ Owns:
 
 ### workflows
 
-Owns only the shared Temporal infrastructure:
+Owns only the shared workflow-engine infrastructure:
 
-- Temporal client configuration;
-- worker registration;
-- shared workflow testing utilities.
+- under the ADR-0005 MVP fallback (current state): the `RecurringTask` public interface
+  and the DB-backed scheduler runner;
+- under Temporal (target state): Temporal client configuration, worker registration,
+  shared workflow testing utilities.
 
 Workflow definitions live in the owning domain modules (e.g. the reference request lifecycle workflow lives in `requests`, signature verification flows in `signatures`, reminders in the module that triggers them). `workflows` must contain no domain logic.
 

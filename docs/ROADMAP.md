@@ -16,7 +16,7 @@ This document defines the scope cut per release stage. Agents must not build pos
 - Share links and the public verification page — **delivered (2026-07, apps/backend)**; verification certificate PDF and scan/signature sections ship with their features.
 - Audit events.
 - Notifications.
-- Minimal workflows: reminders and expiration.
+- Minimal workflows: reminders and expiration — **delivered (2026-07, apps/backend)** on the ADR-0005 DB-scheduler fallback (Temporal remains the target engine). **This completes the MVP backend feature set.**
 
 ## v1.1
 

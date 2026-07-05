@@ -200,7 +200,8 @@ internal class ReferenceRequestService(
                     appendLine()
                     appendLine("Open the request: $base/invitations/$rawToken")
                     appendLine()
-                    appendLine("If you prefer not to respond, decline here: $base/invitations/$rawToken/decline")
+                    appendLine("Stop reminder emails: $base/invitations/$rawToken/stop-reminders")
+                appendLine("If you prefer not to respond, decline here: $base/invitations/$rawToken/decline")
                     appendLine("Report abuse: $base/invitations/$rawToken/report-abuse")
                 },
             )
@@ -213,6 +214,7 @@ internal class ReferenceRequestService(
 
         val updated = dsl.update(rr)
             .set(rr.STATUS, ReferenceRequestStatus.SENT.name)
+            .set(rr.SENT_AT, now) // reminder schedule anchor (day 0)
             .set(rr.UPDATED_AT, now)
             .where(rr.ID.eq(id))
             .returning()
@@ -383,6 +385,7 @@ internal class ReferenceRequestService(
                 appendLine()
                 appendLine("Open the request: $base/invitations/$rawToken")
                 appendLine()
+                appendLine("Stop reminder emails: $base/invitations/$rawToken/stop-reminders")
                 appendLine("If you prefer not to respond, decline here: $base/invitations/$rawToken/decline")
                 appendLine("Report abuse: $base/invitations/$rawToken/report-abuse")
             },
