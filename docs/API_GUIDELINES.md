@@ -32,6 +32,9 @@ Examples:
 /api/v1/verification-pages/{token}
 /api/v1/templates
 /api/v1/templates/{id}
+/api/v1/consent-texts/{consentType}     (open/permitAll, read-only; region-configured consent
+                                         policy text — ?locale= falls back to en; unknown
+                                         consentType → 404; reads are not audited)
 /api/v1/contacts
 /api/v1/contacts/{id}
 /api/v1/verification-signals            (read-only)

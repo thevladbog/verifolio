@@ -30,6 +30,12 @@ Each region policy defines **versioned consent text identifiers**:
 Rules:
 
 - consent texts are versioned per region; any text change bumps the version;
+- the copy itself ships with the deployment as classpath resources keyed by
+  `consent-texts/{textId}/{version}/{locale}.md` and is served via
+  `GET /api/v1/consent-texts/{consentType}` (public, read-only, locale falls back to
+  `en`); per-cell config selects which textId:version is active, resources must be
+  kept for every version still referenced by stored consent records, and startup
+  fails fast if an active text lacks its `en` resource;
 - ConsentRecords store the accepted text identifier and version;
 - consent records and data subject requests (deletion, export, region migration, consent withdrawal, correction) are first-class records with per-region SLAs.
 

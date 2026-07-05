@@ -49,6 +49,9 @@ class SecurityConfig(
                 it.requestMatchers("/api/v1/invitations/**").permitAll()
                 // Public verification pages: tokenized read-only access (docs/PUBLIC_VERIFICATION_PAGE.md).
                 it.requestMatchers("/api/v1/verification-pages/**").permitAll()
+                // Consent policy texts: public static documents (docs/REGION_POLICIES.md).
+                // GET-only endpoint — no CSRF exemption needed.
+                it.requestMatchers("/api/v1/consent-texts/**").permitAll()
                 it.requestMatchers("/v3/api-docs/**", "/v3/api-docs.yaml", "/docs").permitAll()
                 // Logout is idempotent: even an unauthenticated DELETE returns 204 with an
                 // expiring cookie. CSRF protection still applies (not in ignoringRequestMatchers).
