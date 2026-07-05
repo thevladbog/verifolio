@@ -82,8 +82,11 @@ internal class PublicVerificationPageService(
                     ?: profileService.displayName(view.ownerProfileId)
                     ?: "Verifolio user",
             ),
-            recommender = requestInfo?.let {
-                RecommenderDto(name = it.recommenderName, relationshipType = it.relationshipType)
+            // Omit the recommender block once the name snapshot has been erased (retraction /
+            // PII erasure) — otherwise the page would leak an empty name and, before this guard,
+            // threw on the erased column.
+            recommender = requestInfo?.recommenderName?.let { name ->
+                RecommenderDto(name = name, relationshipType = requestInfo.relationshipType)
             },
             badges = signals.map { signal ->
                 val text = BadgeCatalog.describe(signal.signalType)

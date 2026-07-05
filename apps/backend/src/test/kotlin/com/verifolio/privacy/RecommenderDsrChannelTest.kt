@@ -48,6 +48,11 @@ class RecommenderDsrChannelTest : PrivacyFlowSupport() {
             Map::class.java,
         )
 
+    private fun page(rawToken: String) = rest.exchange(
+        "/api/v1/verification-pages/$rawToken", HttpMethod.GET,
+        HttpEntity<Void>(HttpHeaders()), Map::class.java,
+    )
+
     @Test
     fun `unknown email is accepted with no code and no DSR row`() {
         val unknown = "nobody_${UUID.randomUUID()}@example.com"
@@ -151,6 +156,50 @@ class RecommenderDsrChannelTest : PrivacyFlowSupport() {
             assertThat(dsl.fetchCount(AUDIT_EVENT, AUDIT_EVENT.ACTION.eq(action)))
                 .describedAs("audit event %s", action).isGreaterThan(0)
         }
+    }
+
+    @Test
+    fun `retracted public page still renders after PII erasure — no recommender block, retracted banner, PDF intact`() {
+        val owner = "retract_owner@example.com"
+        val recommender = "retract_rec@corp.example.com"
+        val requestId = driveToCompleted(owner, recommender).requestId
+
+        // Owner shares the completed document publicly.
+        val documentId = dsl.select(DOCUMENT.ID).from(DOCUMENT)
+            .where(DOCUMENT.REQUEST_ID.eq(requestId)).fetchOne(DOCUMENT.ID)!!
+        val ownerCookie = login(owner)
+        val ownerXsrf = xsrf(ownerCookie)
+        val created = rest.exchange(
+            "/api/v1/documents/$documentId/share-links", HttpMethod.POST,
+            HttpEntity(mapOf<String, Any>(), authHeaders(ownerCookie, ownerXsrf)), Map::class.java,
+        )
+        assertThat(created.statusCode).isEqualTo(HttpStatus.CREATED)
+        val rawToken = (created.body!!["url"] as String).substringAfterLast("/verify/")
+
+        // Live before retraction: recommender block present.
+        val live = page(rawToken)
+        assertThat(live.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(live.body!!["recommender"]).isNotNull()
+
+        // Recommender withdraws consent via the account-less channel (erases their PII).
+        assertThat(intake(recommender)).isEqualTo(HttpStatus.ACCEPTED)
+        val (dsrId, code) = codeMail(recommender)
+        assertThat(verify(dsrId, code).statusCode).isEqualTo(HttpStatus.OK)
+
+        // Regression: the erased recommender-name snapshot must not 500 the page.
+        val retracted = page(rawToken)
+        assertThat(retracted.statusCode).isEqualTo(HttpStatus.OK)
+        val body = retracted.body!!
+        // Recommender block omitted once the name snapshot is erased.
+        assertThat(body["recommender"]).isNull()
+        // Retraction banner data present.
+        @Suppress("UNCHECKED_CAST")
+        val version = body["version"] as Map<String, Any?>
+        assertThat(version["retractedAt"]).isNotNull()
+        // Generated PDF still downloadable.
+        @Suppress("UNCHECKED_CAST")
+        val downloads = body["downloads"] as List<Map<String, Any?>>
+        assertThat(downloads.any { it["kind"] == "GENERATED_PDF" && it["downloadable"] == true }).isTrue()
     }
 
     @Test
