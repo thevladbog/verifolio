@@ -109,6 +109,7 @@ DATA_SUBJECT_REQUEST_RECEIVED
 DATA_SUBJECT_REQUEST_APPROVED
 DATA_SUBJECT_REQUEST_REJECTED
 DATA_SUBJECT_REQUEST_EXECUTED
+RECOMMENDER_PII_ERASED
 ACCOUNT_DELETED
 DATA_EXPORTED
 FILE_DELETED
@@ -116,6 +117,14 @@ REGION_MIGRATION_STARTED
 REGION_MIGRATION_COMPLETED
 REGION_MIGRATION_FAILED
 ```
+
+`RECOMMENDER_PII_ERASED` (actor SYSTEM, entity `REFERENCE_REQUEST`) records operational
+erasure of a recommender's PII snapshot for one reference request (privacy erasure matrix:
+nulls the request name/email snapshot, deletes reference responses, deletes unattached
+uploads, nulls the invitation-token email, deletes recommender sessions and confirmation
+codes). Metadata is IDs/counts only: `requestId`, `responsesDeleted`, `uploadsDeleted`,
+`tokensScrubbed`, `sessionsDeleted`. Each physical upload delete additionally emits its own
+`FILE_DELETED` (actor SYSTEM) from the files module.
 
 ### Recommender Response
 

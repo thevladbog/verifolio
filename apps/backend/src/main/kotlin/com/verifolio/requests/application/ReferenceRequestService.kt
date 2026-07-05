@@ -589,6 +589,7 @@ internal class ReferenceRequestService(
         purpose = purpose,
         status = status!!,
         declinedReason = declinedReason,
+        recommenderPiiErasedAt = recommenderPiiErasedAt?.toString(),
         expiresAt = expiresAt!!.toString(),
         createdAt = createdAt!!.toString(),
         updatedAt = updatedAt?.toString(),

@@ -36,4 +36,11 @@ interface FileUploads {
 
     /** Physical delete of an unattached PENDING/READY upload; status DELETED; audits FILE_DELETED. */
     fun deleteUpload(fileId: UUID)
+
+    /**
+     * Same physical delete as [deleteUpload] but attributed to the SYSTEM actor — for
+     * automated erasure paths (recommender PII erasure). Status DELETED; audits FILE_DELETED
+     * with actor SYSTEM. Only the files module ever talks to object storage.
+     */
+    fun deleteUploadAsSystem(fileId: UUID)
 }

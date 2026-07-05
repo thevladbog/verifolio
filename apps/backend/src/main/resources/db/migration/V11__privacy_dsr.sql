@@ -31,4 +31,7 @@ create table dsr_verification_code (      -- account-less recommender channel
 alter table reference_request add column recommender_pii_erased_at timestamptz;
 alter table reference_request alter column recommender_name drop not null;
 alter table reference_request alter column recommender_email drop not null;
+-- Recommender-PII erasure nulls the invitation-token email snapshot (erasure matrix); the
+-- token is already revoked/consumed in terminal states so the email is no longer load-bearing.
+alter table invitation_token alter column recommender_email drop not null;
 alter table document_version add column retracted_at timestamptz;
