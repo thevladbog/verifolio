@@ -2,10 +2,13 @@ package com.verifolio.requests.application
 
 import com.verifolio.audit.AuditService
 import com.verifolio.contacts.ContactLookup
+import com.verifolio.documents.DocumentPublisher
+import com.verifolio.documents.PublishDocumentCommand
 import com.verifolio.identity.AuthenticatedUser
 import com.verifolio.identity.InvitationTokenService
 import com.verifolio.jooq.tables.references.CONSENT_RECORD
 import com.verifolio.jooq.tables.references.REFERENCE_REQUEST
+import com.verifolio.jooq.tables.references.REFERENCE_RESPONSE
 import com.verifolio.notifications.MailPort
 import com.verifolio.platform.ApiException
 import com.verifolio.platform.SlidingWindowRateLimiter
@@ -14,8 +17,10 @@ import com.verifolio.profiles.ProfileService
 import com.verifolio.requests.api.CreateReferenceRequestRequest
 import com.verifolio.requests.api.ReferenceRequestListResponse
 import com.verifolio.requests.api.ReferenceRequestResponse
+import com.verifolio.requests.api.AcceptResponse
 import com.verifolio.requests.domain.ReferenceRequestStatus
 import com.verifolio.templates.TemplateLookup
+import com.verifolio.verification.VerificationSignals
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.springframework.beans.factory.annotation.Qualifier
@@ -42,6 +47,8 @@ internal class ReferenceRequestService(
     private val invitationTokens: InvitationTokenService,
     private val mail: MailPort,
     @Qualifier("referenceRequestSendLimiter") private val sendLimiter: SlidingWindowRateLimiter,
+    private val documentPublisher: DocumentPublisher,
+    private val verificationSignals: VerificationSignals,
 ) {
 
     @Transactional
@@ -259,6 +266,199 @@ internal class ReferenceRequestService(
         )
 
         return updated.toResponse()
+    }
+
+    @Transactional
+    fun accept(user: AuthenticatedUser, id: UUID): AcceptResponse {
+        val requesterProfileId = profileService.requireProfileId(user.userId, user.email)
+        val rr = REFERENCE_REQUEST
+        val record = dsl.selectFrom(rr)
+            .where(rr.ID.eq(id).and(rr.REQUESTER_PROFILE_ID.eq(requesterProfileId)))
+            .forUpdate()
+            .fetchOne()
+            ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Reference request not found")
+
+        val status = ReferenceRequestStatus.valueOf(record.status!!)
+        if (status != ReferenceRequestStatus.NEEDS_REVIEW) {
+            throw ApiException(
+                HttpStatus.CONFLICT,
+                "INVALID_REQUEST_STATE",
+                "Only a request in NEEDS_REVIEW can be accepted",
+            )
+        }
+
+        val resp = REFERENCE_RESPONSE
+        val response = dsl.selectFrom(resp)
+            .where(resp.REQUEST_ID.eq(id).and(resp.SUBMITTED_AT.isNotNull))
+            .orderBy(resp.SUBMITTED_AT.desc())
+            .limit(1)
+            .fetchOne()
+            ?: throw ApiException(HttpStatus.CONFLICT, "INVALID_REQUEST_STATE", "No submitted response to accept")
+
+        val template = templateLookup.snapshot(record.templateId!!)
+            ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Template not found")
+        val contact = contactLookup.findOwned(record.recommenderContactId!!, requesterProfileId)
+
+        val published = documentPublisher.publishLockedVersion(
+            PublishDocumentCommand(
+                ownerProfileId = requesterProfileId,
+                requestId = id,
+                documentType = documentTypeFor(template.type),
+                approvedLetterText = response.approvedLetterText
+                    ?: throw ApiException(HttpStatus.CONFLICT, "INVALID_REQUEST_STATE", "Response has no approved letter text"),
+                answersJson = response.answersJson!!.data(),
+                recommenderName = record.recommenderName!!,
+                purpose = record.purpose,
+                lockedByActorId = user.userId.toString(),
+            ),
+        )
+
+        createAcceptanceSignals(record, response.id!!, contact?.relationshipType, published)
+
+        // CAS: forUpdate above serializes concurrent accepts; the guard keeps the invariant.
+        val updated = dsl.update(rr)
+            .set(rr.STATUS, ReferenceRequestStatus.COMPLETED.name)
+            .set(rr.UPDATED_AT, OffsetDateTime.now())
+            .where(rr.ID.eq(id).and(rr.STATUS.eq(ReferenceRequestStatus.NEEDS_REVIEW.name)))
+            .returning()
+            .fetchOne()
+            ?: throw ApiException(HttpStatus.CONFLICT, "INVALID_REQUEST_STATE", "Request status changed concurrently")
+
+        audit.record(
+            actorType = "USER",
+            actorId = user.userId.toString(),
+            action = "REFERENCE_RESPONSE_ACCEPTED",
+            entityType = "REFERENCE_RESPONSE",
+            entityId = response.id.toString(),
+            metadata = mapOf(
+                "requestId" to id.toString(),
+                "documentId" to published.documentId.toString(),
+                "versionNumber" to published.versionNumber.toString(),
+            ),
+        )
+
+        return AcceptResponse(request = updated.toResponse(), documentId = published.documentId.toString())
+    }
+
+    @Transactional
+    fun requestCorrection(user: AuthenticatedUser, id: UUID, message: String?): ReferenceRequestResponse {
+        val requesterProfileId = profileService.requireProfileId(user.userId, user.email)
+        val rr = REFERENCE_REQUEST
+        val record = dsl.selectFrom(rr)
+            .where(rr.ID.eq(id).and(rr.REQUESTER_PROFILE_ID.eq(requesterProfileId)))
+            .forUpdate()
+            .fetchOne()
+            ?: throw ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Reference request not found")
+
+        val status = ReferenceRequestStatus.valueOf(record.status!!)
+        if (status != ReferenceRequestStatus.NEEDS_REVIEW) {
+            throw ApiException(
+                HttpStatus.CONFLICT,
+                "INVALID_REQUEST_STATE",
+                "A correction can be requested only in NEEDS_REVIEW",
+            )
+        }
+
+        val now = OffsetDateTime.now()
+        // The previous token was consumed and sessions revoked at submission; the return
+        // path requires a fresh confirmation (docs/AUTHENTICATION.md), hence a new token.
+        val remaining = Duration.between(now, record.expiresAt)
+        val ttl = if (remaining > Duration.ofDays(7)) remaining else Duration.ofDays(7)
+        val rawToken = invitationTokens.mint(id, record.recommenderEmail!!, ttl)
+
+        val base = props.auth.frontendBaseUrl
+        mail.send(
+            to = record.recommenderEmail!!,
+            subject = "Correction requested for your reference",
+            textBody = buildString {
+                appendLine("Hello ${record.recommenderName},")
+                appendLine()
+                appendLine("${user.email} asks for a small correction to the reference you submitted.")
+                message?.takeIf { it.isNotBlank() }?.let {
+                    appendLine()
+                    appendLine("Note from the requester: $it")
+                }
+                appendLine()
+                appendLine("Open the request: $base/invitations/$rawToken")
+                appendLine()
+                appendLine("If you prefer not to respond, decline here: $base/invitations/$rawToken/decline")
+                appendLine("Report abuse: $base/invitations/$rawToken/report-abuse")
+            },
+        )
+
+        val updated = dsl.update(rr)
+            .set(rr.STATUS, ReferenceRequestStatus.CORRECTION_REQUESTED.name)
+            .set(rr.UPDATED_AT, now)
+            .where(rr.ID.eq(id).and(rr.STATUS.eq(ReferenceRequestStatus.NEEDS_REVIEW.name)))
+            .returning()
+            .fetchOne()
+            ?: throw ApiException(HttpStatus.CONFLICT, "INVALID_REQUEST_STATE", "Request status changed concurrently")
+
+        audit.record(
+            actorType = "USER",
+            actorId = user.userId.toString(),
+            action = "REQUEST_CORRECTION_REQUESTED",
+            entityType = "REFERENCE_REQUEST",
+            entityId = id.toString(),
+        )
+
+        return updated.toResponse()
+    }
+
+    private fun createAcceptanceSignals(
+        record: com.verifolio.jooq.tables.records.ReferenceRequestRecord,
+        responseId: UUID,
+        relationshipType: String?,
+        published: com.verifolio.documents.PublishedVersion,
+    ) {
+        val requestId = record.id!!.toString()
+        val emailDomain = record.recommenderEmail!!.substringAfterLast('@').lowercase()
+
+        verificationSignals.createVerified(
+            "REFERENCE_RESPONSE", responseId, "RECIPIENT_CONFIRMED",
+            mapOf("requestId" to requestId, "responseId" to responseId.toString(), "confirmedAt" to OffsetDateTime.now().toString()),
+        )
+        verificationSignals.createVerified(
+            "REFERENCE_RESPONSE", responseId, "RECOMMENDER_RELATIONSHIP_CONFIRMED",
+            mapOf(
+                "requestId" to requestId,
+                "responseId" to responseId.toString(),
+                "relationshipType" to (relationshipType ?: "OTHER"),
+                "statedByRecommender" to "true",
+            ),
+        )
+        verificationSignals.createVerified(
+            "REFERENCE_RESPONSE", responseId, "EMAIL_CONFIRMED",
+            mapOf("emailDomain" to emailDomain, "requestId" to requestId, "responseId" to responseId.toString()),
+        )
+        if (!isFreeEmailDomain(emailDomain)) {
+            verificationSignals.createVerified(
+                "REFERENCE_RESPONSE", responseId, "CORPORATE_DOMAIN_CONFIRMED",
+                mapOf("emailDomain" to emailDomain, "organizationNameSource" to "recommender-stated"),
+            )
+        }
+        verificationSignals.createVerified(
+            "DOCUMENT_VERSION", published.versionId, "VERSION_LOCKED",
+            mapOf("documentId" to published.documentId.toString(), "versionNumber" to published.versionNumber.toString()),
+        )
+        verificationSignals.createVerified(
+            "DOCUMENT_VERSION", published.versionId, "DOCUMENT_HASH_LOCKED",
+            mapOf(
+                "documentId" to published.documentId.toString(),
+                "versionNumber" to published.versionNumber.toString(),
+                "contentSha256" to published.contentSha256,
+                "pdfSha256" to published.pdfSha256,
+            ),
+        )
+    }
+
+    /** Suffix-safe deny-list match: "mail.gmail.com" is also treated as free mail. */
+    private fun isFreeEmailDomain(domain: String): Boolean =
+        props.verification.freeEmailDomains.any { domain == it || domain.endsWith(".$it") }
+
+    private fun documentTypeFor(templateType: String): String = when (templateType) {
+        "EMPLOYMENT_REFERENCE" -> "REFERENCE_LETTER"
+        else -> templateType // remaining template types map 1:1 onto document types
     }
 
     @Transactional(readOnly = true)

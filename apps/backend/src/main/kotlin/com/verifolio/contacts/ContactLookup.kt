@@ -2,7 +2,7 @@ package com.verifolio.contacts
 
 import java.util.UUID
 
-data class ContactSnapshot(val id: UUID, val name: String, val email: String)
+data class ContactSnapshot(val id: UUID, val name: String, val email: String, val relationshipType: String)
 
 /**
  * Public API of the contacts module for cross-module reads.

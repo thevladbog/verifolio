@@ -246,7 +246,20 @@ internal class RecommenderFlowService(
     @Transactional
     fun saveDraft(actor: RecommenderActor, draft: DraftRequest): DraftDto {
         val record = loadActiveRequest(actor.requestId)
-        requireStatus(record, ReferenceRequestStatus.IN_PROGRESS)
+        val status = ReferenceRequestStatus.valueOf(record.status!!)
+        when (status) {
+            ReferenceRequestStatus.IN_PROGRESS -> Unit
+            // Correction cycle: the first draft save starts the new response cycle
+            // (WORKFLOWS.md: CORRECTION_REQUESTED -> IN_PROGRESS). REFERENCE_RESPONSE_STARTED
+            // is audited below when the new draft row is inserted.
+            ReferenceRequestStatus.CORRECTION_REQUESTED ->
+                transition(record.id!!, status, ReferenceRequestStatus.IN_PROGRESS)
+            else -> throw ApiException(
+                HttpStatus.CONFLICT,
+                "INVALID_REQUEST_STATE",
+                "Request must be in the IN_PROGRESS status for this action",
+            )
+        }
 
         val rr = REFERENCE_RESPONSE
         val answers = JSONB.valueOf(objectMapper.writeValueAsString(draft.answersJson))

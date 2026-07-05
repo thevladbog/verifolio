@@ -86,7 +86,9 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
             Map::class.java,
         )
         @Suppress("UNCHECKED_CAST")
-        val templateId = (templatesResponse.body!!["items"] as List<Map<String, Any>>).first()["id"] as String
+        val templateItems = templatesResponse.body!!["items"] as List<Map<String, Any>>
+        // Deterministic template: EMPLOYMENT_REFERENCE maps to the REFERENCE_LETTER document type.
+        val templateId = (templateItems.firstOrNull { it["type"] == "EMPLOYMENT_REFERENCE" } ?: templateItems.first())["id"] as String
 
         val createResponse = rest.exchange(
             "/api/v1/reference-requests", HttpMethod.POST,
@@ -582,6 +584,287 @@ class RecommenderFlowIntegrationTest : IntegrationTest() {
             Map::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    // ---- recipient accept / correction (Flow 4) ----
+
+    /** Drives the recommender through open→code→consent→submit; returns nothing (request is NEEDS_REVIEW). */
+    private fun driveToNeedsReview(rawToken: String, recommenderEmail: String) {
+        openInvitation(rawToken)
+        val cookie = confirmEmail(rawToken, recommenderEmail)
+        acceptConsent(cookie)
+        val xsrfToken = recommenderXsrf(cookie)
+        val submit = rest.exchange(
+            "/api/v1/recommender/responses", HttpMethod.POST,
+            HttpEntity(
+                mapOf(
+                    "approvedLetterText" to "An excellent colleague.\nHighly recommended.",
+                    "confirmationText" to "I confirm the information is accurate",
+                    "recipientConfirmed" to true,
+                    "relationshipConfirmed" to true,
+                    "answersJson" to mapOf("q1" to "Great work"),
+                ),
+                authHeaders(cookie, xsrfToken),
+            ),
+            Map::class.java,
+        )
+        assertThat(submit.statusCode).isEqualTo(HttpStatus.CREATED)
+    }
+
+    /** Requester-side login + XSRF for accept/correction calls. */
+    private fun requesterSession(email: String): Pair<String, String?> {
+        val cookie = login(email)
+        return cookie to xsrf(cookie)
+    }
+
+    @Test
+    fun `accept generates a locked document with pdf in storage and verification signals`() {
+        val (rawToken, requestId) = sendInvitation("accept_requester@example.com", "accept_rec@corp.example.com")
+        driveToNeedsReview(rawToken, "accept_rec@corp.example.com")
+        val (cookie, xsrfToken) = requesterSession("accept_requester@example.com")
+
+        val response = rest.exchange(
+            "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        @Suppress("UNCHECKED_CAST")
+        val requestDto = response.body!!["request"] as Map<String, Any>
+        assertThat(requestDto["status"]).isEqualTo("COMPLETED")
+        val documentId = response.body!!["documentId"] as String
+        assertThat(requestStatus(requestId)).isEqualTo("COMPLETED")
+
+        // Locked version 1 with hashes; PDF FileObject READY; bytes verifiable via presigned URL.
+        val dv = com.verifolio.jooq.tables.references.DOCUMENT_VERSION
+        val version = dsl.selectFrom(dv)
+            .where(dv.DOCUMENT_ID.eq(UUID.fromString(documentId)))
+            .fetchOne()!!
+        assertThat(version.versionNumber).isEqualTo(1)
+        assertThat(version.status).isEqualTo("LOCKED")
+        assertThat(version.lockedAt).isNotNull()
+        assertThat(version.sha256Hash).hasSize(64)
+
+        val fo = com.verifolio.jooq.tables.references.FILE_OBJECT
+        val file = dsl.selectFrom(fo).where(fo.ID.eq(version.pdfFileId)).fetchOne()!!
+        assertThat(file.status).isEqualTo("READY")
+        assertThat(file.purpose).isEqualTo("GENERATED_PDF")
+
+        // Verification signals: 6 (corporate domain corp.example.com is not deny-listed).
+        val vs = com.verifolio.jooq.tables.references.VERIFICATION_SIGNAL
+        val signalTypes = dsl.select(vs.SIGNAL_TYPE).from(vs)
+            .where(vs.ENTITY_ID.eq(version.id).or(vs.ENTITY_ID.`in`(
+                dsl.select(com.verifolio.jooq.tables.references.REFERENCE_RESPONSE.ID)
+                    .from(com.verifolio.jooq.tables.references.REFERENCE_RESPONSE)
+                    .where(com.verifolio.jooq.tables.references.REFERENCE_RESPONSE.REQUEST_ID.eq(UUID.fromString(requestId))),
+            )))
+            .fetch(vs.SIGNAL_TYPE)
+        assertThat(signalTypes).containsExactlyInAnyOrder(
+            "RECIPIENT_CONFIRMED", "RECOMMENDER_RELATIONSHIP_CONFIRMED", "EMAIL_CONFIRMED",
+            "CORPORATE_DOMAIN_CONFIRMED", "VERSION_LOCKED", "DOCUMENT_HASH_LOCKED",
+        )
+
+        assertThat(auditActions()).contains(
+            "REFERENCE_RESPONSE_ACCEPTED", "DOCUMENT_CREATED", "DOCUMENT_VERSION_CREATED",
+            "DOCUMENT_PDF_GENERATED", "DOCUMENT_VERSION_LOCKED", "FILE_UPLOADED",
+            "VERIFICATION_SIGNAL_CREATED",
+        )
+
+        // Download URL works and the fetched bytes hash to FileObject.sha256_hash.
+        val linkResponse = rest.exchange(
+            "/api/v1/documents/$documentId/versions/1/download-url", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        assertThat(linkResponse.statusCode).isEqualTo(HttpStatus.OK)
+        val url = linkResponse.body!!["url"] as String
+        val pdfBytes = java.net.URI(url).toURL().readBytes()
+        assertThat(String(pdfBytes.copyOfRange(0, 5), Charsets.US_ASCII)).isEqualTo("%PDF-")
+        val fetchedSha = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(pdfBytes).joinToString("") { "%02x".format(it) }
+        assertThat(fetchedSha).isEqualTo(file.sha256Hash)
+        assertThat(auditActions()).contains("FILE_DOWNLOAD_GRANTED")
+    }
+
+    @Test
+    fun `free email domain skips the corporate domain signal`() {
+        val (rawToken, requestId) = sendInvitation("gmail_requester@example.com", "friendly.rec@gmail.com")
+        driveToNeedsReview(rawToken, "friendly.rec@gmail.com")
+        val (cookie, xsrfToken) = requesterSession("gmail_requester@example.com")
+
+        val response = rest.exchange(
+            "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+
+        val vs = com.verifolio.jooq.tables.references.VERIFICATION_SIGNAL
+        val rr = com.verifolio.jooq.tables.references.REFERENCE_RESPONSE
+        val signalTypes = dsl.select(vs.SIGNAL_TYPE).from(vs)
+            .where(vs.ENTITY_TYPE.eq("REFERENCE_RESPONSE").and(vs.ENTITY_ID.`in`(
+                dsl.select(rr.ID).from(rr).where(rr.REQUEST_ID.eq(UUID.fromString(requestId))),
+            )))
+            .fetch(vs.SIGNAL_TYPE)
+        assertThat(signalTypes).doesNotContain("CORPORATE_DOMAIN_CONFIRMED")
+        assertThat(signalTypes).contains("EMAIL_CONFIRMED")
+    }
+
+    @Test
+    fun `accept from wrong status and double accept return 409, foreign returns 404`() {
+        val (rawToken, requestId) = sendInvitation("accept409_requester@example.com", "accept409_rec@corp.example.com")
+        val (cookie, xsrfToken) = requesterSession("accept409_requester@example.com")
+
+        // Still SENT — no submission yet.
+        val early = rest.exchange(
+            "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(early.statusCode).isEqualTo(HttpStatus.CONFLICT)
+
+        driveToNeedsReview(rawToken, "accept409_rec@corp.example.com")
+
+        val (foreignCookie, foreignXsrf) = requesterSession("accept_foreign@example.com")
+        val foreign = rest.exchange(
+            "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(foreignCookie, foreignXsrf)),
+            Map::class.java,
+        )
+        assertThat(foreign.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+
+        assertThat(
+            rest.exchange(
+                "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
+                HttpEntity<Void>(authHeaders(cookie, xsrfToken)), Map::class.java,
+            ).statusCode,
+        ).isEqualTo(HttpStatus.OK)
+
+        val second = rest.exchange(
+            "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(second.statusCode).isEqualTo(HttpStatus.CONFLICT)
+    }
+
+    // Note: a correction is only possible BEFORE acceptance (COMPLETED is terminal), so an
+    // MVP request yields exactly one accepted version; the multi-version path arrives with
+    // DSR CORRECTION. This test verifies the full correction cycle ends in the updated text.
+    @Test
+    fun `correction cycle re-invites the recommender and locks the corrected version`() {
+        val (rawToken, requestId) = sendInvitation("corr_requester@example.com", "corr_rec@corp.example.com")
+        driveToNeedsReview(rawToken, "corr_rec@corp.example.com")
+        val (cookie, xsrfToken) = requesterSession("corr_requester@example.com")
+
+        // Request a correction with a note.
+        val correction = rest.exchange(
+            "/api/v1/reference-requests/$requestId/request-correction", HttpMethod.POST,
+            HttpEntity(mapOf("message" to "Please mention the 2024 project"), authHeaders(cookie, xsrfToken)),
+            Map::class.java,
+        )
+        assertThat(correction.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(correction.body!!["status"]).isEqualTo("CORRECTION_REQUESTED")
+        assertThat(auditActions()).contains("REQUEST_CORRECTION_REQUESTED")
+
+        // Recommender receives a fresh invitation and returns.
+        val correctionEmail = mail.sent.last { it.to == "corr_rec@corp.example.com" }
+        assertThat(correctionEmail.textBody).contains("Please mention the 2024 project")
+        val newToken = Regex("/invitations/([A-Za-z0-9_-]+)")
+            .find(correctionEmail.textBody)!!.groupValues[1]
+
+        openInvitation(newToken)
+        val recCookie = confirmEmail(newToken, "corr_rec@corp.example.com")
+        val recXsrf = recommenderXsrf(recCookie)
+
+        // First draft save flips CORRECTION_REQUESTED -> IN_PROGRESS.
+        val draft = rest.exchange(
+            "/api/v1/recommender/response-draft", HttpMethod.PUT,
+            HttpEntity(
+                mapOf("answersJson" to mapOf("q1" to "Updated"), "approvedLetterText" to "Updated letter"),
+                authHeaders(recCookie, recXsrf),
+            ),
+            Map::class.java,
+        )
+        assertThat(draft.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(requestStatus(requestId)).isEqualTo("IN_PROGRESS")
+
+        val resubmit = rest.exchange(
+            "/api/v1/recommender/responses", HttpMethod.POST,
+            HttpEntity(
+                mapOf(
+                    "approvedLetterText" to "Updated letter mentioning the 2024 project.",
+                    "recipientConfirmed" to true,
+                    "relationshipConfirmed" to true,
+                ),
+                authHeaders(recCookie, recXsrf),
+            ),
+            Map::class.java,
+        )
+        assertThat(resubmit.statusCode).isEqualTo(HttpStatus.CREATED)
+
+        // Accept again -> version 2.
+        val secondAccept = rest.exchange(
+            "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(cookie, xsrf(cookie))),
+            Map::class.java,
+        )
+        assertThat(secondAccept.statusCode).isEqualTo(HttpStatus.OK)
+        val documentId = secondAccept.body!!["documentId"] as String
+
+        val dv = com.verifolio.jooq.tables.references.DOCUMENT_VERSION
+        val versions = dsl.selectFrom(dv)
+            .where(dv.DOCUMENT_ID.eq(UUID.fromString(documentId)))
+            .orderBy(dv.VERSION_NUMBER.asc())
+            .fetch()
+        assertThat(versions).hasSize(1)
+        assertThat(versions[0].status).isEqualTo("LOCKED")
+        // The locked version carries the corrected (resubmitted) letter text.
+        assertThat(versions[0].contentJson!!.data()).contains("Updated letter mentioning the 2024 project.")
+
+        val d = com.verifolio.jooq.tables.references.DOCUMENT
+        val doc = dsl.selectFrom(d).where(d.ID.eq(UUID.fromString(documentId))).fetchOne()!!
+        assertThat(doc.currentVersionId).isEqualTo(versions[0].id)
+        assertThat(requestStatus(requestId)).isEqualTo("COMPLETED")
+    }
+
+    @Test
+    fun `documents list and detail are owner scoped`() {
+        val (rawToken, requestId) = sendInvitation("doclist_requester@example.com", "doclist_rec@corp.example.com")
+        driveToNeedsReview(rawToken, "doclist_rec@corp.example.com")
+        val (cookie, xsrfToken) = requesterSession("doclist_requester@example.com")
+        val accept = rest.exchange(
+            "/api/v1/reference-requests/$requestId/accept", HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(cookie, xsrfToken)), Map::class.java,
+        )
+        val documentId = accept.body!!["documentId"] as String
+
+        val list = rest.exchange(
+            "/api/v1/documents", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        @Suppress("UNCHECKED_CAST")
+        val items = list.body!!["items"] as List<Map<String, Any>>
+        assertThat(items.map { it["id"] }).contains(documentId)
+        assertThat(items.first { it["id"] == documentId }["type"]).isEqualTo("REFERENCE_LETTER")
+
+        val foreignCookie = login("doclist_other@example.com")
+        val foreignDetail = rest.exchange(
+            "/api/v1/documents/$documentId", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, foreignCookie) }),
+            Map::class.java,
+        )
+        assertThat(foreignDetail.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+
+        val detail = rest.exchange(
+            "/api/v1/documents/$documentId", HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add(HttpHeaders.COOKIE, cookie) }),
+            Map::class.java,
+        )
+        assertThat(detail.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(detail.body!!["currentVersionNumber"]).isEqualTo(1)
     }
 
     @Test

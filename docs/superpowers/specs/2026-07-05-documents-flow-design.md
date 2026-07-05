@@ -165,7 +165,12 @@ Recommender return path (changes in `RecommenderFlowService`):
 - consent gate is NOT repeated (consent already GRANTED; gate transitions only from OPENED);
 - first `saveDraft` in `CORRECTION_REQUESTED` transitions to `IN_PROGRESS` and audits
   `REFERENCE_RESPONSE_STARTED` (per the WORKFLOWS.md transition table); submission then
-  follows the normal path, and the next acceptance produces `version_number + 1`.
+  follows the normal path and the eventual acceptance locks the corrected text.
+
+Versioning note: corrections happen BEFORE acceptance (COMPLETED is terminal), so an MVP
+request produces exactly one accepted, locked version. The `version_number` machinery in
+`documents` supports multiple versions per document for the future DSR `CORRECTION` flow,
+which reopens a completed request into a new response cycle.
 
 ## Signal Evidence (concrete)
 

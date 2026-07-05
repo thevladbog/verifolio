@@ -27,3 +27,13 @@ data class ReferenceRequestListResponse(
     val items: List<ReferenceRequestResponse>,
     val nextCursor: String?,
 )
+
+data class RequestCorrectionRequest(
+    /** Included in the email to the recommender only; never persisted. */
+    @field:Size(max = 2000) val message: String? = null,
+)
+
+data class AcceptResponse(
+    val request: ReferenceRequestResponse,
+    val documentId: String,
+)
