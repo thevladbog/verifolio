@@ -78,6 +78,9 @@ verifolio:
   privacy:
     sla: 30d # DSR response deadline; GDPR default, per-cell statutory value with region-policy work
     decline-erasure-grace: 24h # abuse-investigation window before declined recommender PII erasure (Flow 9)
+  admin:
+    bootstrap-emails: [] # config-driven idempotent SUPERADMIN bootstrap; prod sets it per cell
+    totp-secret-key: local-dev-unsafe-totp-key # DEV ONLY (base64 32-byte AES-256-GCM key) — must be overridden outside the local region
   verification:
     free-email-domains: # deny-list for CORPORATE_DOMAIN_CONFIRMED (docs/VERIFICATION_SIGNALS.md)
       - gmail.com

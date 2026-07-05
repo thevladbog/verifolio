@@ -49,6 +49,9 @@ dependencies {
     implementation(platform("software.amazon.awssdk:bom:2.31.78"))
     implementation("software.amazon.awssdk:s3")
     implementation("com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10")
+    // RFC 6238 TOTP for admin MFA (minimal, no transitive bloat). Base32 encoding of the
+    // secret uses commons-codec, already resolvable transitively (via Spring/AWS SDK).
+    implementation("com.eatthepath:java-otp:0.4.0")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 
