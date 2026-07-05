@@ -169,7 +169,7 @@ api.use({
 
 - [ ] **Step 1:** Documents list — document cards (title, version, Locked badge, share state). Detail — versions (locked date, download via `GET .../download-url` fetched on click → `window.open(url)`; URL never stored/rendered), share links section.
 - [ ] **Step 2:** Share-link create dialog: optional expiry → `POST /{id}/share-links` → **one-time raw URL display** with copy button + "You won't see this link again." List shows metadata only; revoke with confirm (`POST /share-links/{id}/revoke`, 409 double-revoke handled).
-- [ ] **Step 3:** Dashboard: pending-requests (status filter SENT/OPENED/IN_PROGRESS/NEEDS_REVIEW), recent documents, empty states per DESIGN_SYSTEM warmth.
+- [ ] **Step 3:** Dashboard: pending-requests (status filter SENT/OPENED/IN_PROGRESS/NEEDS_REVIEW), recent documents; first-login empty state per design 8b.
 - [ ] **Step 4:** RTL tests: raw URL shown once and absent after reopen; download click calls download-url endpoint then opens. PASS. Commit — `feat(frontend): documents, share-link lifecycle, dashboard`
 
 ---
@@ -210,12 +210,12 @@ api.use({
 
 ---
 
-### Task 12: Design-fidelity pass (GATED — requires interactive claude_design MCP)
+### Task 12: Design-fidelity pass
 
-**Precondition:** interactive session with `/design-login` completed; import `https://claude.ai/design/p/7fc3017f-78fe-4367-8993-acaac1b28855?file=Verifolio+Design.dc.html`.
+**Source:** `docs/design/Verifolio Design.dc.html` (committed local copy of the imported design canvas; screen IDs 5a–11e).
 
-- [ ] **Step 1:** Import the design project; inventory screens against the route map in the spec; record deltas (layout, spacing, components present in design but missing here — e.g. empty states, illustrations).
-- [ ] **Step 2:** Reconcile screen-by-screen (tokens first, then per-screen layout); design wins over DESIGN_SYSTEM.md on conflict; update `docs/DESIGN_SYSTEM.md` in the same PR when values change.
+- [ ] **Step 1:** Render each implemented route side-by-side with its design screen (mapping table in the spec); record deltas (layout, spacing, empty states, copy).
+- [ ] **Step 2:** Reconcile screen-by-screen (tokens first, then per-screen layout); the design file wins over DESIGN_SYSTEM.md on conflict — update `docs/DESIGN_SYSTEM.md` in the same PR when values change (already known: UI font Manrope).
 - [ ] **Step 3:** Re-run unit + E2E suites; commit — `feat(frontend): design fidelity pass against Verifolio Design project`
 
 ---
