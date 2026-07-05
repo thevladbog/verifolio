@@ -528,6 +528,40 @@ class PublicVerificationIntegrationTest : IntegrationTest() {
     }
 
     @Test
+    fun `corporate badge exposes the verified organization name and provenance`() {
+        // The SAP seed (V13) owns sap.com, so acceptance snapshots the verified-record
+        // provenance into the CORPORATE_DOMAIN_CONFIRMED evidence (Task 3). The public page
+        // surfaces the public organization name + source from that snapshot — no new lookup.
+        val (cookie, documentId) = completeDocument("orgprov_owner@example.com", "hiring.mgr@sap.com")
+        val rawToken = rawTokenFrom(createLink(cookie, documentId))
+
+        @Suppress("UNCHECKED_CAST")
+        val badges = page(rawToken).body!!["badges"] as List<Map<String, Any?>>
+        val corporate = badges.first { it["signalType"] == "CORPORATE_DOMAIN_CONFIRMED" }
+        assertThat(corporate["organizationName"]).isEqualTo("SAP SE")
+        assertThat(corporate["organizationSource"]).isEqualTo("verified-record")
+
+        // Non-corporate badges never carry an organization name.
+        val emailBadge = badges.first { it["signalType"] == "EMAIL_CONFIRMED" }
+        assertThat(emailBadge["organizationName"]).isNull()
+        assertThat(emailBadge["organizationSource"]).isNull()
+    }
+
+    @Test
+    fun `recommender-stated corporate badge carries no organization name`() {
+        // corp.example.com is not a seeded verified org → the evidence stays recommender-stated,
+        // so the public badge exposes no organization name and keeps the existing framing.
+        val (cookie, documentId) = completeDocument("orgstated_owner@example.com", "rec@corp.example.com")
+        val rawToken = rawTokenFrom(createLink(cookie, documentId))
+
+        @Suppress("UNCHECKED_CAST")
+        val badges = page(rawToken).body!!["badges"] as List<Map<String, Any?>>
+        val corporate = badges.first { it["signalType"] == "CORPORATE_DOMAIN_CONFIRMED" }
+        assertThat(corporate["organizationName"]).isNull()
+        assertThat(corporate["organizationSource"]).isNull()
+    }
+
+    @Test
     fun `page views are audited at sample rate one`() {
         val (cookie, documentId) = completeDocument("view_owner@example.com", "view_rec@corp.example.com")
         val created = createLink(cookie, documentId)

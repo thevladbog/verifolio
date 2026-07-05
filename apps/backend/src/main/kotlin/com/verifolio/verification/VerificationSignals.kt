@@ -7,6 +7,13 @@ data class SignalView(
     val signalType: String,
     val status: String,
     val verifiedAt: OffsetDateTime?,
+    /**
+     * The signal's evidence snapshot (evidence_json), read-only for display surfaces.
+     * Never contains emails, names, or document content — only non-personal metadata
+     * (e.g. a verified organization's public name). Defaults empty for callers/tests
+     * that don't need it.
+     */
+    val evidence: Map<String, String> = emptyMap(),
 )
 
 /**

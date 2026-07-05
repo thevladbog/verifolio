@@ -564,3 +564,53 @@ inherit context; append an entry when an iteration ships.
   longer orphan storage; but `deleteUploadAsSystem`/`deleteGeneratedAsSystem` still swallow
   a failing S3 delete while flipping the row to DELETED, so a truly-failed object delete
   can linger. Needs the same S3 lifecycle-rule sweep as the staging-key orphans above.
+
+## 2026-07 — Organizations registry (iteration 12)
+
+### What shipped
+
+- **Schema**: Flyway V12 (`organization_domains`) adds the `organization.verification_status`
+  CHECK (UNVERIFIED | VERIFIED | REVOKED), the authoritative `organization_domain` side
+  table (org fk + `domain`), a unique `lower(domain)` index, and an org fk index. V13
+  (`seed_organizations`) seeds a curator-replaceable starter set of VERIFIED organizations
+  (real public primary domains, fixed UUIDs) — one `organization` row each plus its
+  `organization_domain` rows, mirrored into the legacy `organization.domains` jsonb. jOOQ
+  regenerated (`ORGANIZATION_DOMAIN` table).
+- **organizations module** (first code): `OrganizationLookup.findVerifiedByDomain`
+  (public API) — lowercase-normalized, suffix-aware, longest-domain-wins, VERIFIED-only —
+  plus `OrganizationQueryService` + `OrganizationController` read API: `GET
+  /api/v1/organizations?query=&cursor=` (name/domain prefix, keyset cursor page 50),
+  `/{id}` (404), `/lookup?domain=` (→ `OrganizationView` or 404). Authenticated; reads not
+  audited (templates precedent). Module depends only on platform + audit (ModularityTests
+  green); requests → organizations, never the reverse.
+- **CORPORATE_DOMAIN_CONFIRMED strengthened** (`requests.ReferenceRequestService`): at
+  acceptance the corporate-domain signal calls `OrganizationLookup.findVerifiedByDomain`
+  and, when a VERIFIED org owns the recommender's email domain, snapshots
+  `organizationNameSource="verified-record"` + `organizationId` + `organizationName` into
+  the signal evidence (gating-moment snapshot — immune to later registry changes);
+  otherwise `organizationNameSource="recommender-stated"` (unchanged behaviour). No new
+  signal type, no BadgeCatalog trust-semantics change.
+- **Public page provenance** (`publicpages.PublicVerificationPageService` + `BadgeDto`):
+  `SignalView` now carries the signal's `evidence` (read from the evidence_json already
+  loaded). The CORPORATE_DOMAIN_CONFIRMED badge surfaces `organizationName` +
+  `organizationSource="verified-record"` from that snapshot when present — no new lookup on
+  the public path, no personal data (the company name is public). Recommender-stated and
+  all non-corporate badges keep the existing framing (both fields null).
+- **Audit/OpenAPI/docs**: OpenAPI snapshot refreshed (organizations endpoints + new
+  `BadgeDto.organizationName`/`organizationSource`); DATA_MODEL / API_GUIDELINES /
+  VERIFICATION_SIGNALS / MODULES updated. (Frontend rendering of the provenance +
+  builder hint lands separately in iteration 12's frontend task.)
+
+### Deferred items
+
+- **Org management / verification via admin** — no write/management endpoints; the registry
+  is seed-and-curate only until the admin module (UNVERIFIED→VERIFIED→REVOKED transitions
+  have no HTTP surface).
+- **Domain-ownership proof** (email/DNS challenge) — VERIFIED status is curator-asserted,
+  not proven by the domain owner.
+- **Contact ↔ organization auto-linking** — recommenders/contacts are not associated with
+  organization rows; the match is purely by email domain at acceptance.
+- **NAME_MATCH signal** — no cross-check of the recommender-stated company name against the
+  verified org name.
+- **RU / GLOBAL cell org seeds** — V13 seeds a single starter set; region-specific
+  registries are not yet seeded.

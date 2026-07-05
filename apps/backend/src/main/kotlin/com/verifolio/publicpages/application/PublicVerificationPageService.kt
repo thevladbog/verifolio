@@ -86,12 +86,23 @@ internal class PublicVerificationPageService(
             },
             badges = signals.map { signal ->
                 val text = BadgeCatalog.describe(signal.signalType)
+                // Surface verified-org provenance from the evidence already loaded with the
+                // signal (no new lookup on the public path). Only a CORPORATE_DOMAIN_CONFIRMED
+                // badge snapshotted from a VERIFIED org record carries a name; the company name
+                // is public, so no personal data is added. Recommender-stated corporate domains
+                // (and every other badge) keep the existing framing with no org name.
+                val verifiedOrgName = signal
+                    .takeIf { it.signalType == "CORPORATE_DOMAIN_CONFIRMED" }
+                    ?.takeIf { it.evidence["organizationNameSource"] == "verified-record" }
+                    ?.evidence?.get("organizationName")
                 BadgeDto(
                     signalType = signal.signalType,
                     title = text.title,
                     status = signal.status,
                     date = signal.verifiedAt?.toString(),
                     limitation = text.limitation,
+                    organizationName = verifiedOrgName,
+                    organizationSource = verifiedOrgName?.let { "verified-record" },
                 )
             },
             trustSummary = TrustSummary.derive(signals),
