@@ -7,26 +7,53 @@ requester app, recommender response flow, public verification page, auth screens
 No backend changes. Post-MVP surfaces (admin, organizations, DSR automation UI) are out
 of scope.
 
-## Blocker: design project import
+## Design source: imported claude.ai design project
 
-The user's design source of truth is the claude.ai design project
-`https://claude.ai/design/p/7fc3017f-78fe-4367-8993-acaac1b28855?file=Verifolio+Design.dc.html`
-("Verifolio Design.dc.html"), to be imported via the **claude_design MCP**
-(`https://api.anthropic.com/v1/design/mcp`, auth via `/design-login`).
+The design source of truth is the claude.ai design project «Дизайн портала Verifolio»
+(`https://claude.ai/design/p/7fc3017f-78fe-4367-8993-acaac1b28855`), file
+`Verifolio Design.dc.html`. It was imported via the claude_design MCP; a decoded local
+copy is committed at **`docs/design/Verifolio Design.dc.html`** (design canvas: 7
+sections t5–t11, 37 screens). The palette matches `DESIGN_SYSTEM.md` exactly (ink
+`#0F1B2E`, verified green `#2EAD72`, paper `#F7F4EC`, borders `#E4E7EC`, …); the design
+resolves the UI font choice to **Manrope** (+ Source Serif 4 for documents). On any
+remaining conflict the design file wins for visuals; `DESIGN_SYSTEM.md` gets a follow-up
+update.
 
-**In this (background) session the claude_design MCP is not connected and cannot be
-authenticated non-interactively; a direct fetch of the project URL returns 403.**
-Consequences:
+### Screen inventory → this spec's routes
 
-- This spec proceeds on `docs/DESIGN_SYSTEM.md` (the committed brand/design system:
-  palette, type scale, radii, shadows, component inventory) as the interim visual source
-  of truth. It is detailed enough to build the full token layer and all screens.
-- A dedicated **design-fidelity pass** is scheduled as the final implementation phase:
-  once the design project is imported in an interactive session (`/design-login`), each
-  screen is reconciled against `Verifolio Design.dc.html`. Layout/visual deltas are
-  expected; API contracts, routes, and component structure are not.
-- If the imported design contradicts `DESIGN_SYSTEM.md`, the imported design wins for
-  visuals; `DESIGN_SYSTEM.md` gets a follow-up update PR.
+| Design screens | Maps to |
+|---|---|
+| 6a new request (template/scratch), 6b template questions, 7a requests list, 7b step «Контекст», 7c step «Рекомендатель» (+ letter language) | `/requests`, `/requests/new` builder |
+| 6c recommender attachments step, 6d submitted state, 9d decline | `/invitations/[token]`, `/respond` |
+| 6e owner review of finished recommendation, 9e «документ генерируется» | `/requests/[id]` (NEEDS_REVIEW review; accept in-flight state) |
+| 6f third-party link settings & revoke | `/documents/[id]` share-links section |
+| 7e contacts directory (history, consent status) | `/contacts` |
+| 8a onboarding (profile after magic link), 9c magic link expired | `/auth/callback` → first-login profile step, callback error state |
+| 8b empty dashboard | `/dashboard` empty states |
+| 9a link expired, 9b link revoked | `/verify/[token]` invalid state |
+
+### Designed but beyond the MVP backend API (deferred, needs backend work)
+
+These screens exist in the design and are explicitly **out of this frontend iteration**;
+each needs backend endpoints that MVP does not have (Scope Rule: no post-MVP modules
+without an approved task):
+
+- **7d / 6b-custom** — request «с нуля» with custom texts/questions (backend templates
+  are read-only; CUSTOM authoring is post-MVP).
+- **9d reason field** — decline with a stated reason: `POST /invitations/{token}/decline`
+  takes no body today; MVP ships one-click decline without reason text.
+- **8c** — settings with GDPR self-service export/deletion (DSR execution automation is
+  v1.1; MVP accepts DSRs manually).
+- **8d** — public profile-folio for third parties (no backend endpoint; only per-document
+  verification pages exist).
+- **8e** — «проверить документ» by manual ID/QR (backend resolves share-link tokens only).
+- **8f** — in-portal notifications panel (no notifications-feed API).
+- **5a–5e, 11a–11d** — admin panel (v1.1 module).
+- **10a–10e** — HTML email designs (emails are backend-rendered; today plaintext — a
+  separate backend task).
+- **11e** — generated-PDF redesign (backend openhtmltopdf template — separate backend task).
+- **7a/7c «переключатель темы»** — dark mode is out of scope v1 per DESIGN_SYSTEM.md;
+  only the language switcher ships.
 
 ## Placement: monorepo `apps/frontend`
 
@@ -58,7 +85,7 @@ registry=https://registry.npmjs.org/
 | Server state | TanStack Query v5 | no client-side global store; auth state = `currentSession` query |
 | API client | `openapi-typescript` (types) + `openapi-fetch` (runtime) | generated from `apps/backend/api/openapi.yaml`; committed output + `check:api` drift script |
 | i18n | next-intl | locales `en`, `ru` (backend allowlist); messages per locale JSON |
-| Fonts | Inter (UI), Source Serif 4 (document previews) | via `next/font`, self-hosted — no external font CDN calls from regional cells |
+| Fonts | Manrope (UI, per design file), Source Serif 4 (document previews) | via `next/font`, self-hosted — no external font CDN calls from regional cells |
 | Icons | lucide-react | outline style per DESIGN_SYSTEM.md |
 | Unit tests | Vitest + React Testing Library + MSW | MSW handlers derived from generated types |
 | E2E | Playwright | against docker-compose backend + Mailpit API for magic links/codes |
@@ -258,11 +285,12 @@ anywhere**; `CompletenessHint` (builder) is owner-only and never framed as trust
 4. **Locale routing.** Recommendation: cookie/profile-based locale, no `/en|/ru` URL
    prefix (public verify links stay clean and stable). Alternative: path prefix — better
    for SEO of the landing only; can be added later for `/` alone.
-5. **Design-fidelity pass timing.** Recommendation: run after all functional screens
-   exist (single reconciliation pass, needs interactive `/design-login`). Alternative:
-   import design first and block implementation on it — rejected: MCP unavailable in
-   background sessions (see Blocker), and DESIGN_SYSTEM.md is sufficient to build
-   correctly-structured screens.
+5. ~~Design-fidelity pass timing~~ — **resolved**: the design project was imported
+   (see "Design source"); screens are built against `docs/design/Verifolio
+   Design.dc.html` from the start, and the fidelity pass becomes a normal final review.
+   New sub-question: several designed screens exceed the MVP API (list above) —
+   recommendation: ship the MVP subset now, file the backend-dependent screens as v1.1
+   candidates.
 6. **Dashboard composition.** MVP has no dashboard aggregate endpoint; recommendation:
    compose from list endpoints client-side and defer a `GET /dashboard` backend
    endpoint until it hurts. Alternative: add the endpoint now (backend change —

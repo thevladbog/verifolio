@@ -18,7 +18,7 @@
 - All user-facing strings via next-intl (`en`, `ru`) from the first component.
 - Every mutating request carries `X-XSRF-TOKEN` (client middleware, Task 3) — the two public auth POSTs tolerate it being sent.
 - 401 on app routes → redirect `/login`; ApiError codes map via `errorMessage(code)` (Task 3).
-- Design-fidelity pass (Task 12) is gated on interactive claude_design MCP access — all other tasks proceed on `docs/DESIGN_SYSTEM.md`.
+- Visual source of truth: `docs/design/Verifolio Design.dc.html` (imported design canvas; screen IDs like `6a`, `8b` below refer to its options) + `docs/DESIGN_SYSTEM.md` for tokens; UI font is **Manrope**. Screens listed in the spec's "beyond the MVP backend API" section are NOT built in this plan.
 
 ---
 
@@ -55,7 +55,7 @@ export default config
 
 ### Task 2: Design tokens, fonts, base UI kit
 
-**Files:** Modify `app/globals.css` (Tailwind v4 `@theme` tokens from DESIGN_SYSTEM.md), `app/layout.tsx` (next/font: Inter + Source Serif 4, self-hosted); Create `components/ui/*` via `npx shadcn@latest init` + add `button card badge dialog input label textarea select checkbox form sonner skeleton`; Create `components/verifolio/badge-status.tsx`.
+**Files:** Modify `app/globals.css` (Tailwind v4 `@theme` tokens from DESIGN_SYSTEM.md), `app/layout.tsx` (next/font: Manrope + Source Serif 4, self-hosted); Create `components/ui/*` via `npx shadcn@latest init` + add `button card badge dialog input label textarea select checkbox form sonner skeleton`; Create `components/verifolio/badge-status.tsx`.
 
 - [ ] **Step 1:** `@theme` tokens — exact values from DESIGN_SYSTEM.md:
 
@@ -122,7 +122,7 @@ api.use({
 **Interfaces (produced):** `useSession(): {user, isLoading}` — query on `GET /api/v1/auth/sessions/current`.
 
 - [ ] **Step 1:** Login form (RHF+Zod email) → `POST /auth/magic-links` → always the 202 state: "If this email has an account, a sign-in link is on its way." Rate-limit 429 → `errors.RATE_LIMITED`.
-- [ ] **Step 2:** `/auth/callback` — client page: read `token` param → `POST /auth/sessions {token}` → `router.replace('/dashboard')`; error → invalid-link state with inline re-request form.
+- [ ] **Step 2:** `/auth/callback` — client page: read `token` param → `POST /auth/sessions {token}`; if the profile is fresh (empty displayName) → onboarding profile step (design 8a: name + headline + locale, `PUT /profile`) → `/dashboard`; otherwise straight to `/dashboard`. Error → expired-link state (design 9c) with inline re-request form.
 - [ ] **Step 3:** `middleware.ts` — requests to `/(app)` paths without a `verifolio_session` cookie → redirect `/login` (UX only; pages still handle 401).
 - [ ] **Step 4:** App shell layout per DESIGN_SYSTEM (sidebar `--color-ink`, main bg `--color-warm-white`), locale switcher, `useSession` guard.
 - [ ] **Step 5:** RTL tests: login submits and shows anti-enumeration copy on 202 AND on 429-after-toast; callback posts token. PASS. Commit — `feat(frontend): i18n, magic-link auth screens, authenticated app shell`
