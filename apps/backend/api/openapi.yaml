@@ -785,6 +785,11 @@ paths:
         required: true
         schema:
           type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeclineRequest"
       responses:
         "200":
           description: OK
@@ -1252,6 +1257,37 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/reference-requests/{id}/response:
+    get:
+      tags:
+      - response-review-controller
+      operationId: getSubmittedResponse
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Latest submitted response with upload metadata
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmittedResponseView"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Reference request not found or no submitted response yet
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/recommender/request:
     get:
       tags:
@@ -1400,6 +1436,36 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "404":
           description: Document or version not found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/consent-texts/{consentType}:
+    get:
+      tags:
+      - consent-text-controller
+      operationId: getConsentText
+      parameters:
+      - name: consentType
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: locale
+        in: query
+        required: false
+        schema:
+          type: string
+          default: en
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ConsentTextView"
+        "404":
+          description: Unknown consent type
           content:
             '*/*':
               schema:
@@ -1685,6 +1751,10 @@ components:
           - "null"
         status:
           type: string
+        declinedReason:
+          type:
+          - string
+          - "null"
         expiresAt:
           type: string
         createdAt:
@@ -1820,8 +1890,29 @@ components:
           type:
           - boolean
           - "null"
+        reasonCategory:
+          type:
+          - string
+          - "null"
+          enum:
+          - DONT_KNOW_REQUESTER
+          - TOO_BUSY
+          - NOT_COMFORTABLE
+          - OTHER
       required:
       - accepted
+    DeclineRequest:
+      type: object
+      properties:
+        reasonCategory:
+          type:
+          - string
+          - "null"
+          enum:
+          - DONT_KNOW_REQUESTER
+          - TOO_BUSY
+          - NOT_COMFORTABLE
+          - OTHER
     ConfirmEmailRequest:
       type: object
       properties:
@@ -2058,6 +2149,44 @@ components:
           type:
           - string
           - "null"
+    SubmittedResponseView:
+      type: object
+      properties:
+        approvedLetterText:
+          type:
+          - string
+          - "null"
+        answers:
+          type: object
+          additionalProperties: {}
+        submittedAt:
+          type: string
+        recipientConfirmed:
+          type: boolean
+        relationshipConfirmed:
+          type: boolean
+        uploads:
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadMeta"
+    UploadMeta:
+      type: object
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        sharedPublicly:
+          type: boolean
+        targetUploadId:
+          type:
+          - string
+          - "null"
     UploadListResponse:
       type: object
       properties:
@@ -2237,3 +2366,19 @@ components:
           type:
           - string
           - "null"
+    ConsentTextView:
+      type: object
+      properties:
+        consentType:
+          type: string
+        textId:
+          type: string
+        version:
+          type: integer
+          format: int32
+        locale:
+          type: string
+        title:
+          type: string
+        body:
+          type: string

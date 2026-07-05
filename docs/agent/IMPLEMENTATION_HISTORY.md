@@ -467,3 +467,38 @@ inherit context; append an entry when an iteration ships.
 - **CI E2E promotion** — flip the e2e job to blocking once green on GitHub runners.
 - **Onboarding profile step (design 8a)** — callback goes straight to the dashboard.
 - **Landing** — minimal hero per approved open question; full marketing page later.
+
+## 2026-07 — Frontend API tails (iteration 10)
+
+### What shipped
+
+- **Schema**: Flyway V10 adds `reference_request.declined_reason` (nullable, CHECK on
+  DONT_KNOW_REQUESTER / TOO_BUSY / NOT_COMFORTABLE / OTHER).
+- **Decline reason** (requests): `POST /api/v1/invitations/{token}/decline` accepts an
+  optional `{reasonCategory}` body; `ConsentDecisionRequest` gains the same optional
+  field (applied on DECLINED only). The category lands in the same CAS UPDATE as the
+  status flip, appears in `REQUEST_DECLINED` audit metadata (enum name only — never
+  free text; free-text reasons were rejected as a PII/erasure liability), and is
+  exposed to the owner as `declinedReason`. No-body decline unchanged.
+- **Owner response review** (requests): `GET /api/v1/reference-requests/{id}/response`
+  (`ResponseReviewController`/`Service`) — owner-scoped read of the latest submitted
+  response: letter text, parsed answers, confirmations, READY upload metadata
+  (kind/contentType/sizeBytes/sharedPublicly/targetUploadId — no URLs, no downloads;
+  pre-accept owner downloads deferred). 404 for foreign request or no submitted
+  response. Reads not audited (templates precedent: no new authz boundary).
+- **Consent texts** (templates): `GET /api/v1/consent-texts/{consentType}?locale=`
+  serves the ACTIVE versioned policy copy from classpath resources
+  `consent-texts/{textId}/{version}/{locale}.md` (en+ru for the four `local-*` texts;
+  copy moved from frontend i18n). Fallback any-locale→en; startup fails fast if an
+  active text lacks `en`; permitAll, GET-only. `consent_record.policy_text_version`
+  now provably matches served copy.
+- **OpenAPI** snapshot refreshed; frontend consumes all three (review panel on real
+  data, consent gate/attestation/sharing toggle render backend copy, decline page
+  optional reason select).
+
+### Deferred items
+
+- **Dashboard aggregate endpoint** — frontend list-composition causes no pain yet.
+- **Pre-accept upload downloads for the owner** — needs new files authorization.
+- **Per-region consent text sets** (eu-*/ru-*) — resources+config mechanism is ready;
+  real regional texts land with the RU cell / region policy work.
