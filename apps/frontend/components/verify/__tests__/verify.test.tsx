@@ -163,4 +163,61 @@ describe("VerifyContent", () => {
       screen.getByRole("button", { name: "Download" }),
     ).toBeInTheDocument();
   });
+
+  it("shows the verified organization record on the corporate-domain badge when present", () => {
+    renderWithProviders(
+      <VerifyContent
+        token="tok"
+        page={{
+          status: "ACTIVE",
+          header: { verificationId: "V-1", documentType: "Reference letter" },
+          badges: [
+            {
+              signalType: "CORPORATE_DOMAIN_CONFIRMED",
+              title: "Corporate domain confirmed",
+              status: "VERIFIED",
+              date: "2026-06-01",
+              organizationName: "Acme Corp",
+              organizationSource: "verified-record",
+            },
+          ],
+          downloads: [],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText("at Acme Corp — verified organization record"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the corporate-domain badge unchanged when the org name is absent (recommender-stated)", () => {
+    renderWithProviders(
+      <VerifyContent
+        token="tok"
+        page={{
+          status: "ACTIVE",
+          header: { verificationId: "V-1", documentType: "Reference letter" },
+          badges: [
+            {
+              signalType: "CORPORATE_DOMAIN_CONFIRMED",
+              title: "Corporate domain confirmed",
+              status: "VERIFIED",
+              date: "2026-06-01",
+              organizationName: null,
+              organizationSource: null,
+            },
+          ],
+          downloads: [],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText("Corporate domain confirmed"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/verified organization record/),
+    ).not.toBeInTheDocument();
+  });
 });

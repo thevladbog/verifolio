@@ -548,6 +548,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listOrganizations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getOrganization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["lookupOrganization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invitations/{token}": {
         parameters: {
             query?: never;
@@ -869,6 +917,8 @@ export interface components {
             status?: string;
             date?: string | null;
             limitation?: string | null;
+            organizationName?: string | null;
+            organizationSource?: string | null;
         };
         DownloadDto: {
             id?: string;
@@ -1000,6 +1050,17 @@ export interface components {
         DataSubjectRequestListResponse: {
             items?: components["schemas"]["DataSubjectRequestResponse"][];
             nextCursor?: string | null;
+        };
+        OrganizationListResponse: {
+            items?: components["schemas"]["OrganizationView"][];
+            nextCursor?: string | null;
+        };
+        OrganizationView: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            domains?: string[];
+            verificationStatus?: string;
         };
         InvitationPreviewResponse: {
             requesterName?: string;
@@ -3038,6 +3099,127 @@ export interface operations {
                 };
             };
             /** @description Request no longer active */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listOrganizations: {
+        parameters: {
+            query?: {
+                query?: string;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OrganizationListResponse"];
+                };
+            };
+            /** @description Invalid cursor */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OrganizationView"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Organization not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    lookupOrganization: {
+        parameters: {
+            query: {
+                domain: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OrganizationView"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description No verified organization for domain */
             404: {
                 headers: {
                     [name: string]: unknown;

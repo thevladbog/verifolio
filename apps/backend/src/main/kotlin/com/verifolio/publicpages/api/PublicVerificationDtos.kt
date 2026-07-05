@@ -23,6 +23,17 @@ data class BadgeDto(
     val status: String,
     val date: String?,
     val limitation: String?,
+    /**
+     * The verified organization's public name, present only on a CORPORATE_DOMAIN_CONFIRMED
+     * badge whose evidence was snapshotted from a VERIFIED organization record. Null otherwise
+     * (including recommender-stated corporate domains and all non-corporate badges).
+     */
+    val organizationName: String? = null,
+    /**
+     * Provenance of [organizationName]: "verified-record" when set. Null when no verified
+     * organization name is available, so the frontend keeps the existing framing.
+     */
+    val organizationSource: String? = null,
 )
 
 data class VersionDto(

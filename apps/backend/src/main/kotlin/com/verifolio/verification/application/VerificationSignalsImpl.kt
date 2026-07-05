@@ -61,7 +61,7 @@ internal class VerificationSignalsImpl(
             .where(vs.ENTITY_TYPE.eq(entityType).and(vs.ENTITY_ID.eq(entityId)).and(vs.STATUS.eq("VERIFIED")))
             .orderBy(vs.CREATED_AT.asc())
             .fetch()
-            .map { SignalView(it.signalType!!, it.status!!, it.verifiedAt) }
+            .map { SignalView(it.signalType!!, it.status!!, it.verifiedAt, parseEvidence(it.evidenceJson)) }
     }
 
     @Transactional(readOnly = true)
@@ -75,7 +75,7 @@ internal class VerificationSignalsImpl(
             )
             .orderBy(vs.CREATED_AT.asc())
             .fetch()
-            .map { SignalView(it.signalType!!, it.status!!, it.verifiedAt) }
+            .map { SignalView(it.signalType!!, it.status!!, it.verifiedAt, parseEvidence(it.evidenceJson)) }
     }
 
     @Transactional
@@ -89,6 +89,20 @@ internal class VerificationSignalsImpl(
     @Transactional
     override fun markExpired(entityType: String, entityId: UUID, signalType: String): Int =
         flipVerified(entityType, entityId, signalType, "EXPIRED")
+
+    /**
+     * Reads evidence_json back into a string map for display surfaces. Values are always
+     * stored as strings by [createVerified]; a null or unparseable payload yields empty.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun parseEvidence(json: JSONB?): Map<String, String> {
+        val raw = json?.data() ?: return emptyMap()
+        return runCatching {
+            (objectMapper.readValue(raw, Map::class.java) as Map<String, Any?>)
+                .mapNotNull { (k, v) -> if (v == null) null else k to v.toString() }
+                .toMap()
+        }.getOrDefault(emptyMap())
+    }
 
     /** [signalType] null flips every VERIFIED signal on the entity regardless of type. */
     private fun flipVerified(entityType: String, entityId: UUID, signalType: String?, newStatus: String): Int {

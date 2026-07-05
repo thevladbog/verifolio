@@ -111,6 +111,20 @@ Organization
 - updated_at
 ```
 
+`verification_status` is constrained (Flyway V12) to `UNVERIFIED | VERIFIED | REVOKED`; only `VERIFIED` organizations strengthen the `CORPORATE_DOMAIN_CONFIRMED` signal (`recommender-stated` → `verified-record`). `PENDING` is omitted until a real verification flow exists.
+
+Domain ownership lives in a normalized side table `OrganizationDomain` (Flyway V12), which is the **authoritative domain source** for the verified-organization lookup. The legacy `Organization.domains` jsonb (V2) is retained for backward compatibility and mirrored by the seed, but new code reads `OrganizationDomain`. A unique index on `lower(domain)` guarantees a domain maps to at most one organization.
+
+```text
+OrganizationDomain
+- id
+- organization_id (FK to Organization, on delete cascade)
+- domain
+- created_at
+```
+
+Verified organizations are seeded via Flyway V13 (curator-replaceable starter set); the real registry grows via admin curation (deferred). RU/GLOBAL cells seed their own lists.
+
 ## RecommenderContact
 
 Represents a person who can provide references.

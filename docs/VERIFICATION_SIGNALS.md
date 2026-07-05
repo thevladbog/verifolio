@@ -107,13 +107,14 @@ Meaning: recommender email belongs to a corporate/domain email.
 
 Determination method: at minimum, the email domain is checked against a deny-list of free and disposable email providers (e.g. gmail.com, mail.ru, temporary-mail services). A domain that is not on the deny-list is treated as corporate. Stronger checks (MX/organization matching) may be added later.
 
-Organization name source: the organization name shown with this signal is recommender-stated unless a verified `Organization` record exists for the domain.
+Organization name source: at acceptance the recommender's email domain is looked up against the verified-organization registry (`organizations` module, `OrganizationLookup.findVerifiedByDomain`). When a `VERIFIED` organization owns the domain, its identity is **snapshotted into the signal evidence at the gating moment** so a later registry change never mutates a locked attestation; otherwise the evidence records the recommender-stated source only.
 
 Evidence:
 
-- email domain;
-- domain match;
-- organization name if available (with its source: recommender-stated or verified record).
+- `emailDomain` — always present;
+- `organizationNameSource` — `verified-record` when a VERIFIED org owns the domain, else `recommender-stated`;
+- `organizationId` — the verified organization's UUID (verified-record only);
+- `organizationName` — the verified organization's name, snapshotted at acceptance (verified-record only).
 
 Public text:
 

@@ -144,6 +144,24 @@ export function VerifyContent({
             />
           ))}
         </div>
+        {/* Evidence-first provenance: only a VERIFIED org owning the recommender's
+            domain gets a named record; recommender-stated domains render nothing. */}
+        {page.badges
+          ?.filter(
+            (badge) =>
+              badge.organizationSource === "verified-record" &&
+              !!badge.organizationName,
+          )
+          .map((badge) => (
+            <p
+              key={`org-${badge.signalType}-${badge.date}`}
+              className="mt-2 text-xs text-muted-text"
+            >
+              {t("verify.orgVerifiedRecord", {
+                name: badge.organizationName ?? "",
+              })}
+            </p>
+          ))}
       </section>
 
       {trustEntries.length > 0 && (

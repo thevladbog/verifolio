@@ -64,7 +64,7 @@ Owns:
 - company metadata;
 - organization verification signals.
 
-MVP scope is minimal: the `Organization` entity and domain records only. Full organization verification is post-MVP (see `docs/ROADMAP.md`).
+MVP scope delivered (iteration 12): the `Organization` entity, `organization_domain` records with a curated `VERIFIED` seed set, the `OrganizationLookup` domain-lookup API + authenticated read endpoints, and signal strengthening — a verified domain match upgrades `CORPORATE_DOMAIN_CONFIRMED` evidence from `recommender-stated` to `verified-record` (org id + name snapshotted at acceptance). Depends only on `platform`/`audit`; other modules (`requests`, `publicpages`) depend on it. Full organization verification and management (domain-ownership proof, contact↔org linking, curator/admin workflows) remain post-MVP via admin (see `docs/ROADMAP.md`).
 
 ### contacts
 
