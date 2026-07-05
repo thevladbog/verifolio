@@ -45,7 +45,10 @@ UserAccount
 - status
 - created_at
 - updated_at
+- deleted_at
 ```
+
+`deleted_at` (Flyway V15) is stamped when an account-holder DELETION DSR is executed: `status = 'DELETED'`, email anonymized to a tombstone address, and the row retained for FK integrity with retained consent/audit records.
 
 `region` is denormalized for defense-in-depth and export/migration; isolation is physical per ADR-0003, never enforced by row filtering.
 
@@ -406,7 +409,10 @@ DETACHED_SIGNATURE
 CERTIFICATE
 PREVIEW_IMAGE
 ATTACHMENT
+DATA_EXPORT
 ```
+
+`DATA_EXPORT` (Flyway V15) is the JSON metadata artifact generated when an EXPORT DSR is executed; the subject receives a short-lived presigned link to it.
 
 ## DocumentAttachment
 
@@ -574,9 +580,12 @@ DataSubjectRequest
 - verified_at
 - due_at
 - resolution_notes
+- export_file_id (nullable)
 - created_at
 - updated_at
 ```
+
+`export_file_id` (Flyway V15) references the generated `DATA_EXPORT` FileObject once an EXPORT DSR is executed (audit + potential admin re-fetch).
 
 Types:
 

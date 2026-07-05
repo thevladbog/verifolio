@@ -121,6 +121,8 @@ data class VerifolioProperties(
         /** Per-IP window for the public recommender DSR intake; raised in integration tests. */
         val recommenderIpLimit: Int = 100,
         val recommenderIpWindow: Duration = Duration.ofMinutes(15),
+        /** Presigned-GET lifetime for the subject's DATA_EXPORT artifact (emailed link). */
+        val exportLinkTtl: Duration = Duration.ofDays(7),
     )
 
     /**
