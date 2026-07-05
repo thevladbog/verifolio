@@ -18,6 +18,8 @@ data class ReferenceRequestResponse(
     val templateId: String,
     val purpose: String?,
     val status: String,
+    /** Decline reason category (enum value); set only for DECLINED requests, and only when the recommender chose one. */
+    val declinedReason: String?,
     val expiresAt: String,
     val createdAt: String,
     val updatedAt: String?,

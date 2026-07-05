@@ -158,10 +158,17 @@ ReferenceRequest
 - template_id
 - purpose
 - status
+- declined_reason
 - expires_at
 - created_at
 - updated_at
 ```
+
+`declined_reason` (Flyway V10, nullable) is the optional decline reason category chosen by
+the recommender — enum values `DONT_KNOW_REQUESTER | TOO_BUSY | NOT_COMFORTABLE | OTHER`
+(CHECK constraint). It is set only by the decline transition (one-click decline or a
+consent-gate decline), is readable by the request owner, and is never free text: enum
+categories are not PII and survive recommender PII erasure.
 
 `recommender_name`, `recommender_email`, and `recommender_relationship_type` are snapshots
 of the contact taken at request creation. The requester's verbal-consent attestation covers exactly this recipient, so the
