@@ -82,8 +82,12 @@ test("canonical flow: request → response → accept → share → revoke", asy
   await recommenderPage.getByRole("button", { name: "Continue" }).click();
   await expect(recommenderPage).toHaveURL(/\/respond/);
 
-  // Consent gate: no inputs before accept
+  // Consent gate: no inputs before accept; the consent copy is served by
+  // the backend (GET /api/v1/consent-texts) and must render before accept.
   await expect(recommenderPage.getByRole("textbox")).toHaveCount(0);
+  await expect(
+    recommenderPage.getByText("Before you start: data processing consent"),
+  ).toBeVisible();
   await recommenderPage
     .getByRole("button", { name: "I agree — start" })
     .click();
@@ -111,8 +115,16 @@ test("canonical flow: request → response → accept → share → revoke", asy
     recommenderPage.getByText(/response is submitted/i),
   ).toBeVisible();
 
-  // Requester accepts
+  // Requester reviews the submitted response before accepting: the review
+  // panel shows the recommender's letter fetched from
+  // GET /reference-requests/{id}/response.
   await requesterPage.goto(requestUrl);
+  await expect(requesterPage.getByText("Submitted letter")).toBeVisible();
+  await expect(
+    requesterPage.getByText("I confirm this E2E reference letter."),
+  ).toBeVisible();
+
+  // Requester accepts
   await requesterPage.getByRole("button", { name: "Accept and lock" }).click();
   await requesterPage.getByRole("link", { name: "Open document" }).click();
   await expect(requesterPage).toHaveURL(/\/documents\/[\w-]+/);
