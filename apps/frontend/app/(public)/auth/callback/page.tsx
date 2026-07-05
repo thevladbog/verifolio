@@ -20,7 +20,18 @@ function CallbackInner() {
   const createSession = useMutation({
     mutationFn: async (raw: string) =>
       unwrap(await api.POST("/api/v1/auth/sessions", { body: { token: raw } })),
-    onSuccess: () => router.replace("/dashboard"),
+    onSuccess: async () => {
+      // Fresh accounts get an auto-created empty profile — route them through
+      // onboarding (design 8a) before the dashboard.
+      try {
+        const profile = unwrap(await api.GET("/api/v1/profile"));
+        router.replace(
+          profile.displayName ? "/dashboard" : "/profile?welcome=1",
+        );
+      } catch {
+        router.replace("/dashboard");
+      }
+    },
   });
 
   useEffect(() => {

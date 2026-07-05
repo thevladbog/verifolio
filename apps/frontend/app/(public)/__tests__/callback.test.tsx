@@ -20,9 +20,11 @@ import { api } from "@/lib/api/client";
 import AuthCallbackPage from "../auth/callback/page";
 
 const mockPost = vi.mocked(api.POST);
+const mockGet = vi.mocked(api.GET);
 
 beforeEach(() => {
   mockPost.mockReset();
+  mockGet.mockReset();
   replace.mockReset();
 });
 
@@ -30,6 +32,7 @@ describe("AuthCallbackPage", () => {
   it("exchanges the token for a session and redirects to the dashboard", async () => {
     params = new URLSearchParams("token=raw-token-1");
     mockPost.mockResolvedValue(ok({ userId: "u1" }) as never);
+    mockGet.mockResolvedValue(ok({ displayName: "Ada" }) as never);
     renderWithProviders(<AuthCallbackPage />);
 
     await waitFor(() =>
@@ -39,6 +42,17 @@ describe("AuthCallbackPage", () => {
     );
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
     expect(mockPost).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes a fresh profile through onboarding", async () => {
+    params = new URLSearchParams("token=raw-token-2");
+    mockPost.mockResolvedValue(ok({ userId: "u1" }) as never);
+    mockGet.mockResolvedValue(ok({ displayName: null }) as never);
+    renderWithProviders(<AuthCallbackPage />);
+
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith("/profile?welcome=1"),
+    );
   });
 
   it("shows the invalid-link state with a re-request path on failure", async () => {

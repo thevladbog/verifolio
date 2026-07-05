@@ -75,7 +75,12 @@
     "legalName": "Legal name",
     "legalNameHint": "Optional. Used to match your name on formal documents.",
     "locale": "Language",
-    "locales": { "en": "English", "ru": "Русский" }
+    "locales": {
+      "en": "English",
+      "ru": "Русский"
+    },
+    "welcomeTitle": "Welcome to Verifolio",
+    "welcomeHint": "Tell us how to display your name on requests and documents. You can change this later in Profile."
   },
   "requests": {
     "title": "Requests",
@@ -104,7 +109,9 @@
       "DECLINED": "Declined",
       "EXPIRED": "Expired",
       "CANCELLED": "Cancelled"
-    }
+    },
+    "notFoundTitle": "Request not found",
+    "notFoundBody": "This request does not exist or you do not have access to it."
   },
   "builder": {
     "title": "New reference request",
@@ -179,7 +186,11 @@
     "title": "Share document",
     "subtitle": "A third party will see the document, trust summary, and verification timeline — nothing else from your folio.",
     "expiry": "Link validity",
-    "expiryOptions": { "days7": "7 days", "days30": "30 days", "never": "No expiry" },
+    "expiryOptions": {
+      "days7": "7 days",
+      "days30": "30 days",
+      "never": "No expiry"
+    },
     "audienceNote": "Every open is recorded. You can revoke the link at any time.",
     "create": "Create link",
     "created": "Link created",

@@ -3,7 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -29,10 +30,12 @@ function persistLocale(next: string) {
   document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=31536000; samesite=lax`;
 }
 
-export default function ProfilePage() {
+function ProfileInner() {
   const t = useTranslations();
   const router = useRouter();
   const queryClient = useQueryClient();
+  // Onboarding mode (design 8a): first login lands here from /auth/callback.
+  const welcome = useSearchParams().get("welcome") === "1";
 
   const profile = useQuery({
     queryKey: ["profile"],
@@ -71,6 +74,10 @@ export default function ProfilePage() {
       queryClient.setQueryData(["profile"], data);
       // The profile locale is also the UI locale.
       persistLocale(data.preferredLocale ?? "en");
+      if (welcome) {
+        router.replace("/dashboard");
+        return;
+      }
       router.refresh();
       toast.success(t("common.saved"));
     },
@@ -82,7 +89,14 @@ export default function ProfilePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-extrabold text-ink">{t("profile.title")}</h1>
+      <h1 className="text-2xl font-extrabold text-ink">
+        {welcome ? t("profile.welcomeTitle") : t("profile.title")}
+      </h1>
+      {welcome && (
+        <p className="max-w-xl text-sm text-slate-text">
+          {t("profile.welcomeHint")}
+        </p>
+      )}
       <Card className="max-w-xl">
         <CardHeader>
           <CardTitle>{t("profile.sectionTitle")}</CardTitle>
@@ -146,5 +160,13 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense>
+      <ProfileInner />
+    </Suspense>
   );
 }

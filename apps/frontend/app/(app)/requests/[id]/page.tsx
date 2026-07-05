@@ -111,7 +111,21 @@ export default function RequestDetailPage() {
   if (request.isLoading) {
     return <Skeleton className="h-64" />;
   }
-  if (!request.data) return null;
+  if (!request.data) {
+    return (
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>{t("requests.notFoundTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-start gap-4">
+          <p className="text-sm text-slate-text">{t("requests.notFoundBody")}</p>
+          <Button asChild variant="secondary">
+            <Link href="/requests">{t("nav.requests")}</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const data = request.data;
   const status = data.status ?? "";
