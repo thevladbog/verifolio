@@ -128,6 +128,31 @@
     "attestationHint": "This attestation is recorded. The invitation cannot be created without it.",
     "create": "Create request"
   },
+  "detail": {
+    "aboutTitle": "About this request",
+    "expiresAt": "Expires",
+    "send": "Send invitation",
+    "cancel": "Cancel request",
+    "terminal": {
+      "DECLINED": "The recommender declined this request. Reminders have stopped and their data is scheduled for erasure.",
+      "EXPIRED": "This request expired. The invitation link no longer works.",
+      "CANCELLED": "You cancelled this request. The invitation link no longer works."
+    }
+  },
+  "review": {
+    "title": "Response received — review it",
+    "hint": "The recommender submitted their response. Accept it to generate and lock the document, or ask for a correction. The full letter becomes available in the locked document after acceptance.",
+    "accept": "Accept and lock",
+    "requestCorrection": "Request correction",
+    "correctionTitle": "Request a correction",
+    "correctionHint": "The recommender will get a new secure link. Your note is sent in the email and is not stored.",
+    "correctionPlaceholder": "What should be corrected? (optional)",
+    "generating": "Response accepted — preparing the document",
+    "generatingHint": "Generating the PDF, calculating the hash, and locking the version. This usually takes less than a minute.",
+    "generated": "Document version locked",
+    "generatedHint": "Verification signals are recorded. You can now share the document with a secure link.",
+    "openDocument": "Open document"
+  },
   "errors": {
     "RATE_LIMITED": "Too many attempts. Please try again later.",
     "CONSENT_REQUIRED": "This step requires your explicit confirmation.",
