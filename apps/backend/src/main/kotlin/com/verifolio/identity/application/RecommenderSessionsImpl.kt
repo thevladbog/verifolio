@@ -2,7 +2,7 @@ package com.verifolio.identity.application
 
 import com.verifolio.identity.RecommenderActor
 import com.verifolio.identity.RecommenderSessions
-import com.verifolio.identity.domain.TokenHasher
+import com.verifolio.platform.TokenHasher
 import com.verifolio.jooq.tables.references.RECOMMENDER_SESSION
 import org.jooq.DSLContext
 import org.springframework.stereotype.Service

@@ -2,8 +2,8 @@ package com.verifolio.identity.application
 
 import com.verifolio.audit.AuditService
 import com.verifolio.identity.InvitationTokenService
-import com.verifolio.identity.domain.TokenGenerator
-import com.verifolio.identity.domain.TokenHasher
+import com.verifolio.platform.TokenGenerator
+import com.verifolio.platform.TokenHasher
 import com.verifolio.jooq.tables.references.INVITATION_TOKEN
 import org.jooq.DSLContext
 import org.springframework.stereotype.Service

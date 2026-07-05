@@ -1,4 +1,4 @@
-package com.verifolio.identity.domain
+package com.verifolio.platform
 
 import java.security.SecureRandom
 import java.util.Base64

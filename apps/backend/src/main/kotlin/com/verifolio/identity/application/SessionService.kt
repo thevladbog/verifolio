@@ -3,8 +3,8 @@ package com.verifolio.identity.application
 import com.verifolio.audit.AuditService
 import com.verifolio.identity.AuthenticatedUser
 import com.verifolio.identity.UserAccountCreated
-import com.verifolio.identity.domain.TokenGenerator
-import com.verifolio.identity.domain.TokenHasher
+import com.verifolio.platform.TokenGenerator
+import com.verifolio.platform.TokenHasher
 import com.verifolio.jooq.tables.references.MAGIC_LINK_TOKEN
 import com.verifolio.jooq.tables.references.USER_ACCOUNT
 import com.verifolio.jooq.tables.references.USER_SESSION

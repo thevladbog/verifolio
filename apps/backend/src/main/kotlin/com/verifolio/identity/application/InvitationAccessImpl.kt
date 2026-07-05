@@ -4,8 +4,8 @@ import com.verifolio.audit.AuditService
 import com.verifolio.identity.InvitationAccess
 import com.verifolio.identity.InvitationInfo
 import com.verifolio.identity.RecommenderGrant
-import com.verifolio.identity.domain.TokenGenerator
-import com.verifolio.identity.domain.TokenHasher
+import com.verifolio.platform.TokenGenerator
+import com.verifolio.platform.TokenHasher
 import com.verifolio.jooq.tables.records.InvitationTokenRecord
 import com.verifolio.jooq.tables.references.EMAIL_CONFIRMATION_CODE
 import com.verifolio.jooq.tables.references.INVITATION_TOKEN

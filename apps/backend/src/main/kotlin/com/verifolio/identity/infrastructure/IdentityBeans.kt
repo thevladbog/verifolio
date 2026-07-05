@@ -1,6 +1,6 @@
 package com.verifolio.identity.infrastructure
 
-import com.verifolio.identity.domain.TokenHasher
+import com.verifolio.platform.TokenHasher
 import com.verifolio.platform.SlidingWindowRateLimiter
 import com.verifolio.platform.VerifolioProperties
 import org.springframework.context.annotation.Bean
