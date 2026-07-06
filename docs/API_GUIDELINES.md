@@ -135,6 +135,21 @@ GET  /api/v1/admin/users?query=&status=&cursor=               (USER_VIEW; keyset
 GET  /api/v1/admin/users/{id}                                 (USER_VIEW; card; 404 foreign region; audits ADMIN_USER_DETAIL_VIEWED)
 ```
 
+Admin audit-log viewer (admin module → `audit.AuditLogAdminView` read port). Read-only, cell-scoped
+(`audit_event` has no region column — the cell IS the region). List requires `AUDIT_VIEW` (L2+); CSV
+export requires `AUDIT_EXPORT` (SUPERADMIN); missing → `403 FORBIDDEN`. Filters (`actorType` exact,
+`action` prefix, `entityType` exact, `from`/`to` ISO-8601 on `created_at`) are all optional; a
+malformed `from`/`to` is `400 VALIDATION_ERROR`. Rows expose `{id, createdAt, actorType, actorId,
+action, entityType, entityId, metadata}` — metadata is IDs/counts-only by construction; `ip_hash`/
+`user_agent_hash` are never returned. The export streams `text/csv` (`Content-Disposition: attachment`)
+with columns `createdAt,actorType,actorId,action,entityType,entityId` (no metadata/hashes), capped at
+10 000 rows. Every read (list + export) is itself audited (`ADMIN_AUDIT_LOG_VIEWED`).
+
+```text
+GET  /api/v1/admin/audit-logs?actorType=&action=&entityType=&from=&to=&cursor=   (AUDIT_VIEW; keyset list; audits ADMIN_AUDIT_LOG_VIEWED)
+GET  /api/v1/admin/audit-logs/export?actorType=&action=&entityType=&from=&to=    (AUDIT_EXPORT; text/csv attachment; audits ADMIN_AUDIT_LOG_VIEWED)
+```
+
 ## Command Endpoints
 
 Use explicit commands for important state changes:
