@@ -45,7 +45,10 @@ UserAccount
 - status
 - created_at
 - updated_at
+- deleted_at
 ```
+
+`deleted_at` (Flyway V15) is stamped when an account-holder DELETION DSR is executed: `status = 'DELETED'`, email anonymized to a tombstone address, and the row retained for FK integrity with retained consent/audit records.
 
 `region` is denormalized for defense-in-depth and export/migration; isolation is physical per ADR-0003, never enforced by row filtering.
 
@@ -406,7 +409,10 @@ DETACHED_SIGNATURE
 CERTIFICATE
 PREVIEW_IMAGE
 ATTACHMENT
+DATA_EXPORT
 ```
+
+`DATA_EXPORT` (Flyway V15) is the JSON metadata artifact generated when an EXPORT DSR is executed; the subject receives a short-lived presigned link to it.
 
 ## DocumentAttachment
 
@@ -574,9 +580,12 @@ DataSubjectRequest
 - verified_at
 - due_at
 - resolution_notes
+- export_file_id (nullable)
 - created_at
 - updated_at
 ```
+
+`export_file_id` (Flyway V15) references the generated `DATA_EXPORT` FileObject once an EXPORT DSR is executed (audit + potential admin re-fetch).
 
 Types:
 
@@ -597,6 +606,25 @@ RECEIVED → IN_REVIEW → APPROVED → EXECUTED
 
 `due_at` is derived from the per-region SLA.
 
+### Account-holder deletion erasure matrix
+
+When an account-holder DELETION DSR is executed, the following per-table actions run
+(idempotent; each owned by its module's erasure port, driven from the privacy executor). The
+`user_account` row and all FK-referenced rows are RETAINED so retained consent/audit records
+keep their referential integrity; only PII is removed.
+
+| Table | Action | Columns |
+|---|---|---|
+| `document_version` (all non-tombstoned versions of the owner's documents) | tombstone (via the sanctioned `DocumentTombstone` path) | `content_json`, `rendered_html` nulled + linked files S3-deleted; `sha256_hash`, `version_number`, `locked_at` RETAINED; `status`→TOMBSTONED, `tombstoned_at` set |
+| `person_profile` | anonymize (row RETAINED) | `display_name`→"Deleted user" (NOT NULL placeholder); `legal_name`→null; `preferred_locale` RETAINED (non-PII UI preference) |
+| `recommender_contact` (owned by the subject) | anonymize (row RETAINED for FK RESTRICT from requests/consents) | `name`→"Deleted contact" (NOT NULL placeholder); `email`→"" (blanked, column is NOT NULL); `company_name`, `company_domain`, `title`→null; `relationship_type` RETAINED (non-PII enum) |
+| `user_account` | tombstone (row RETAINED for FK integrity) | `status`→'DELETED'; `deleted_at`→now; `email`→`deleted-<userId>@tombstone.invalid` |
+| `user_session` | DELETE (live credentials, no lawful basis to retain) | all rows for the user |
+| `magic_link_token` | DELETE (live credentials) | all rows for the account's pre-erasure email |
+| `consent_record` | RETAIN (lawful-basis evidence) | unchanged |
+| `audit_event` (rows where `actor_id` = the subject's user id) | pseudonymize (rows NEVER deleted) | `actor_id`→null |
+| `reference_request` the subject created | RETAIN | requester PII lives in the (already-anonymized) profile |
+
 ## AuditEvent
 
 Append-only event log.
@@ -615,4 +643,6 @@ AuditEvent
 - created_at
 ```
 
-Audit events must be created for every sensitive action.
+Audit events must be created for every sensitive action. Rows are append-only and are NEVER
+deleted; on an account-holder deletion the subject's `actor_id` is pseudonymized to null so
+the processing trail survives as an anonymous record (`AuditPseudonymizer.pseudonymizeActor`).

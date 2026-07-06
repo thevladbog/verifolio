@@ -56,7 +56,7 @@ class AdminAuthUnitTest : IntegrationTest() {
         val adminId = seedAdmin(email)
         val raw = magicLinks.mint(email)
         val account = magicLinks.consume(raw)
-        assertThat(account).isNotNull
+        assertThat(account).isNotNull()
         assertThat(account!!.id).isEqualTo(adminId)
         assertThat(account.role).isEqualTo(AdminRole.SUPERADMIN)
     }
@@ -66,7 +66,7 @@ class AdminAuthUnitTest : IntegrationTest() {
         val email = "ml-reuse-${UUID.randomUUID()}@example.com"
         seedAdmin(email)
         val raw = magicLinks.mint(email)
-        assertThat(magicLinks.consume(raw)).isNotNull
+        assertThat(magicLinks.consume(raw)).isNotNull()
         assertThat(magicLinks.consume(raw)).isNull() // single-use
     }
 
@@ -105,7 +105,7 @@ class AdminAuthUnitTest : IntegrationTest() {
         assertThat(enrollment.otpauthUri).contains("secret=$secret")
 
         val enrolled = mfa.enroll(pending.rawToken, totp.currentCode(secret))
-        assertThat(enrolled.mfaEnrolledAt).isNotNull
+        assertThat(enrolled.mfaEnrolledAt).isNotNull()
         val stored = dsl.select(ADMIN_ACCOUNT.TOTP_SECRET_ENC, ADMIN_ACCOUNT.MFA_ENROLLED_AT)
             .from(ADMIN_ACCOUNT).where(ADMIN_ACCOUNT.ID.eq(adminId)).fetchOne()!!
         assertThat(stored.value1()).isNotNull() // encrypted at rest
@@ -122,7 +122,7 @@ class AdminAuthUnitTest : IntegrationTest() {
         // A minted session resolves back to the admin actor.
         val session = sessions.mint(adminId, ipHash = null, userAgentHash = null)
         val actor = sessions.resolve(session.rawToken)
-        assertThat(actor).isNotNull
+        assertThat(actor).isNotNull()
         assertThat(actor!!.adminId).isEqualTo(adminId)
         sessions.revoke(session.rawToken)
         assertThat(sessions.resolve(session.rawToken)).isNull()

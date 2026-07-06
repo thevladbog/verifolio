@@ -138,8 +138,25 @@ SYSTEM, or ADMIN when triggered from the admin console) records completion. `DAT
 carries `type`/`region`/`previousStatus` enums only. Hybrid
 execution: a verified `CONSENT_WITHDRAWAL` runs RECEIVED → EXECUTED in one chain, emitting
 `CONSENT_WITHDRAWN`, `VERIFICATION_SIGNAL_UPDATED` (per revoked signal), `RECOMMENDATION_RETRACTED`
-and `RECOMMENDER_PII_ERASED` along the way. The other DSR types stay RECEIVED for manual/admin
-execution in a later iteration.
+and `RECOMMENDER_PII_ERASED` along the way.
+
+`DATA_EXPORTED` (actor ADMIN when triggered from the admin console — `actorId` = admin account id —
+else SYSTEM; entity `DATA_SUBJECT_REQUEST`) records completion of an `EXPORT` DSR: the metadata JSON
+package was assembled, stored as a `DATA_EXPORT` `FILE_OBJECT` (its own `FILE_UPLOADED` from the files
+module), and the presigned link emailed to the subject. Metadata is IDs/enums only — `fileId` and
+`subjectType` (`ACCOUNT_HOLDER`|`RECOMMENDER`); never the subject email or any package content. The
+export's `DATA_SUBJECT_REQUEST_EXECUTED` records the RECEIVED/APPROVED → EXECUTED transition.
+
+`ACCOUNT_DELETED` (actor ADMIN when triggered from the admin console — `actorId` = admin account id —
+else SYSTEM; entity `USER_ACCOUNT`, `entityId` = the deleted user-account id) records completion of an
+account-holder `DELETION` DSR: owned documents tombstoned, profile + owned contacts PII anonymized, the
+`user_account` tombstoned (status `DELETED`, `deleted_at` set, email anonymized, sessions + magic links
+dropped), and the subject's `audit_event.actor_id` pseudonymized to null (rows retained). `consent_record`
+rows are RETAINED. Metadata is IDs/counts only — `dsrId`, `versionsTombstoned`, `contactsErased`,
+`auditRowsPseudonymized`; never the subject email or any content. This audit is written with the acting
+ADMIN/SYSTEM actor (not the deleted user), so it is not itself pseudonymized; the export's/deletion's
+`DATA_SUBJECT_REQUEST_EXECUTED` records the RECEIVED/APPROVED → EXECUTED transition. The remaining DSR
+types (`REGION_MIGRATION`, `CORRECTION`) stay RECEIVED for manual/admin execution in a later iteration.
 
 ### Admin
 

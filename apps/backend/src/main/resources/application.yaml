@@ -78,6 +78,7 @@ verifolio:
   privacy:
     sla: 30d # DSR response deadline; GDPR default, per-cell statutory value with region-policy work
     decline-erasure-grace: 24h # abuse-investigation window before declined recommender PII erasure (Flow 9)
+    export-link-ttl: 7d # presigned-GET lifetime for the subject's DATA_EXPORT artifact (emailed link)
   admin:
     bootstrap-emails: [] # config-driven idempotent SUPERADMIN bootstrap; prod sets it per cell
     totp-secret-key: local-dev-unsafe-totp-key # DEV ONLY placeholder — must be overridden outside the local region

@@ -29,7 +29,7 @@ class AuditServiceIntegrationTest : IntegrationTest() {
         val row = dsl.selectFrom(AUDIT_EVENT)
             .where(AUDIT_EVENT.ACTION.eq("LOGIN_SUCCEEDED").and(AUDIT_EVENT.ENTITY_ID.eq(entityId)))
             .fetchOne()
-        assertThat(row).isNotNull
+        assertThat(row).isNotNull()
         assertThat(row!!.actorType).isEqualTo("USER")
         assertThat(row.entityType).isEqualTo("SESSION")
     }
