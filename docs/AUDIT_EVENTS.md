@@ -167,6 +167,9 @@ ADMIN_LOGIN_FAILED
 ADMIN_SESSION_CREATED
 ADMIN_SESSION_REVOKED
 ADMIN_DSR_VIEWED
+ADMIN_USER_LIST_VIEWED
+ADMIN_USER_DETAIL_VIEWED
+ADMIN_AUDIT_LOG_VIEWED
 ```
 
 `ADMIN_ACCOUNT_CREATED` (actor SYSTEM, entity `ADMIN_ACCOUNT`) records config-driven bootstrap of a
@@ -183,6 +186,21 @@ the single `dsrId`. Metadata is IDs only (`region`, `adminId`, `dsrId`/`dsrIds`)
 copied into the audit. Admin DSR decisions/executions reuse the existing DSR lifecycle events
 (`DATA_SUBJECT_REQUEST_APPROVED` / `_REJECTED` / `_EXECUTED`) with the acting admin recorded as the
 ADMIN actor (`actorId` = admin account id).
+
+`ADMIN_USER_LIST_VIEWED` + `ADMIN_USER_DETAIL_VIEWED` (actor ADMIN, entity `USER_ACCOUNT`) record every
+admin read of the user list + user card (`USER_VIEW`, L2+). A list read carries counts/filter-names only
+(`region`, `adminId`, `resultCount`, `filtersApplied` = the applied filter NAMES such as `query,status` —
+never the query value or any email); a detail read carries the single `userId` (`entityId` = the user
+account id). Metadata is IDs/counts/filter-names only — no email or document/letter/file content is copied
+into the audit, and `ip_hash`/`user_agent_hash` are never surfaced.
+
+`ADMIN_AUDIT_LOG_VIEWED` (actor ADMIN, entity `AUDIT_EVENT`) records every admin read of the audit-log
+viewer — both the list (`AUDIT_VIEW`, L2+) and the CSV export (`AUDIT_EXPORT`, SUPERADMIN). Metadata is
+IDs/counts/filter-names only (`adminId`, `filtersApplied` = the applied filter NAMES such as
+`actorType,action` — never the filter values, `resultCount`, and `export` = `true` for the CSV export
+else `false`). This is the "every admin read of audit logs is itself audited" rule — it intentionally
+creates audit-of-audit rows. The exported CSV carries `createdAt,actorType,actorId,action,entityType,
+entityId` only (never `metadata`, `ip_hash` or `user_agent_hash`) and is capped at 10 000 rows.
 
 ### Recommender Response
 
