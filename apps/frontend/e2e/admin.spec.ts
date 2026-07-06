@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import { expect, test, type Page } from "@playwright/test";
 import * as OTPAuth from "otpauth";
 
@@ -179,6 +181,107 @@ test.describe.serial("admin console", () => {
     };
     expect(pkg.subjectType).toBe("ACCOUNT_HOLDER");
     expect(pkg.account).toBeTruthy();
+  });
+
+  test("user views + audit viewer: browse a seeded account holder, filter + export CSV", async ({
+    browser,
+  }) => {
+    expect(mfaSecret, "enroll test must run first").toBeTruthy();
+    const holderEmail = `e2e-user-view-${run}@example.com`;
+
+    // Seed an account holder: a fresh magic-link login provisions their
+    // user_account (+ session), giving the admin a real user to view.
+    const holderContext = await browser.newContext();
+    try {
+      const holderPage = await holderContext.newPage();
+      await loginViaMagicLink(holderPage, holderEmail);
+    } finally {
+      await holderContext.close();
+    }
+
+    const adminContext = await browser.newContext();
+    try {
+      const admin = await adminContext.newPage();
+      await requestAdminLink(admin);
+      await expect(admin).toHaveURL(/\/admin\/mfa\/challenge/);
+      await admin.getByLabel("Authenticator code").fill(totp(mfaSecret));
+      await admin.getByRole("button", { name: "Verify" }).click();
+      await expect(admin).toHaveURL(/\/admin$/);
+
+      // Users list: the nav link is visible (SUPERADMIN has USER_VIEW) and the
+      // seeded account holder surfaces once searched by email.
+      await expect(
+        admin.getByRole("link", { name: "Users", exact: true }),
+      ).toBeVisible();
+      await admin.getByRole("link", { name: "Users", exact: true }).click();
+      await expect(admin).toHaveURL(/\/admin\/users$/);
+
+      await admin.getByPlaceholder("Search by email or name").fill(holderEmail);
+      const holderRow = admin.getByRole("link").filter({ hasText: holderEmail });
+      await expect(holderRow).toBeVisible();
+
+      // User card: metadata-only sections render; support-without-content footer
+      // is present; there is NO document/letter content and NO action buttons.
+      await holderRow.click();
+      await expect(admin).toHaveURL(/\/admin\/users\/[0-9a-f-]{36}$/);
+
+      await expect(
+        admin.getByRole("heading", { name: holderEmail }),
+      ).toBeVisible();
+      await expect(
+        admin.getByRole("heading", { name: "Profile" }),
+      ).toBeVisible();
+      // Count cards (account/profile/counts sections).
+      await expect(admin.getByText("Documents", { exact: true })).toBeVisible();
+      await expect(admin.getByText("Consents", { exact: true })).toBeVisible();
+      await expect(admin.getByText("Sessions", { exact: true }).first()).toBeVisible();
+      // Support-without-content footer.
+      await expect(
+        admin.getByText(/Document and file content is unavailable to support/),
+      ).toBeVisible();
+      // Read-only: none of the DSR-style mutation actions exist on the card.
+      await expect(
+        admin.getByRole("button", { name: "Approve", exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        admin.getByRole("button", { name: "Execute", exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        admin.getByRole("button", { name: "Reject", exact: true }),
+      ).toHaveCount(0);
+
+      // Audit viewer: rows render (the flows above produced many), the Export CSV
+      // button is offered to the SUPERADMIN, and filtering by an action prefix
+      // narrows the list to the admin's own audited reads.
+      await admin.getByRole("link", { name: "Audit log", exact: true }).click();
+      await expect(admin).toHaveURL(/\/admin\/audit$/);
+
+      // At least one row before filtering.
+      await expect(admin.locator("ul > li").first()).toBeVisible();
+
+      // Loading the user list + card above self-audited ADMIN_USER_* reads.
+      await admin.getByPlaceholder("e.g. DOCUMENT_").fill("ADMIN_USER_");
+      await expect(
+        admin.getByText("ADMIN_USER_LIST_VIEWED").first(),
+      ).toBeVisible();
+
+      // Export CSV (SUPERADMIN holds AUDIT_EXPORT): clicking triggers a download.
+      const exportButton = admin.getByRole("button", { name: "Export CSV" });
+      await expect(exportButton).toBeVisible();
+      const downloadPromise = admin.waitForEvent("download");
+      await exportButton.click();
+      const download = await downloadPromise;
+      expect(download.suggestedFilename()).toMatch(/^audit-logs-.*\.csv$/);
+
+      // The CSV carries the metadata-only header (no ip/ua hashes).
+      const path = await download.path();
+      const csv = await readFile(path, "utf-8");
+      expect(csv.split("\n")[0].trim()).toBe(
+        "createdAt,actorType,actorId,action,entityType,entityId",
+      );
+    } finally {
+      await adminContext.close();
+    }
   });
 
   test("re-login routes through MFA challenge", async ({ browser }) => {
