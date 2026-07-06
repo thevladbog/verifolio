@@ -820,6 +820,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/me": {
         parameters: {
             query?: never;
@@ -843,7 +875,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -859,7 +891,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["detail"];
+        get: operations["detail_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -892,6 +924,38 @@ export interface paths {
             cookie?: never;
         };
         get: operations["enrollment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit-logs/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["export"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1355,6 +1419,61 @@ export interface components {
             title?: string;
             body?: string;
         };
+        AdminUserListItemResponse: {
+            id?: string;
+            email?: string;
+            displayName?: string | null;
+            region?: string;
+            status?: string;
+            createdAt?: string;
+        };
+        AdminUserListResponse: {
+            items?: components["schemas"]["AdminUserListItemResponse"][];
+            nextCursor?: string | null;
+        };
+        AdminUserAccountResponse: {
+            email?: string;
+            region?: string;
+            status?: string;
+            createdAt?: string;
+            deletedAt?: string | null;
+        };
+        AdminUserCardResponse: {
+            account?: components["schemas"]["AdminUserAccountResponse"];
+            profile?: components["schemas"]["AdminUserProfileResponse"] | null;
+            /** Format: int32 */
+            documentCount?: number;
+            /** Format: int32 */
+            lockedDocumentCount?: number;
+            /** Format: int32 */
+            consentCount?: number;
+            /** Format: int32 */
+            sessionCount?: number;
+            consents?: components["schemas"]["AdminUserConsentResponse"][];
+            sessions?: components["schemas"]["AdminUserSessionResponse"][];
+            dsrCountsByStatus?: {
+                [key: string]: number;
+            };
+        };
+        AdminUserConsentResponse: {
+            consentType?: string;
+            status?: string;
+            policyTextVersion?: string;
+            grantedAt?: string | null;
+            withdrawnAt?: string | null;
+            createdAt?: string;
+        };
+        AdminUserProfileResponse: {
+            displayName?: string;
+            legalName?: string | null;
+            preferredLocale?: string;
+        };
+        AdminUserSessionResponse: {
+            createdAt?: string;
+            lastSeenAt?: string | null;
+            expiresAt?: string;
+            revokedAt?: string | null;
+        };
         AdminMeResponse: {
             id?: string;
             email?: string;
@@ -1396,6 +1515,22 @@ export interface components {
         AdminEnrollmentResponse: {
             secretBase32?: string;
             otpauthUri?: string;
+        };
+        AdminAuditLogListResponse: {
+            items?: components["schemas"]["AdminAuditLogResponse"][];
+            nextCursor?: string | null;
+        };
+        AdminAuditLogResponse: {
+            id?: string;
+            createdAt?: string;
+            actorType?: string;
+            actorId?: string | null;
+            action?: string;
+            entityType?: string | null;
+            entityId?: string | null;
+            metadata?: {
+                [key: string]: unknown;
+            };
         };
     };
     responses: never;
@@ -4064,6 +4199,97 @@ export interface operations {
             };
         };
     };
+    list_1: {
+        parameters: {
+            query?: {
+                query?: string;
+                status?: string;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminUserListResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminUserCardResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Not found in the admin's region */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     me: {
         parameters: {
             query?: never;
@@ -4093,7 +4319,7 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    list_2: {
         parameters: {
             query?: {
                 status?: string;
@@ -4143,7 +4369,7 @@ export interface operations {
             };
         };
     };
-    detail: {
+    detail_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -4252,6 +4478,113 @@ export interface operations {
             };
             /** @description No/expired pending MFA */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_3: {
+        parameters: {
+            query?: {
+                actorType?: string;
+                action?: string;
+                entityType?: string;
+                from?: string;
+                to?: string;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminAuditLogListResponse"];
+                };
+            };
+            /** @description Malformed from/to or cursor */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    export: {
+        parameters: {
+            query?: {
+                actorType?: string;
+                action?: string;
+                entityType?: string;
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV attachment (text/csv) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description Malformed from/to */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Insufficient permissions (needs AUDIT_EXPORT) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -412,6 +412,12 @@
     "shell": {
       "badge": "Admin"
     },
+    "nav": {
+      "label": "Admin sections",
+      "dataRequests": "Data requests",
+      "users": "Users",
+      "audit": "Audit log"
+    },
     "login": {
       "title": "Admin sign-in",
       "subtitle": "Enter your admin email to receive a single-use sign-in link.",
@@ -505,6 +511,83 @@
     "execNotAutomated": {
       "title": "Manual execution required",
       "body": "Automated execution for this request type is not available yet. Complete this request through the manual process."
+    },
+    "userStatuses": {
+      "ACTIVE": "Active",
+      "DISABLED": "Disabled",
+      "DELETED": "Deleted"
+    },
+    "actorTypes": {
+      "USER": "User",
+      "RECOMMENDER": "Recommender",
+      "PUBLIC_VIEWER": "Public viewer",
+      "SYSTEM": "System",
+      "ADMIN": "Admin",
+      "WORKFLOW": "Workflow"
+    },
+    "users": {
+      "title": "Users",
+      "subtitle": "Search account holders in your region. Read-only — every view is audited.",
+      "searchLabel": "Search users",
+      "searchPlaceholder": "Search by email or name",
+      "filterLabel": "Filter by status",
+      "allFilter": "All",
+      "empty": "No users match these filters.",
+      "loadMore": "Load more",
+      "colUser": "Email",
+      "colName": "Name",
+      "colRegion": "Region",
+      "colStatus": "Status"
+    },
+    "card": {
+      "back": "Back to users",
+      "region": "Region",
+      "createdAt": "Created",
+      "deletedAt": "Deleted",
+      "notFoundTitle": "User not found",
+      "notFoundBody": "This user does not exist in your region, or has no record here.",
+      "profileTitle": "Profile",
+      "displayName": "Display name",
+      "legalName": "Legal name",
+      "locale": "Locale",
+      "noProfile": "This user has not created a profile.",
+      "documents": "Documents",
+      "lockedDocuments": "{count, plural, =0 {No locked versions} one {# locked version} other {# locked versions}}",
+      "dsrs": "Data requests",
+      "consents": "Consents",
+      "sessions": "Sessions",
+      "consentHistory": "Consent history",
+      "policyVersion": "Policy version {version}",
+      "grantedOn": "Granted {date}",
+      "withdrawnOn": "Withdrawn {date}",
+      "noConsents": "No consent records.",
+      "sessionsTitle": "Sessions",
+      "sessionCreated": "Started",
+      "sessionExpires": "Expires",
+      "sessionRevoked": "Revoked",
+      "noSessions": "No sessions on record.",
+      "footerNote": "Document and file content is unavailable to support. Every view of personal data is audited."
+    },
+    "audit": {
+      "title": "Audit log",
+      "subtitle": "Every sensitive action in this region, newest first.",
+      "actorType": "Actor type",
+      "allActors": "All actors",
+      "action": "Action",
+      "actionPlaceholder": "e.g. DOCUMENT_",
+      "entityType": "Entity type",
+      "entityPlaceholder": "e.g. DOCUMENT",
+      "from": "From",
+      "to": "To",
+      "appendOnlyNote": "Append-only — records are never edited or deleted.",
+      "exportCsv": "Export CSV",
+      "exportError": "Couldn't export the audit log. Please try again.",
+      "empty": "No audit records match these filters.",
+      "loadMore": "Load more",
+      "colTime": "Time",
+      "colActor": "Actor",
+      "colAction": "Action",
+      "colEntity": "Entity"
     }
   }
 }

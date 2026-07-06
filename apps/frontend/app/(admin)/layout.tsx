@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
+import { AdminNav } from "@/components/admin/admin-nav";
 import { VerifolioWordmark } from "@/components/verifolio/wordmark";
 
 /**
@@ -24,6 +25,7 @@ export default async function AdminLayout({
             {t("shell.badge")}
           </span>
         </Link>
+        <AdminNav />
       </header>
       <main className="mx-auto w-full max-w-[1100px] flex-1 px-8 py-10">
         {children}
