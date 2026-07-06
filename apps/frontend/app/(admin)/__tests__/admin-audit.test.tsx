@@ -107,9 +107,11 @@ describe("AdminAuditPage", () => {
   it("lets a SUPERADMIN export the current filters as a CSV download", async () => {
     setRole("SUPERADMIN");
     const blob = new Blob(["id,action\n"], { type: "text/csv" });
+    // Return a plain response-like object (not a real Response): jsdom's Response.blob()
+    // reads the body via Blob.stream(), which isn't implemented in the CI jsdom build.
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(new Response(blob, { status: 200 }));
+      .mockResolvedValue({ ok: true, status: 200, blob: async () => blob });
     vi.stubGlobal("fetch", fetchMock);
     const createUrl = vi
       .spyOn(URL, "createObjectURL")
