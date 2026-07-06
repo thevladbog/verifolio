@@ -123,6 +123,18 @@ POST /api/v1/admin/data-subject-requests/{id}/reject           (DSR_DECIDE; {not
 POST /api/v1/admin/data-subject-requests/{id}/execute          (DSR_EXECUTE; → EXECUTED or 409 EXECUTION_NOT_AUTOMATED)
 ```
 
+Admin user list + card (admin module → identity/profiles/documents/privacy read ports). Read-only,
+region-scoped, `USER_VIEW` (L2+; missing → `403 FORBIDDEN`). The card is metadata only — account,
+profile, document/consent/session/DSR counts, and consent/session history; NEVER document/letter/file
+content (support-without-content), and `ip_hash`/`user_agent_hash` are never returned. A user in another
+region `404`s. Every read is audited (`ADMIN_USER_LIST_VIEWED` / `ADMIN_USER_DETAIL_VIEWED`, IDs/counts/
+filter-names only).
+
+```text
+GET  /api/v1/admin/users?query=&status=&cursor=               (USER_VIEW; keyset list; audits ADMIN_USER_LIST_VIEWED)
+GET  /api/v1/admin/users/{id}                                 (USER_VIEW; card; 404 foreign region; audits ADMIN_USER_DETAIL_VIEWED)
+```
+
 ## Command Endpoints
 
 Use explicit commands for important state changes:

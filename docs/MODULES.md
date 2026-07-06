@@ -207,6 +207,11 @@ Owns:
 - operational dashboards;
 - controlled support actions.
 
+Reads (one-way) the owning modules' public read ports to compose region-scoped, self-audited admin
+views: `privacy` (DSR review queue + user consents/DSR counts), `identity` (user list + account/session
+metadata), `profiles` (profile metadata), and `documents` (document/version counts for the user card).
+Admin only reads — each module still owns its data; no module depends on `admin`.
+
 ### platform
 
 Owns cross-cutting technical concerns:
