@@ -101,6 +101,11 @@ export default function AdminAuditPage() {
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(objectUrl);
+      // The backend caps the export; warn if rows were omitted so a partial
+      // download isn't mistaken for a complete one.
+      if (res.headers.get("X-Export-Truncated") === "true") {
+        toast.warning(t("audit.exportTruncated"));
+      }
     } catch {
       toast.error(t("audit.exportError"));
     } finally {

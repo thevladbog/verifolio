@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
 
 vi.mock("@/lib/api/client", () => ({
   api: { GET: vi.fn(), POST: vi.fn() },
@@ -111,7 +111,7 @@ describe("AdminAuditPage", () => {
     // reads the body via Blob.stream(), which isn't implemented in the CI jsdom build.
     const fetchMock = vi
       .fn()
-      .mockResolvedValue({ ok: true, status: 200, blob: async () => blob });
+      .mockResolvedValue({ ok: true, status: 200, blob: async () => blob, headers: new Headers() });
     vi.stubGlobal("fetch", fetchMock);
     const createUrl = vi
       .spyOn(URL, "createObjectURL")

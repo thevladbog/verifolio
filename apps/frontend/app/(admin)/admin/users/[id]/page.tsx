@@ -253,7 +253,9 @@ export default function AdminUserCardPage() {
                         : "text-blue-gray",
                     )}
                   >
-                    {consent.status}
+                    {t.has(`consentStatuses.${consent.status}`)
+                      ? t(`consentStatuses.${consent.status}`)
+                      : consent.status}
                   </span>
                   <span>
                     {consent.grantedAt

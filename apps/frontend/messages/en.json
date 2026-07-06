@@ -589,5 +589,13 @@
       "colAction": "Action",
       "colEntity": "Entity"
     }
+  },
+  "consentStatuses": {
+    "GRANTED": "Granted",
+    "WITHDRAWN": "Withdrawn",
+    "DECLINED": "Declined"
+  },
+  "audit": {
+    "exportTruncated": "Export was truncated at the row cap — refine the filters for a complete export."
   }
 }

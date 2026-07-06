@@ -4221,6 +4221,15 @@ export interface operations {
                     "*/*": components["schemas"]["AdminUserListResponse"];
                 };
             };
+            /** @description Malformed cursor */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Not authenticated */
             401: {
                 headers: {
@@ -4556,7 +4565,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description CSV attachment (text/csv) */
+            /** @description CSV attachment (text/csv); X-Export-Truncated flags a capped export */
             200: {
                 headers: {
                     [name: string]: unknown;
