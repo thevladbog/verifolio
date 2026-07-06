@@ -20,18 +20,29 @@ enum class AdminPermission {
     /** Run DSR execution. */
     DSR_EXECUTE,
 
+    /** View the admin user list + user card (L2+). */
+    USER_VIEW,
+
+    /** View the admin audit-log viewer (L2+). */
+    AUDIT_VIEW,
+
+    /** Export audit logs as CSV (SUPERADMIN only). */
+    AUDIT_EXPORT,
+
     /** Future: manage admins/roles (SUPERADMIN only). */
     ADMIN_MANAGE,
 }
 
-// Fixed role -> permission matrix (spec §RBAC table). L1 read-only; L2 decides+executes;
-// SUPERADMIN everything (including ADMIN_MANAGE).
+// Fixed role -> permission matrix (spec §RBAC table). L1 read-only (DSR_VIEW only);
+// L2 decides+executes and views users+audit; SUPERADMIN everything (incl AUDIT_EXPORT, ADMIN_MANAGE).
 private val ROLE_PERMISSIONS: Map<AdminRole, Set<AdminPermission>> = mapOf(
     AdminRole.SUPPORT_L1 to setOf(AdminPermission.DSR_VIEW),
     AdminRole.SUPPORT_L2 to setOf(
         AdminPermission.DSR_VIEW,
         AdminPermission.DSR_DECIDE,
         AdminPermission.DSR_EXECUTE,
+        AdminPermission.USER_VIEW,
+        AdminPermission.AUDIT_VIEW,
     ),
     AdminRole.SUPERADMIN to AdminPermission.entries.toSet(),
 )
