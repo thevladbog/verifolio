@@ -264,6 +264,15 @@ class AdminUserIntegrationTest : IntegrationTest() {
     }
 
     @Test
+    fun `a malformed cursor is a 400 not a 500`() {
+        val region = "usr-${UUID.randomUUID()}"
+        val (l2, _) = admin("SUPPORT_L2", region)
+        val resp = get("/api/v1/admin/users?cursor=not-a-valid-cursor", l2)
+        assertThat(resp.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(resp.body!!["code"]).isEqualTo("VALIDATION_ERROR")
+    }
+
+    @Test
     fun `an unauthenticated request is 401`() {
         val resp = rest.getForEntity("/api/v1/admin/users", Map::class.java)
         assertThat(resp.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)

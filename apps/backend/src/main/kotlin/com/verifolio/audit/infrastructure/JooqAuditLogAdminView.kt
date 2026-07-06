@@ -4,6 +4,7 @@ import com.verifolio.audit.AuditFilters
 import com.verifolio.audit.AuditLogAdminView
 import com.verifolio.audit.AuditLogRow
 import com.verifolio.audit.AuditPage
+import com.verifolio.audit.CsvExport
 import com.verifolio.jooq.tables.references.AUDIT_EVENT
 import com.verifolio.platform.ApiException
 import org.jooq.Condition
@@ -73,7 +74,7 @@ internal class JooqAuditLogAdminView(
     }
 
     @Transactional(readOnly = true)
-    override fun exportCsv(filters: AuditFilters): ByteArray {
+    override fun exportCsv(filters: AuditFilters): CsvExport {
         val ae = AUDIT_EVENT
         // Metadata/hashes are intentionally excluded from the CSV.
         val rows = dsl.select(
@@ -98,7 +99,12 @@ internal class JooqAuditLogAdminView(
             ))
             sb.append('\n')
         }
-        return sb.toString().toByteArray(Charsets.UTF_8)
+        // Hitting the cap means rows beyond it were omitted — surface that as an explicit signal.
+        return CsvExport(
+            bytes = sb.toString().toByteArray(Charsets.UTF_8),
+            truncated = rows.size == EXPORT_MAX_ROWS,
+            rowCount = rows.size,
+        )
     }
 
     /** Optional filters as an AND-composed condition; actorType/entityType exact, action prefix. */

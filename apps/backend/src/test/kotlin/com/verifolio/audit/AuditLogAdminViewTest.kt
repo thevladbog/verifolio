@@ -105,14 +105,17 @@ class AuditLogAdminViewTest : IntegrationTest() {
         val tag = "DR-${UUID.randomUUID()}"
         val t0 = OffsetDateTime.now().minusDays(10)
         val old = seed(actorType = tag, action = "X", createdAt = t0)
+        // Rows exactly AT the from/to boundaries must be included (inclusive ge/le, not gt/lt).
+        val atFrom = seed(actorType = tag, action = "X", createdAt = t0.plusDays(1))
         val mid = seed(actorType = tag, action = "X", createdAt = t0.plusDays(5))
+        val atTo = seed(actorType = tag, action = "X", createdAt = t0.plusDays(6))
         val recent = seed(actorType = tag, action = "X", createdAt = t0.plusDays(9))
 
         val ranged = view.list(
             AuditFilters(actorType = tag, from = t0.plusDays(1), to = t0.plusDays(6)),
             null,
         ).items
-        assertThat(ranged.map { it.id }).containsExactly(mid)
+        assertThat(ranged.map { it.id }).containsExactlyInAnyOrder(atFrom, mid, atTo)
         assertThat(ranged.map { it.id }).doesNotContain(old, recent)
     }
 
@@ -143,7 +146,10 @@ class AuditLogAdminViewTest : IntegrationTest() {
         // A value with a comma + quote to exercise CSV escaping (entity_type here).
         seed(actorType = tag, action = "PLAIN_ACTION", entityType = """weird,"type""")
 
-        val csv = String(view.exportCsv(AuditFilters(actorType = tag)), Charsets.UTF_8)
+        val export = view.exportCsv(AuditFilters(actorType = tag))
+        assertThat(export.truncated).isFalse()
+        assertThat(export.rowCount).isEqualTo(1)
+        val csv = String(export.bytes, Charsets.UTF_8)
         val lines = csv.trim().split("\n")
         assertThat(lines.first()).isEqualTo("createdAt,actorType,actorId,action,entityType,entityId")
         // No metadata/hash columns in the header.

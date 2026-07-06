@@ -61,8 +61,7 @@ class AdminAuditIntegrationTest : IntegrationTest() {
             .set(ae.IP_HASH, "ip-secret-hash")
             .set(ae.USER_AGENT_HASH, "ua-secret-hash")
             .set(ae.CREATED_AT, OffsetDateTime.now())
-            .execute()
-            .let { UUID.randomUUID() }
+            .returning(ae.ID).fetchOne()!!.id!!
     }
 
     private fun entity(cookie: String) =
@@ -145,6 +144,14 @@ class AdminAuditIntegrationTest : IntegrationTest() {
     fun `a malformed from is a 400`() {
         val (l2, _) = admin("SUPPORT_L2")
         val resp = getJson("/api/v1/admin/audit-logs?from=not-a-date", l2)
+        assertThat(resp.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(resp.body!!["code"]).isEqualTo("VALIDATION_ERROR")
+    }
+
+    @Test
+    fun `a malformed cursor is a 400 not a 500`() {
+        val (l2, _) = admin("SUPPORT_L2")
+        val resp = getJson("/api/v1/admin/audit-logs?cursor=not-a-valid-cursor", l2)
         assertThat(resp.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(resp.body!!["code"]).isEqualTo("VALIDATION_ERROR")
     }

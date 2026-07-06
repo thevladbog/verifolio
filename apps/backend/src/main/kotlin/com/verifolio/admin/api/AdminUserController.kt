@@ -39,6 +39,7 @@ internal class AdminUserController(
 
     @ApiResponses(
         ApiResponse(responseCode = "200"),
+        ApiResponse(responseCode = "400", description = "Malformed cursor", content = [Content(schema = Schema(implementation = ApiError::class))]),
         ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content(schema = Schema(implementation = ApiError::class))]),
         ApiResponse(responseCode = "403", description = "Insufficient permissions", content = [Content(schema = Schema(implementation = ApiError::class))]),
     )

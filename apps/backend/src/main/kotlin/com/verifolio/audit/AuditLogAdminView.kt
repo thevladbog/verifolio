@@ -39,6 +39,31 @@ data class AuditPage(
 )
 
 /**
+ * A CSV export payload with an explicit truncation signal. [truncated] is true when [rowCount]
+ * reached the export cap (10_000) — i.e. rows beyond the cap were silently omitted — so the caller
+ * can surface this to admins (response header + audit metadata) rather than let a partial export
+ * masquerade as complete. [rowCount] excludes the header line.
+ */
+data class CsvExport(
+    val bytes: ByteArray,
+    val truncated: Boolean,
+    val rowCount: Int,
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is CsvExport) return false
+        return truncated == other.truncated && rowCount == other.rowCount && bytes.contentEquals(other.bytes)
+    }
+
+    override fun hashCode(): Int {
+        var result = bytes.contentHashCode()
+        result = 31 * result + truncated.hashCode()
+        result = 31 * result + rowCount
+        return result
+    }
+}
+
+/**
  * Audit-owned read model for the admin audit-log viewer (spec §Audit-log viewer). The audit module
  * owns `audit_event`; the admin module reads through this API rather than touching the table
  * directly (module boundary). Reads are cell-scoped (no region column — see [AuditFilters]) and
@@ -51,8 +76,9 @@ interface AuditLogAdminView {
 
     /**
      * CSV export (`createdAt,actorType,actorId,action,entityType,entityId` — NOT metadata/hashes),
-     * same filters, newest-first, capped at 10_000 rows. If the cap is hit the export is truncated;
-     * the caller notes truncation via the returned row count.
+     * same filters, newest-first, capped at 10_000 rows. Returns a [CsvExport] carrying the row count
+     * and an explicit `truncated` flag (true when the cap was hit) so the caller can signal a partial
+     * export to admins.
      */
-    fun exportCsv(filters: AuditFilters): ByteArray
+    fun exportCsv(filters: AuditFilters): CsvExport
 }

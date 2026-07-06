@@ -41,6 +41,7 @@ class UserPrivacySummaryTest : IntegrationTest() {
             .set(c.REGION, "EU")
             .set(c.STATUS, status)
             .set(c.GRANTED_AT, if (status == "GRANTED" || status == "WITHDRAWN") now else null)
+            .set(c.DECLINED_AT, if (status == "DECLINED") now else null)
             .set(c.WITHDRAWN_AT, if (status == "WITHDRAWN") now else null)
             .set(c.CREATED_AT, createdAt)
             .execute()
@@ -77,6 +78,17 @@ class UserPrivacySummaryTest : IntegrationTest() {
         assertThat(withdrawn.withdrawnAt).isNotNull()
         assertThat(withdrawn.policyTextVersion).isEqualTo("v1")
         assertThat(data.dsrCountsByStatus).isEqualTo(mapOf("RECEIVED" to 2, "EXECUTED" to 1))
+    }
+
+    @Test
+    fun `forUser maps declinedAt for a DECLINED consent`() {
+        val userId = seedUser()
+        seedConsent(userId, "DECLINED", OffsetDateTime.now())
+
+        val declined = summary.forUser(userId).consents.single { it.status == "DECLINED" }
+        assertThat(declined.declinedAt).isNotNull()
+        assertThat(declined.grantedAt).isNull()
+        assertThat(declined.withdrawnAt).isNull()
     }
 
     @Test
