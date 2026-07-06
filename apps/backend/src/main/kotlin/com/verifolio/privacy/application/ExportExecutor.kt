@@ -10,6 +10,7 @@ import com.verifolio.jooq.tables.references.CONSENT_RECORD
 import com.verifolio.jooq.tables.references.DATA_SUBJECT_REQUEST
 import com.verifolio.notifications.MailPort
 import com.verifolio.platform.VerifolioProperties
+import com.verifolio.privacy.UserPrivacySummary
 import com.verifolio.profiles.ProfileExport
 import com.verifolio.profiles.ProfileService
 import com.verifolio.requests.RequestExport
@@ -43,6 +44,7 @@ internal class ExportExecutor(
     private val contactExport: ContactExport,
     private val requestExport: RequestExport,
     private val documentExport: DocumentExport,
+    private val userPrivacySummary: UserPrivacySummary,
 ) {
 
     @Transactional
@@ -113,7 +115,7 @@ internal class ExportExecutor(
             contacts = contactExport.forOwner(profileId),
             referenceRequests = requestExport.forRequester(profileId),
             documents = documentExport.forOwner(profileId),
-            consents = consentsForUser(userId),
+            consents = userPrivacySummary.forUser(userId).consents.map { it.toConsentExport() },
             dataSubjectRequests = dsrHistoryForUser(userId),
         )
     }
@@ -127,12 +129,6 @@ internal class ExportExecutor(
             consents = consentsForRecommender(contactId),
             dataSubjectRequests = dsrHistoryForRecommender(contactId),
         )
-    }
-
-    private fun consentsForUser(userId: UUID): List<ConsentExportData> {
-        val c = CONSENT_RECORD
-        return dsl.selectFrom(c).where(c.USER_ID.eq(userId)).orderBy(c.CREATED_AT.asc())
-            .fetch().map { it.toConsentExport() }
     }
 
     private fun consentsForRecommender(contactId: UUID): List<ConsentExportData> {
@@ -161,6 +157,18 @@ internal class ExportExecutor(
         declinedAt = declinedAt,
         withdrawnAt = withdrawnAt,
         createdAt = createdAt!!,
+    )
+
+    // Account-holder consents come from the shared UserPrivacySummary port (DRY); map its DTO to the
+    // export JSON DTO 1:1 so the stored package shape is unchanged.
+    private fun com.verifolio.privacy.ConsentSummary.toConsentExport() = ConsentExportData(
+        consentType = consentType,
+        status = status,
+        policyTextVersion = policyTextVersion,
+        grantedAt = grantedAt,
+        declinedAt = declinedAt,
+        withdrawnAt = withdrawnAt,
+        createdAt = createdAt,
     )
 
     private fun DataSubjectRequestRecord.toDsrExport() = DataSubjectRequestExportData(
