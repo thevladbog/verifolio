@@ -1984,6 +1984,83 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/users:
+    get:
+      tags:
+      - admin-user-controller
+      operationId: list_1
+      parameters:
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminUserListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Insufficient permissions
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/users/{id}:
+    get:
+      tags:
+      - admin-user-controller
+      operationId: detail
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminUserCardResponse"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Insufficient permissions
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found in the admin's region
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/admin/me:
     get:
       tags:
@@ -2006,7 +2083,7 @@ paths:
     get:
       tags:
       - admin-dsr-controller
-      operationId: list_1
+      operationId: list_2
       parameters:
       - name: status
         in: query
@@ -2047,7 +2124,7 @@ paths:
     get:
       tags:
       - admin-dsr-controller
-      operationId: detail
+      operationId: detail_1
       parameters:
       - name: id
         in: path
@@ -2124,6 +2201,124 @@ paths:
                 $ref: "#/components/schemas/AdminEnrollmentResponse"
         "400":
           description: No/expired pending MFA
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/audit-logs:
+    get:
+      tags:
+      - admin-audit-controller
+      operationId: list_3
+      parameters:
+      - name: actorType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: action
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: entityType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdminAuditLogListResponse"
+        "400":
+          description: Malformed from/to or cursor
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Insufficient permissions
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/audit-logs/export:
+    get:
+      tags:
+      - admin-audit-controller
+      operationId: export
+      parameters:
+      - name: actorType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: action
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: entityType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: CSV attachment (text/csv)
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: byte
+        "400":
+          description: Malformed from/to
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Insufficient permissions (needs AUDIT_EXPORT)
           content:
             '*/*':
               schema:
@@ -3228,6 +3423,128 @@ components:
           type: string
         body:
           type: string
+    AdminUserListItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        displayName:
+          type:
+          - string
+          - "null"
+        region:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+    AdminUserListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUserListItemResponse"
+        nextCursor:
+          type:
+          - string
+          - "null"
+    AdminUserAccountResponse:
+      type: object
+      properties:
+        email:
+          type: string
+        region:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+        deletedAt:
+          type:
+          - string
+          - "null"
+    AdminUserCardResponse:
+      type: object
+      properties:
+        account:
+          $ref: "#/components/schemas/AdminUserAccountResponse"
+        profile:
+          oneOf:
+          - $ref: "#/components/schemas/AdminUserProfileResponse"
+          - type: "null"
+        documentCount:
+          type: integer
+          format: int32
+        lockedDocumentCount:
+          type: integer
+          format: int32
+        consentCount:
+          type: integer
+          format: int32
+        sessionCount:
+          type: integer
+          format: int32
+        consents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUserConsentResponse"
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUserSessionResponse"
+        dsrCountsByStatus:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+    AdminUserConsentResponse:
+      type: object
+      properties:
+        consentType:
+          type: string
+        status:
+          type: string
+        policyTextVersion:
+          type: string
+        grantedAt:
+          type:
+          - string
+          - "null"
+        withdrawnAt:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+    AdminUserProfileResponse:
+      type: object
+      properties:
+        displayName:
+          type: string
+        legalName:
+          type:
+          - string
+          - "null"
+        preferredLocale:
+          type: string
+    AdminUserSessionResponse:
+      type: object
+      properties:
+        createdAt:
+          type: string
+        lastSeenAt:
+          type:
+          - string
+          - "null"
+        expiresAt:
+          type: string
+        revokedAt:
+          type:
+          - string
+          - "null"
     AdminMeResponse:
       type: object
       properties:
@@ -3316,3 +3633,40 @@ components:
           type: string
         otpauthUri:
           type: string
+    AdminAuditLogListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAuditLogResponse"
+        nextCursor:
+          type:
+          - string
+          - "null"
+    AdminAuditLogResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: string
+        actorType:
+          type: string
+        actorId:
+          type:
+          - string
+          - "null"
+        action:
+          type: string
+        entityType:
+          type:
+          - string
+          - "null"
+        entityId:
+          type:
+          - string
+          - "null"
+        metadata:
+          type: object
+          additionalProperties: {}

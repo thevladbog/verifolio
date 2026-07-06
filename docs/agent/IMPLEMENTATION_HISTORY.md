@@ -706,3 +706,43 @@ inherit context; append an entry when an iteration ships.
 - **Orphan-reconciliation sweep** for S3 deletes (shared with the erasure/tombstone tail).
 - **Audit-retention window enforcement** — pseudonymization happens at deletion; the bounded
   retention/purge is still a separate tracked item.
+
+## 2026-07 — Admin user management + audit-log viewer (iteration 15)
+
+### What shipped
+
+- **RBAC**: new `AdminPermission` values `USER_VIEW` + `AUDIT_VIEW` (SUPPORT_L2 +
+  SUPERADMIN) and `AUDIT_EXPORT` (SUPERADMIN only). SUPPORT_L1 keeps DSR_VIEW only. No
+  schema change (all reads over existing tables).
+- **User views** (read-only, self-audited, USER_VIEW):
+  `GET /api/v1/admin/users?query=&status=&cursor=` (keyset list of id/email/displayName/
+  region/status/createdAt; email+name prefix search; audits ADMIN_USER_LIST_VIEWED with
+  filter *names* only — never the query value) and `GET /api/v1/admin/users/{id}` (the
+  support card, audits ADMIN_USER_DETAIL_VIEWED). `AdminUserService` composes the card
+  from new/reused ports: `identity.UserAdminView` (account + sessions, no ip/ua hashes),
+  `profiles.ProfileExport`, `documents.DocumentExport` (document + locked counts),
+  `privacy.UserPrivacySummary` (consents + DSR counts by status — extracted from the
+  export executor, DRY). **Support-without-content held**: metadata only, never
+  document/letter/file content. Region-scoped (foreign-region user → 404).
+- **Audit-log viewer** (AUDIT_VIEW list + AUDIT_EXPORT CSV, self-audited):
+  `audit.AuditLogAdminView.list(filters, cursor)` + `exportCsv(filters)` over
+  `audit_event` (keyset DESC; optional actorType/action-prefix/entityType/from/to
+  filters; ip/ua hashes never returned; metadata is IDs-only by construction).
+  `GET /api/v1/admin/audit-logs` and `.../export` (text/csv, 10k cap). Every read audits
+  ADMIN_AUDIT_LOG_VIEWED (filter names + count + export flag) — intentional audit-of-audit.
+  The cell IS the region (audit_event has no region column; physical deployment scopes it).
+- **Frontend**: role-gated admin nav; `/admin/users` (list 5b), `/admin/users/[id]`
+  (read-only card 11c), `/admin/audit` (viewer 11b with CSV export for SUPERADMIN).
+
+### Deferred items
+
+- **User mutations** (reset sessions / disable account) — need ACCOUNT_BLOCK + the
+  four-eyes design; read-only this iteration.
+- **Admin-account management** (invitations, role changes, enable/disable, new
+  Verification/Privacy Officer roles) — a separate later iteration; bootstrap-config is
+  still the only admin-creation path.
+- **Card verification-signal count** (profile verification unbuilt), **failed-login-30d**,
+  **active-share-link count**, device/location (only opaque hashes exist).
+- **Audit integrity chain** — `audit_event` is append-only by permission/convention; a
+  cryptographic hash-chain is a tracked follow-up.
+- **user_session.last_seen_at** — the column doesn't exist yet; the DTO field is always null.
