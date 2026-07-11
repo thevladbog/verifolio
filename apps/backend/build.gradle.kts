@@ -46,7 +46,7 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.3")
-    implementation(platform("software.amazon.awssdk:bom:2.31.78"))
+    implementation(platform("software.amazon.awssdk:bom:2.47.5"))
     implementation("software.amazon.awssdk:s3")
     implementation("com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
